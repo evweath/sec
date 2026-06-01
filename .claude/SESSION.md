@@ -1,12 +1,15 @@
-# Session State — 2026-05-29T21:30:00-05:00
+# Session State — 2026-06-01T20:00:00-05:00
 
 ## Accomplished This Session
 
-- **Ran daily scan** vs scan-2026-05-28 baseline. All controls green. 0 core binary hash changes. Output in `scan-2026-05-29/`.
-- **Resolved disabled.501.plist regression (3rd consecutive session).** Re-applied all 7 launchctl disables interactively. Added APNS wakeup endpoint disables (`apns-dev`, `apns-prod`). Added LS deny-all rules for remotemanagementd, RemoteManagementAgent, ARDAgent kickstart, launchctl (`deny-rules-remotemanagement-2026-05-29.lsrules`).
-- **Bootout attempts:** remotemanagementd already gone; RemoteManagementAgent SIP-blocked but zero network connections.
-- **Diagnosed and resolved LS DNS over HTTPS failure.** Full root cause traced (see TRIAGE-REPORT.md). Fix: added `9.9.9.9 dns.quad9.net` to `/etc/hosts`; changed LS DoH server URL to `https://9.9.9.9/dns-query`. DNS confirmed stable (10/10 lookups clean).
-- **Deep investigation into DoH config wipe.** Root cause: API violations at boot (08:32) caused LS to clean orphaned/duplicate rules from in-memory model, silently zeroing `dnsEncryptionConfigurations`. First GUI open at 15:01 flushed cleaned model to disk, triggering NE reload and hard timeout loop. Caused by unclean config write at end of May 28 session.
+- **Ran full daily scan** vs scan-2026-05-29 baseline. Output in `scan-2026-06-01/`.
+- **Confirmed disabled.501.plist regression (4th consecutive session).** 6 of 9 entries missing at scan start.
+- **Identified root cause of recurring regression.** 5 of 6 target services carry the `M` (Managed) flag in launchd — `launchctl disable gui/501/X` is a no-op for Managed services. The managed registry (APNS/push-wakeup layer) controls their enabled state independently of disabled.plist. `remotemanagementd` survives because it has no M flag.
+- **Re-applied all 9 launchctl disables interactively.** All 9 verified present via `plutil`.
+- **Applied BSD `schg` (system immutable) flag** to `/var/db/com.apple.xpc.launchd/disabled.501.plist`. Write-blocked confirmed (`Operation not permitted` even for current user). Flag survives reboots. No SIP change required.
+- **Identified plist-monitor daemon as broken.** Script missing at `/usr/local/bin/evw-plist-monitor.sh` — has been failing since installation. Source at `/Users/evw/dev/security/evw-plist-monitor.sh`.
+- **Generated PDF report** (`scan-2026-06-01/security-scan-2026-06-01.pdf`) covering all findings, root cause analysis, and controls.
+- **All other controls clean:** 0 binary hash changes, all signatures valid, memory HMAC valid, no privatecloudcomputed attestation store, network = Claude → Anthropic only.
 
 ## In Progress
 
@@ -14,34 +17,52 @@ Nothing actively in progress.
 
 ## Next Steps (ordered)
 
-1. **At start of next session — run checklist** (`memory/project_scan_checklist.md`):
-   - `plutil -p /var/db/com.apple.xpc.launchd/disabled.501.plist` — verify all 9 entries present (7 core + 2 APNS endpoints)
+1. **After next reboot — verify schg held:**
+   ```
+   ls -lO /var/db/com.apple.xpc.launchd/disabled.501.plist && plutil -p /var/db/com.apple.xpc.launchd/disabled.501.plist
+   ```
+   Confirm: `schg` flag still present, all 9 entries still `true`.
+   Also check: do managed services (sharingd, studentd, identityservicesd, replicatord) still start? Expected: yes (M flag wins for running state). Expected improvement: entries no longer disappear from plist.
+
+2. **Fix plist-monitor daemon:**
+   ```
+   sudo cp /Users/evw/dev/security/evw-plist-monitor.sh /usr/local/bin/evw-plist-monitor.sh
+   sudo chmod 755 /usr/local/bin/evw-plist-monitor.sh
+   sudo launchctl kickstart system/com.evw.plist-monitor
+   ```
+   Note: the monitor tries to write to the plist — with schg set, those writes will fail. May need to update the script to use `noschg → write → schg` pattern, or change it to monitor-only (no write) and alert instead.
+
+3. **Run checklist at start of next session** (`memory/project_scan_checklist.md`):
+   - Verify `schg` flag still on plist
+   - Verify all 9 entries still present
    - Confirm privatecloudcomputed has no network connections
    - Confirm LS deny rules for remotemanagementd still active
-   - Check `/etc/hosts` still has `9.9.9.9 dns.quad9.net`
-2. **Verify memory integrity:**
-   - `python3 ~/dev/security/security-memory-manager.py verify short`
-   - `python3 ~/dev/security/security-memory-manager.py verify long`
-3. **Authorize LS CLI export-model** in LS Preferences → Security so `sudo littlesnitch export-model` works (needed to verify rule count and deny rules without GUI)
-4. **Run full daily scan** → new `scan-YYYY-MM-DD/` dir, diff vs `scan-2026-05-29/`
-5. **Archive scan + commit + push** at end of session
+
+4. **Update scan checklist** to reflect new permanent state:
+   - Remove "re-apply launchctl disables" from remediation steps for managed services
+   - Add "verify schg flag" as checklist item #1
+   - Add note: schg is the persistence mechanism now; launchctl disable re-application only needed if flag is cleared
 
 ## Key Context
 
-- **disabled.501.plist — now 9 required entries** (previously 7):
-  `RemoteManagementAgent`, `remotemanagementd`, `sharingd`, `identityservicesd`, `replicatord`, `studentd`, `privatecloudcomputed`, `aps.remotemanagementd.http.apns-dev`, `aps.remotemanagementd.http.apns-prod`
-- **LS DoH:** `https://9.9.9.9/dns-query` (IP-based, not hostname — prevents bootstrap circular dependency)
-- **LS DoH recovery command:** `sudo killall -HUP at.obdev.littlesnitch.daemon`
-- **hosts entry:** `9.9.9.9 dns.quad9.net` added as bootstrap safety net
-- **LS model API violations on boot:** indicator to watch — if they recur next boot it's a pattern (LS 6.3.3 bug or repeated unclean shutdown)
-- **LS deny rules file:** `~/dev/security/scan-2026-05-29/deny-rules-remotemanagement-2026-05-29.lsrules`
-- **LS CLI auth:** `sudo littlesnitch export-model` returns empty (not authorized) — authorize in LS Preferences → Security
+- **disabled.501.plist is now schg-immutable** at `/var/db/com.apple.xpc.launchd/disabled.501.plist`
+  - To reverse: `sudo chflags noschg /var/db/com.apple.xpc.launchd/disabled.501.plist`
+  - Contains all 9 required entries as of 2026-06-01T13:38 CDT
+- **Root cause confirmed:** Managed (M-flag) services ignore disabled.plist — launchctl disable is futile for them. LS deny rules are the correct/only network-layer mitigation.
+- **M A services (will always run, can't disable via launchctl):** sharingd, studentd, identityservicesd, replicatord
+- **M D services (already disabled by managed framework):** RemoteManagementAgent, RemoteManagementAgent.store
+- **No-M services (launchctl disable works):** remotemanagementd
+- **plist-monitor daemon broken** — script missing at `/usr/local/bin/evw-plist-monitor.sh`; needs copy from `/Users/evw/dev/security/evw-plist-monitor.sh`. Also needs logic update if it tries to write to the now-immutable plist.
+- **LS DoH:** `https://9.9.9.9/dns-query` (IP-based); hosts entry `9.9.9.9 dns.quad9.net` still present
+- **LS deny rules active:** privatecloudcomputed (from 2026-05-28), remotemanagementd, RemoteManagementAgent, ARDAgent kickstart, launchctl (all from 2026-05-29)
+- **Memory manager:** `python3 ~/dev/security/security-memory-manager.py` — key in Keychain `claude-security-memory-v1 / claude-ai`
 - **Recovery key:** Paper, locked in desk. Fingerprint: `56830115...2205b9`
 - **GitHub remote:** `https://github.com/evweath/sec.git` — encrypted blobs only
-- **Memory manager:** `python3 ~/dev/security/security-memory-manager.py` — key in Keychain `claude-security-memory-v1 / claude-ai`
-- **Open investigations:**
-  - disabled.501.plist regression root cause (launchd boot reset?)
-  - LS model API violations on boot (unclean write or LS 6.3.3 bug?)
-  - osascript spawning ~60s (needs Terminal FDA)
-  - 6 wrong-domain launchctl disabled entries
-  - XPC requester for privatecloudcomputed
+
+## Open Investigations
+
+1. **schg effectiveness on managed services** — does immutable plist affect managed service startup at boot? Won't know until next reboot.
+2. **LS model API violations on boot** — caused the May 29 DoH incident. Monitor at next boot.
+3. **osascript spawning ~60s** — needs Terminal FDA.
+4. **6 wrong-domain launchctl entries** — understood as M-flag symptom; low priority.
+5. **XPC requester for privatecloudcomputed** — dasd is scheduler; original requester unknown.
