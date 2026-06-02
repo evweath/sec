@@ -14,7 +14,7 @@ log "Target: /var/db/com.apple.xpc.launchd/$TARGET"
 # fs_usage -w: wide output (full path); -f filesys: filesystem calls only.
 # Output includes: timestamp, syscall, process_name, pid
 /usr/bin/fs_usage -w -f filesys 2>/dev/null \
-  | grep --line-buffered "$TARGET" \
+  | grep -F --line-buffered "$TARGET" \
   | while IFS= read -r line; do
       log "$line"
       # On any write-class event, snapshot the plist and process list
