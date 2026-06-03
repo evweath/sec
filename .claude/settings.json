@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for svc in RemoteManagementAgent remotemanagementd sharingd identityservicesd replicatord studentd privatecloudcomputed*)",
+      "Bash(sudo sqlite3 /Library/Application Support/com.apple.TCC/TCC.db *)"
+    ]
+  }
+}
