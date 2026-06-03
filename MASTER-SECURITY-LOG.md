@@ -3,7 +3,7 @@
 
 **Document purpose:** Chronological record of every finding, attack indicator, regression, and hardening action. This document exists to demonstrate that the pattern of system manipulation is consistent, recurring, and non-accidental.
 
-**Last updated:** 2026-06-02
+**Last updated:** 2026-06-03
 
 ---
 
@@ -445,8 +445,16 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 - `launchctl disable` is M-flag futile — entries written to plist manually via PlistBuddy instead
 - Recording trigger (client PID 1373) not definitively identified — logs rotated
 
+### Session Update — 2026-06-03T18:18Z
+- **replayd LS deny rule verified** — live sudo export confirmed `/usr/libexec/replayd → DENY any` present (owner=user, permanent). Prior SESSION.md had a false ✓ — rule was NOT in place during Jun 2 session, added today by user via Little Snitch GUI at ~13:10 CDT.
+- **Full LS analysis completed** — 15/15 critical deny rules ✅, 15/15 XPC RemoteManagement subscribers ✅, 0 allow rules for sensitive processes ✅, all deny rules permanent ✅
+- **`scan-hashes.sh` expanded** — now covers 47+ files: system binaries, all security scripts, Claude binaries/config, encrypted memory, Little Snitch binary, DuckDuckGo binary, LaunchAgent/Daemon plists
+- **`l5-stamp.sh` updated** — includes Claude binaries, pyenv Python, Little Snitch, DuckDuckGo, LaunchAgent/Daemon plists, Claude project memory, DuckDuckGo prefs snapshot
+- **`ls-full-analysis.py` created** — 8-section comprehensive LS audit script
+- **`tcc-audit.sh` created** — audits user TCC.db directly; documents private entitlement bypasses; guides system TCC.db audit via sudo
+
 ### LS Audit — 2026-06-03
-- **Total rules:** 3,188 (up from 3,140 on Jun 2, +48)
+- **Total rules:** 3,189 (up from 3,140 on Jun 2, +49; +replayd rule today; -wifivelocityd ICMP temp rule which expired)
 - **Deny rules:** 1,348 (up from 1,343, +5)
 - **All 14 critical deny rules:** PRESENT ✅
 - **RemoteManagement XPC subscribers:** 15/15 blocked ✅
@@ -462,11 +470,15 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 ### Actions Taken
 - **Identified and documented replayd screen recording incident** ✓
 - **Added replayd + replaykit to disabled.501.plist** via PlistBuddy (M-flag workaround) ✓
-- **Added replayd LS deny rule** ✓
+- **Added replayd LS deny rule** (confirmed via live export at 13:18 CDT) ✓
 - **Plist entry count expanded from 9 to 11** ✓
 - **Scan checklist updated** to verify 11 entries ✓
 - **plist-monitor grep fix redeployed** (`-F` fixed-string matching) ✓
-- **LS model saved:** `scan-2026-06-03/ls-model.json` — 3,188 rules, 1,348 deny ✓
+- **LS model saved:** `scan-2026-06-03/ls-model.json` — 3,189 rules, 1,348 deny ✓
+- **`scan-hashes.sh` rewritten** — expanded to cover system binaries, all security scripts, Claude files, Python, Little Snitch, DuckDuckGo, LaunchAgent/Daemon plists ✓
+- **`l5-stamp.sh` rewritten** — comprehensive coverage: all the above + Claude project memory + DuckDuckGo prefs snapshot ✓
+- **`tcc-audit.sh` created** — TCC permissions audit with private-entitlement bypass documentation ✓
+- **DuckDuckGo default-page-zoom reset to 1.0** (was 0.5 — INCIDENT #17, see below) ✓
 
 ---
 
@@ -502,6 +514,12 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | 2026-06-03 | **Added replayd + replaykit to disabled.501.plist** via PlistBuddy (M-flag workaround) | ✓ |
 | 2026-06-03 | **Plist entry count: 9 → 11** (added replayd, replaykit.sharingsession) | ✓ |
 | 2026-06-03 | **Redeployed plist-monitor grep fix** (`-F` fixed-string) | ✓ |
+| 2026-06-03 | **replayd LS deny rule confirmed** via live sudo export (13:18 CDT) | ✓ |
+| 2026-06-03 | **Full LS analysis** — 15/15 critical rules, 15/15 XPC subscribers, 0 allow rules | ✓ |
+| 2026-06-03 | **`scan-hashes.sh` rewritten** — 47+ files including Little Snitch, DuckDuckGo, LaunchAgent/Daemon, pyenv Python, Claude project memory | ✓ |
+| 2026-06-03 | **`l5-stamp.sh` rewritten** — comprehensive coverage + DuckDuckGo prefs snapshot | ✓ |
+| 2026-06-03 | **`tcc-audit.sh` created** — TCC permissions audit + private entitlement bypass documentation | ✓ |
+| 2026-06-03 | **INCIDENT #17: DuckDuckGo zoom set to 0.5** — discovered and reset to 1.0 | ✓ |
 
 ---
 
@@ -535,7 +553,7 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | Network block — studentd | LS deny → any | ✅ |
 | Network block — ARDAgent/kickstart | LS deny → any | ✅ |
 | Network block — launchctl | LS deny → any | ✅ |
-| Network block — replayd | LS deny → any | ✅ 2026-06-03 |
+| Network block — replayd | LS deny → any | ✅ confirmed via sudo export 2026-06-03 |
 | Network block — APNS wakeup endpoints | launchctl disabled | ✅ |
 | Telemetry block — symptomsd, SubmitDiagInfo, rtcreportingd | LS deny → any | ✅ |
 | Telemetry block — influxdata.com (Homebrew) | LS deny (Terminal) | ✅ |
@@ -543,8 +561,10 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | DNS | Quad9 via IP-based DoH (`https://9.9.9.9/dns-query`) | ✅ |
 | Plist write monitoring | plist-monitor daemon → `/private/var/log/evw-plist-monitor.log` | ✅ |
 | L5 hash witness | OpenTimestamps Bitcoin-anchored; 1,984-file fs-baseline + 28-file manifest | ✅ 2026-06-02 |
-| LS model size | 3,188 rules / 1,348 deny | ✅ 2026-06-03 |
-| Binary integrity | 14 monitored binaries, 0 changes since 2026-05-18 baseline | ✅ |
+| LS model size | 3,189 rules / 1,348 deny | ✅ 2026-06-03 |
+| DuckDuckGo zoom | 1.0 (100%) | ✅ reset 2026-06-03 (was 0.5 — INCIDENT #17) |
+| TCC audit script | `tcc-audit.sh` — user TCC.db readable; system requires sudo | ✅ created 2026-06-03 |
+| Binary integrity | 47+ monitored files via scan-hashes.sh; 0 changes on monitored system binaries since 2026-05-18 baseline | ✅ |
 | SIP | Enabled | ✅ |
 | FileVault | On | ✅ |
 | Gatekeeper | Enabled | ✅ |
@@ -560,11 +580,13 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | HIGH | 4.03 GB recording file on Desktop — preserve offline / forensic analysis |
 | HIGH | Touch ID unenrolled — keybag UUID mismatch from ew→evw migration; wipe will recur on keybag repair |
 | HIGH | Unexplained reboot Jun 2 09:26 CDT — root cause unknown; triggered replayd recording |
-| MEDIUM | TCC audit (kTCCServiceScreenCapture) — system TCC.db needs root to read |
+| MEDIUM | TCC audit (kTCCServiceScreenCapture) — `tcc-audit.sh` created; run with sudo for system TCC.db |
+| MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; root cause (what process wrote 0.5) unknown |
 | LOW | osascript spawning every ~60s — needs Terminal FDA to trace parent |
 | LOW | 6 wrong-domain launchctl entries — M-flag symptom, no practical impact |
 | MONITOR | LS model API violations at boot — caused May 29 DoH incident; watch each boot |
 | MONITOR | XPC requester for privatecloudcomputed — dasd is scheduler; original requester unknown |
+| MONITOR | DuckDuckGo zoom — verify stays at 1.0 each scan session |
 
 ### Known Limitations
 | Attack vector | Current mitigation | Gap |
@@ -611,9 +633,16 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 - **Evidence:** SHA-256 `2bd93974e2a91d9e74fad6c73399047a32a7118cf18d3baece2b409685a83898`, 4,325,925,788 bytes, on Desktop with Unicode filename (U+202F narrow no-break space before "PM" caused all initial hash attempts to fail).
 - **Mitigations:** launchctl disable, user plist deleted, LS deny rule, disabled.plist entries added via PlistBuddy, schg re-applied.
 - **Status:** OPEN — recording trigger not identified; recurrence possible at next boot.
-- **What:** launchctl deny rule and ARDAgent/kickstart deny rule — added 2026-05-29, confirmed at the time — were absent from the live LS model on 2026-06-02 export
-- **Impact:** Network-layer protection for launchctl and ARDAgent was absent; rule set appeared to have silently lost these entries over time
-- **Resolution:** Re-added 2026-06-02
+
+### Incident 7 — 2026-06-03: DuckDuckGo Default Zoom Set to 50% (INCIDENT #17)
+- **What:** DuckDuckGo browser's `preferences.appearance.default-page-zoom` was found set to `0.5` (50% zoom), making all page text appear at half normal size. User did not make this change.
+- **How discovered:** Reported by user as "very small font" in browser. Confirmed via `defaults read com.duckduckgo.macos.browser "preferences.appearance.default-page-zoom"` returning `0.5`.
+- **Mechanism:** macOS UserDefaults domain `com.duckduckgo.macos.browser` — any process with access to this container or the ability to run `defaults write` can silently modify it. No user prompt. No visible change to the app UI other than the zoom effect itself.
+- **Context:** Occurred same session as replayd screen recording investigation. If an adversary had access to the replayd recording stream, they could also interact with the desktop (e.g., via a CGEventTap or Remote Management) to change browser settings.
+- **Relation to INCIDENT #16 (browser zoom):** The prior incident (#16) reported spontaneous 500% zoom during active browsing — mechanism was unresolved. This incident (#17) shows a persistent zoom setting of 50% was written to disk — a complementary finding suggesting deliberate configuration change rather than a transient UI event.
+- **Resolution:** `defaults write com.duckduckgo.macos.browser "preferences.appearance.default-page-zoom" -string "1"` applied 2026-06-03. Verified: value now `1`.
+- **Binary integrity:** DuckDuckGo binary signature verified valid (HKE973VLUW, Timestamp May 14 2026). Binary not tampered. Setting change was in UserDefaults, not the binary.
+- **Status:** MITIGATED — zoom reset. Root cause (what process wrote 0.5) not identified.
 
 ---
 
@@ -651,6 +680,12 @@ LS model snapshots:
 - `ls-model-backup-2026-05-29.json` (2,062 rules, 483 deny)
 - `scan-2026-06-02/ls-model.json` (3,140 rules, 1,343 deny)
 - `scan-2026-06-03/ls-model.json` (3,188 rules, 1,348 deny)
+
+Security tools created this session:
+- `tcc-audit.sh` — TCC permissions audit (user TCC.db no-sudo; system requires sudo)
+- `scan-hashes.sh` — per-scan integrity snapshot (expanded: 47+ files, covers Little Snitch/DDG/pyenv/LaunchAgent/Daemon/Claude memory)
+- `l5-stamp.sh` — weekly L5 manifest (expanded: all of above + DuckDuckGo prefs snapshot)
+- `ls-full-analysis.py` — 8-section comprehensive LS audit
 
 L5 OpenTimestamps artifacts:
 - `l5-manifest-2026-06-02.txt` + `.ots` — 28 key files, Bitcoin-confirmed
