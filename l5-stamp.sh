@@ -1,185 +1,273 @@
 #!/usr/bin/env bash
-# L5 weekly ritual — build manifest, stamp with OpenTimestamps, commit proof.
-# Run once per week: bash ~/dev/security/l5-stamp.sh
+# L5 comprehensive system stamp — full coverage: apps, configs, scripts, Claude, Python, security.
+# Run weekly: bash ~/dev/security/l5-stamp.sh
 set -euo pipefail
 
 OTS="/Users/evw/Library/Python/3.9/bin/ots"
 SECURITY_DIR="$HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
-MANIFEST="$SECURITY_DIR/l5-manifest-${DATE}.txt"
+MANIFEST="$SECURITY_DIR/l5-manifest-full-${DATE}.txt"
 
 cd "$SECURITY_DIR"
 
-echo "=== L5 stamp — $DATE ==="
+echo "=== L5 comprehensive stamp — $DATE ==="
 
 h() {
   [ -f "$1" ] || return 0
-  local hash
+  local hash label
   hash=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}') || true
+  label="${2:-${1/#$HOME/~}}"
   if [ -n "$hash" ]; then
-    echo "$hash  ${2:-$1}"
+    echo "$hash  $label"
   else
-    echo "UNREADABLE (needs sudo)  ${2:-$1}"
+    echo "UNREADABLE (needs sudo)  $label"
+  fi
+}
+
+hdir() {
+  local dir="$1" label_prefix="${2:-}" ext="${3:-}"
+  [ -d "$dir" ] || return 0
+  if [ -n "$ext" ]; then
+    find "$dir" -maxdepth 1 -name "$ext" -type f 2>/dev/null | sort | while read -r f; do
+      h "$f" "${label_prefix}$(basename "$f")"
+    done
+  else
+    find "$dir" -maxdepth 1 -type f 2>/dev/null | sort | while read -r f; do
+      h "$f" "${label_prefix}$(basename "$f")"
+    done
   fi
 }
 
 {
-  echo "# L5 Hash Manifest — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "# L5 Comprehensive Hash Manifest — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# Machine: $(scutil --get ComputerName 2>/dev/null || hostname)"
-  echo "# Purpose: OpenTimestamps public hash witness"
+  echo "# OS: $(sw_vers -productVersion 2>/dev/null) ($(sw_vers -buildVersion 2>/dev/null))"
+  echo "# Coverage: apps, configs, LaunchAgents/Daemons, Claude, Python, security, dotfiles, system"
   echo ""
 
-  # ── Core OS ────────────────────────────────────────────────────────────────
-  echo "# Core OS / launchd"
-  h /sbin/launchd
-  h /usr/libexec/cfprefsd
-  h /usr/libexec/nsurlsessiond
-
-  echo ""
-  echo "# System binaries (monitored)"
-  for f in \
-    /usr/bin/ssh /usr/sbin/sshd /usr/libexec/sshd-keygen-wrapper \
-    /bin/bash /bin/sh /bin/zsh \
-    /usr/bin/python3 /usr/bin/curl /usr/bin/login /usr/bin/perl \
-    /usr/bin/nc /usr/bin/openssl /usr/sbin/tcpdump /sbin/pfctl \
-    /usr/bin/sudo /usr/sbin/sysdiagnose \
-    /usr/libexec/replayd /usr/libexec/wifivelocityd \
-    /usr/libexec/searchpartyuseragent /usr/libexec/remotemanagementd \
-    /System/Library/CoreServices/RemoteManagementAgent; do
+  # ── Core OS / launchd ──────────────────────────────────────────────────────
+  echo "# Core OS"
+  for f in /sbin/launchd /usr/libexec/cfprefsd /usr/libexec/nsurlsessiond \
+            /usr/libexec/replayd /usr/libexec/remotemanagementd \
+            /System/Library/CoreServices/RemoteManagementAgent; do
     h "$f"
   done
 
-  # ── Security project — all scripts (dynamic) ───────────────────────────────
+  # ── System binaries ────────────────────────────────────────────────────────
   echo ""
-  echo "# Security project scripts"
-  for f in *.sh *.py; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  echo "# System binaries"
+  for f in /usr/bin/ssh /usr/sbin/sshd /usr/libexec/sshd-keygen-wrapper \
+            /bin/bash /bin/sh /bin/zsh /bin/launchctl \
+            /usr/bin/python3 /usr/bin/curl /usr/bin/login /usr/bin/perl \
+            /usr/bin/nc /usr/bin/openssl /usr/sbin/tcpdump /sbin/pfctl \
+            /usr/sbin/sysdiagnose /usr/libexec/wifivelocityd \
+            /usr/libexec/searchpartyuseragent \
+            /usr/bin/codesign /usr/bin/security /usr/bin/spctl \
+            /usr/bin/defaults /usr/bin/plutil /usr/bin/sqlite3 \
+            /usr/bin/osascript /usr/bin/xattr /usr/bin/chflags \
+            /usr/sbin/spindump /usr/bin/lsof /usr/bin/netstat \
+            /usr/bin/nettop /usr/bin/dscl /usr/bin/id \
+            /usr/bin/shasum /usr/bin/openssl /usr/bin/csrutil; do
+    h "$f"
   done
 
+  # ── Applications (/Applications/) ─────────────────────────────────────────
   echo ""
-  echo "# Security project docs and manifests"
-  for f in \
-    MASTER-SECURITY-LOG.md \
-    MASTER-SECURITY-LOG.pdf \
-    MANIFEST.sha256 \
-    PRESERVATION-GUIDE.md \
-    com.evw.plist-monitor.plist \
-    l5-hash-log.txt; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  echo "# Applications — main binaries + Info.plist"
+  find /Applications -maxdepth 2 -name "*.app" -type d 2>/dev/null | sort | while read -r app; do
+    appname=$(basename "${app%.app}")
+    binary="$app/Contents/MacOS/$appname"
+    info="$app/Contents/Info.plist"
+    [ -f "$binary" ] && h "$binary" "Apps/$appname/MacOS/$appname"
+    [ -f "$info"   ] && h "$info"   "Apps/$appname/Info.plist"
+    # Try alternate binary name patterns
+    if [ ! -f "$binary" ]; then
+      alt=$(find "$app/Contents/MacOS/" -maxdepth 1 -type f 2>/dev/null | head -1)
+      [ -n "$alt" ] && h "$alt" "Apps/$appname/MacOS/$(basename "$alt")"
+    fi
   done
 
-  # ── Security project .claude files ─────────────────────────────────────────
+  # ── Homebrew binaries ──────────────────────────────────────────────────────
   echo ""
-  echo "# Security project .claude files"
-  for f in .claude/SESSION.md .claude/settings.local.json; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
-  done
-
-  # ── Encrypted memory ───────────────────────────────────────────────────────
-  echo ""
-  echo "# Encrypted memory files (repo)"
-  for f in memory/short_term.csmem memory/long_term.csmem; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
-  done
-
-  # ── Claude global config ───────────────────────────────────────────────────
-  echo ""
-  echo "# Claude Code global config"
-  CLAUDE_DIR="$HOME/.claude"
-  for f in \
-    "$CLAUDE_DIR/CLAUDE.md" \
-    "$CLAUDE_DIR/settings.json" \
-    "$CLAUDE_DIR/settings.local.json" \
-    "$CLAUDE_DIR/export-conversation.sh" \
-    "$CLAUDE_DIR/record-session.sh" \
-    "$CLAUDE_DIR/hooks/pre-tool-use.sh" \
-    "$CLAUDE_DIR/hooks/post-tool-use.sh" \
-    "$CLAUDE_DIR/hooks/notify-on-stop.sh"; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$HOME/~}"
-  done
-
-  # ── Claude project memory ──────────────────────────────────────────────────
-  echo ""
-  echo "# Claude Code project memory (security)"
-  PROJ_MEM="$HOME/.claude/projects/-Users-evw-dev-security/memory"
-  if [ -d "$PROJ_MEM" ]; then
-    for f in "$PROJ_MEM"/*.md "$PROJ_MEM"/*.csmem; do
-      [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$HOME/~}"
-    done
-  fi
-
-  # ── Claude binaries ────────────────────────────────────────────────────────
-  echo ""
-  echo "# Claude Code binaries (all installed versions)"
-  CLAUDE_VERSIONS="$HOME/.local/share/claude/versions"
-  if [ -d "$CLAUDE_VERSIONS" ]; then
-    for v in $(ls "$CLAUDE_VERSIONS" | sort); do
-      f="$CLAUDE_VERSIONS/$v"
-      [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ~/.local/share/claude/versions/$v"
+  echo "# Homebrew binaries"
+  BREW_BIN="/opt/homebrew/bin"
+  [ -d "$BREW_BIN" ] || BREW_BIN="/usr/local/bin"
+  if [ -d "$BREW_BIN" ]; then
+    find "$BREW_BIN" -maxdepth 1 -type f -o -maxdepth 1 -type l 2>/dev/null | sort | while read -r f; do
+      # Only hash actual binaries (resolve symlinks to real files)
+      real=$(readlink -f "$f" 2>/dev/null || echo "$f")
+      [ -f "$real" ] && h "$real" "Homebrew/bin/$(basename "$f")"
     done
   fi
 
   # ── Python ─────────────────────────────────────────────────────────────────
   echo ""
   echo "# Python binaries"
-  h "$HOME/.pyenv/versions/3.13.13/bin/python3.13"
-  h "/usr/bin/python3"
+  for f in /usr/bin/python3 \
+            "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
+            "$HOME/.pyenv/versions/3.13.13/bin/python3" \
+            "$HOME/Library/Python/3.9/bin/ots"; do
+    h "$f"
+  done
 
-  # ── Third-party apps ───────────────────────────────────────────────────────
   echo ""
-  echo "# Little Snitch binary"
+  echo "# Python scripts — ~/dev/ (excluding venv/pycache/site-packages)"
+  find "$HOME/dev" -name "*.py" \
+    ! -path "*/__pycache__/*" \
+    ! -path "*/node_modules/*" \
+    ! -path "*/.git/*" \
+    ! -path "*/venv/*" \
+    ! -path "*/.venv/*" \
+    ! -path "*/site-packages/*" \
+    ! -path "*/build/*" \
+    ! -path "*/dist/*" \
+    2>/dev/null | sort | while read -r f; do
+    h "$f" "${f/#$HOME/~}"
+  done
+
+  # ── Shell config / dotfiles ────────────────────────────────────────────────
+  echo ""
+  echo "# Shell config and dotfiles"
+  for f in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.zshenv" \
+            "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" \
+            "$HOME/.ssh/config" "$HOME/.ssh/known_hosts" \
+            /etc/hosts /etc/shells /etc/zshrc /etc/zprofile; do
+    h "$f"
+  done
+
+  # ── LaunchAgents and LaunchDaemons ─────────────────────────────────────────
+  echo ""
+  echo "# LaunchAgents — user"
+  hdir "$HOME/Library/LaunchAgents" "~/Library/LaunchAgents/" "*.plist"
+
+  echo ""
+  echo "# LaunchAgents — system"
+  hdir "/Library/LaunchAgents" "/Library/LaunchAgents/" "*.plist"
+
+  echo ""
+  echo "# LaunchDaemons — system"
+  hdir "/Library/LaunchDaemons" "/Library/LaunchDaemons/" "*.plist"
+
+  # ── User Preferences ──────────────────────────────────────────────────────
+  echo ""
+  echo "# User preferences — ~/Library/Preferences/"
+  find "$HOME/Library/Preferences" -maxdepth 1 -name "*.plist" -type f 2>/dev/null | sort | while read -r f; do
+    h "$f" "~/Library/Preferences/$(basename "$f")"
+  done
+
+  # ── System Preferences ────────────────────────────────────────────────────
+  echo ""
+  echo "# System preferences — /Library/Preferences/"
+  find /Library/Preferences -maxdepth 1 -name "*.plist" -type f 2>/dev/null | sort | while read -r f; do
+    h "$f" "/Library/Preferences/$(basename "$f")"
+  done
+
+  # ── Little Snitch ─────────────────────────────────────────────────────────
+  echo ""
+  echo "# Little Snitch"
   h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
+  h "/Applications/Little Snitch.app/Contents/Info.plist" "Apps/Little Snitch/Info.plist"
 
+  # ── DuckDuckGo ────────────────────────────────────────────────────────────
   echo ""
-  echo "# DuckDuckGo browser binary"
+  echo "# DuckDuckGo"
   h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
+  h "/Applications/DuckDuckGo.app/Contents/Info.plist" "Apps/DuckDuckGo/Info.plist"
 
-  # ── LaunchAgent/Daemon plists ──────────────────────────────────────────────
+  # ── Claude Code ───────────────────────────────────────────────────────────
   echo ""
-  echo "# LaunchAgent and LaunchDaemon plists"
-  h "$HOME/Library/LaunchAgents/com.evw.donut-intel.plist"
-  h "/Library/LaunchDaemons/com.evw.plist-monitor.plist"
+  echo "# Claude Code — global config (all settings + hooks)"
+  CLAUDE_DIR="$HOME/.claude"
+  find "$CLAUDE_DIR" -maxdepth 2 -type f \
+    ! -path "*/cache/*" \
+    ! -path "*/history*" \
+    ! -path "*/sessions/*" \
+    ! -path "*/shell-snapshots/*" \
+    ! -path "*/paste-cache/*" \
+    ! -path "*/tool-results/*" \
+    ! -path "*/telemetry/*" \
+    ! -path "*/stats-cache*" \
+    ! -path "*/file-history/*" \
+    ! -path "*/downloads/*" \
+    2>/dev/null | sort | while read -r f; do
+    h "$f" "${f/#$HOME/~}"
+  done
 
-  # ── DuckDuckGo settings snapshot ──────────────────────────────────────────
   echo ""
-  echo "# DuckDuckGo preferences snapshot (zoom + appearance)"
-  DDG_ZOOM=$(defaults read com.duckduckgo.macos.browser "preferences.appearance.default-page-zoom" 2>/dev/null || echo "unset")
-  DDG_URL=$(defaults read com.duckduckgo.macos.browser "preferences.appearance.show-full-url" 2>/dev/null || echo "unset")
-  DDG_SNAP="DDG_zoom=${DDG_ZOOM} DDG_show-full-url=${DDG_URL}"
-  echo "$(echo -n "$DDG_SNAP" | shasum -a 256 | awk '{print $1}')  [DDG-prefs-snapshot: $DDG_SNAP]"
+  echo "# Claude Code — project memory (all projects)"
+  find "$CLAUDE_DIR/projects" -maxdepth 4 -type f \
+    ! -path "*/tool-results/*" \
+    2>/dev/null | sort | while read -r f; do
+    h "$f" "${f/#$HOME/~}"
+  done
 
-  # ── Scan summaries ─────────────────────────────────────────────────────────
   echo ""
-  echo "# Scan summaries and triage reports"
+  echo "# Claude Code — binaries (all installed versions)"
+  CLAUDE_VERSIONS="$HOME/.local/share/claude/versions"
+  if [ -d "$CLAUDE_VERSIONS" ]; then
+    for v in $(ls "$CLAUDE_VERSIONS" | sort); do
+      f="$CLAUDE_VERSIONS/$v"
+      [ -f "$f" ] && h "$f" "~/.local/share/claude/versions/$v"
+    done
+  fi
+
+  # ── Security project — all files ──────────────────────────────────────────
+  echo ""
+  echo "# Security project — all scripts and docs"
+  for f in *.sh *.py *.md *.pdf *.txt; do
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
+
+  echo ""
+  echo "# Security project — .claude files"
+  find .claude -type f 2>/dev/null | sort | while read -r f; do
+    echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
+
+  echo ""
+  echo "# Security project — memory files (all)"
+  find memory -type f 2>/dev/null | sort | while read -r f; do
+    echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
+
+  echo ""
+  echo "# Security project — scan summaries"
   for d in $(ls -d scan-*/ 2>/dev/null | sort); do
-    for f in "${d}SCAN-SUMMARY.md" "${d}TRIAGE-REPORT.md"; do
+    for f in "${d}SCAN-SUMMARY.md" "${d}TRIAGE-REPORT.md" "${d}tcc-audit.txt"; do
       [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
     done
   done
 
-  # ── LS deny rule files ─────────────────────────────────────────────────────
   echo ""
-  echo "# LS deny rule files"
-  find . -name "deny-rules-*.lsrules" | sort | while read f; do
+  echo "# Security project — LS deny rules"
+  find . -name "deny-rules-*.lsrules" 2>/dev/null | sort | while read -r f; do
     echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
   done
 
-  # ── Most recent binary hash + LS model ────────────────────────────────────
   echo ""
-  echo "# Most recent binary hash + LS model snapshots"
+  echo "# Security project — latest LS model"
   LATEST_SCAN=$(ls -d scan-*/ 2>/dev/null | sort | tail -1)
-  for f in "${LATEST_SCAN}file-hashes.txt" "${LATEST_SCAN}binary-hashes.txt" "${LATEST_SCAN}ls-model.json"; do
+  for f in "${LATEST_SCAN}file-hashes.txt" "${LATEST_SCAN}ls-model.json"; do
     [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
   done
 
-  # ── Hash log ───────────────────────────────────────────────────────────────
+  # ── DuckDuckGo preferences snapshot ───────────────────────────────────────
   echo ""
-  echo "# Hash log (accumulated session snapshots)"
+  echo "# DuckDuckGo preferences snapshot"
+  DDG_ZOOM=$(defaults read com.duckduckgo.macos.browser "preferences.appearance.default-page-zoom" 2>/dev/null || echo "unset")
+  DDG_SNAP="DDG_zoom=${DDG_ZOOM}"
+  echo "$(echo -n "$DDG_SNAP" | shasum -a 256 | awk '{print $1}')  [DDG-prefs: $DDG_SNAP]"
+
+  # ── L5 hash log ───────────────────────────────────────────────────────────
+  echo ""
+  echo "# L5 hash log"
   [ -f "l5-hash-log.txt" ] && echo "$(shasum -a 256 l5-hash-log.txt | awk '{print $1}')  l5-hash-log.txt"
 
 } > "$MANIFEST"
 
-echo "Manifest: $MANIFEST ($(wc -l < "$MANIFEST") lines)"
+LINES=$(wc -l < "$MANIFEST" | tr -d ' ')
+HASHES=$(grep -c "^[a-f0-9]" "$MANIFEST" || true)
+echo "Manifest: $MANIFEST ($LINES lines, $HASHES file hashes)"
 
 # Stamp
 echo "Submitting to OpenTimestamps calendars..."
@@ -187,13 +275,13 @@ echo "Submitting to OpenTimestamps calendars..."
 echo "Proof: ${MANIFEST}.ots"
 
 # Append to hash log
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $(shasum -a 256 "$MANIFEST" | awk '{print $1}') l5-manifest-${DATE}.txt" >> "$SECURITY_DIR/l5-hash-log.txt"
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $(shasum -a 256 "$MANIFEST" | awk '{print $1}') l5-manifest-${DATE}.txt [comprehensive]" >> "$SECURITY_DIR/l5-hash-log.txt"
 
 # Commit
-git add "l5-manifest-${DATE}.txt" "l5-manifest-${DATE}.txt.ots" l5-hash-log.txt
-git commit -m "L5 weekly stamp ${DATE} — $(wc -l < "$MANIFEST") file hashes timestamped"
+git add "l5-manifest-full-${DATE}.txt" "l5-manifest-full-${DATE}.txt.ots" l5-hash-log.txt
+git commit -m "L5 comprehensive stamp ${DATE} — ${HASHES} file hashes timestamped"
 
 echo ""
 echo "=== Done. Upgrade proof in ~3 hours: ==="
 echo "  $OTS upgrade ${MANIFEST}.ots"
-echo "  git add ${MANIFEST}.ots && git commit -m 'L5 upgrade ${DATE}'"
+echo "  git add ${MANIFEST}.ots && git commit -m 'L5 full upgrade ${DATE}'"
