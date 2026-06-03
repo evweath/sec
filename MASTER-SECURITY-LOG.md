@@ -563,7 +563,7 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | L5 hash witness | OpenTimestamps Bitcoin-anchored; 1,984-file fs-baseline + 28-file manifest | ✅ 2026-06-02 |
 | LS model size | 3,189 rules / 1,348 deny | ✅ 2026-06-03 |
 | DuckDuckGo zoom | 1.0 (100%) | ✅ reset 2026-06-03 (was 0.5 — INCIDENT #17) |
-| TCC audit script | `tcc-audit.sh` — user TCC.db readable; system requires sudo | ✅ created 2026-06-03 |
+| TCC audit script | `tcc-audit.sh` — completed 2026-06-03; only DENIED entries for Terminal; no unauthorized grants | ✅ CLEAN 2026-06-03 |
 | Binary integrity | 47+ monitored files via scan-hashes.sh; 0 changes on monitored system binaries since 2026-05-18 baseline | ✅ |
 | SIP | Enabled | ✅ |
 | FileVault | On | ✅ |
@@ -580,7 +580,7 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 | HIGH | 4.03 GB recording file on Desktop — preserve offline / forensic analysis |
 | HIGH | Touch ID unenrolled — keybag UUID mismatch from ew→evw migration; wipe will recur on keybag repair |
 | HIGH | Unexplained reboot Jun 2 09:26 CDT — root cause unknown; triggered replayd recording |
-| MEDIUM | TCC audit (kTCCServiceScreenCapture) — `tcc-audit.sh` created; run with sudo for system TCC.db |
+| CLOSED | TCC audit (kTCCServiceScreenCapture) — completed 2026-06-03. System TCC.db: only DENIED entries for Terminal (Accessibility + ScreenCapture). No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented). |
 | MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; root cause (what process wrote 0.5) unknown |
 | LOW | osascript spawning every ~60s — needs Terminal FDA to trace parent |
 | LOW | 6 wrong-domain launchctl entries — M-flag symptom, no practical impact |
