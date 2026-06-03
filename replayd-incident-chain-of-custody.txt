@@ -1,0 +1,80 @@
+CHAIN OF CUSTODY — FORENSIC EVIDENCE
+=====================================
+Incident:    INCIDENT #14 / Incident 6 — Unauthorized Screen Recording by replayd
+Case ref:    evw MacBook Pro — Nation-state threat model
+Date found:  2026-06-03 (recording occurred 2026-06-02)
+
+EVIDENCE FILE
+-------------
+Filename:    Screen Recording 2026-06-02 at 6.24.56 PM.mov
+             (Unicode: U+202F NARROW NO-BREAK SPACE before "PM")
+Original path: /Users/evw/Desktop/Screen Recording 2026-06-02 at 6.24.56 PM.mov
+Size:        4,325,925,788 bytes (4.03 GB / 4.33 GB)
+SHA-256:     2bd93974e2a91d9e74fad6c73399047a32a7118cf18d3baece2b409685a83898
+Format:      QuickTime MOV
+
+INCIDENT SUMMARY
+----------------
+Process:     /usr/libexec/replayd (PID 1472 at time of recording; PID 822 at investigation)
+Duration:    09:26 CDT – 19:41 CDT, 2026-06-02 (approximately 8.5 hours)
+Trigger:     Client PID 1373 connected to replayd at 09:26:10 CDT. Identity unconfirmed
+             (system logs rotated before investigation). Coincides with an unexplained
+             system reboot at 09:24:48 CDT Jun 2 (INCIDENT #15).
+Termination: replayd was killed by macOS at 18:47 CDT for exceeding disk write limit
+             (2148 MB written in 30540 seconds = ~70 KB/s). Plist rewritten at 19:41 CDT
+             after crash, indicating a re-trigger event.
+
+HOW RECORDING WAS CONCEALED
+----------------------------
+- replayd holds entitlement com.apple.private.screencapturekit.noprompt
+  → bypasses TCC entirely; no user prompt; no TCC database entry
+- ControlCenter holds com.apple.private.screencapturekit.suppress-screen-indicator
+  → hides the orange screen recording indicator dot from the menu bar
+- Combined: recording starts at boot, no prompt, no visible indicator, no TCC row
+
+LOG EVIDENCE (from: log show --predicate 'process == "replayd"')
+-----------------------------------------------------------------
+09:26:09 CDT  replayd Starting!
+09:26:10 CDT  accepted client connection PID: 1373
+09:26:10 CDT  client has SCAlertPrivateEntitlement (suppresses screen-capture alert)
+19:41 CDT     process crashed; plist rewritten; replayd restarted idle
+
+REGION RECORDED
+---------------
+Near-full-screen: 1463 × 736 pts at X=7, Y=123 (from replayd plist at time of discovery)
+
+MITIGATIONS APPLIED (2026-06-03)
+---------------------------------
+1. launchctl disable gui/501/com.apple.replayd
+2. launchctl disable gui/501/com.apple.replaykit.sharingsession
+3. ~/Library/Preferences/com.apple.replayd.plist deleted
+4. Little Snitch deny-any rule for /usr/libexec/replayd (confirmed via sudo export)
+5. com.apple.replayd + com.apple.replaykit.sharingsession added to
+   /var/db/com.apple.xpc.launchd/disabled.501.plist via PlistBuddy (M-flag workaround)
+6. schg (kernel immutable) flag re-applied to disabled.501.plist
+
+OPEN QUESTIONS
+--------------
+- Client PID 1373: what process connected to replayd at 09:26:10 CDT Jun 2?
+  (Logs rotated before investigation. Requires forensic analysis of recording itself
+   or third-party log sources to identify.)
+- Jun 2 reboot at 09:24:48 CDT: cause unknown. fsck_apfs ran at boot (consistent
+  with unclean shutdown or OS update). Root cause not confirmed.
+- Was recording transmitted? Network monitoring shows NONE external connections
+  for replayd at time of investigation, but the 8.5-hour window before investigation
+  cannot be fully audited from logs alone.
+
+PRESERVATION NOTE
+-----------------
+This file is direct forensic evidence of unauthorized covert screen recording
+on a machine operating under a nation-state threat model. It should be preserved
+in unmodified form. The SHA-256 above serves as a tamper-detection reference.
+
+Do NOT delete this file until forensic analysis is complete.
+Do NOT open in a cloud-connected app (iCloud, Google Drive upload, etc.).
+Suitable contacts for forensic analysis / incident reporting:
+  - Citizen Lab (citizenlab.ca) — nation-state surveillance cases
+  - Access Now Digital Security Helpline (accessnow.org/help)
+
+Preserved by:  Claude Code v2.1.161 + evw
+Date:          2026-06-03
