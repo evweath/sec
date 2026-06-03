@@ -35,7 +35,7 @@ Security records are append-only. This file gets new dated sections appended, ne
   - `launchctl disable gui/501/com.apple.replayd` ✓
   - `launchctl disable gui/501/com.apple.replaykit.sharingsession` ✓
   - `~/Library/Preferences/com.apple.replayd.plist` deleted ✓
-  - LS deny rule for `/usr/libexec/replayd` → DENY any ✓
+  - LS deny rule for `/usr/libexec/replayd` → DENY any ❌ NEVER ADDED (confirmed 2026-06-03 via live export — SESSION.md was wrong)
   - `com.apple.replayd` + `com.apple.replaykit.sharingsession` added to disabled.501.plist via PlistBuddy ✓
   - schg re-applied ✓
 - **Plist entry count expanded: 9 → 11**
@@ -51,6 +51,11 @@ Nothing actively in progress.
 ## Next Steps (ordered — highest priority first)
 
 ### IMMEDIATE
+
+0. **Add LS deny rule for replayd** (never done despite SESSION.md claiming ✓):
+   - Open Little Snitch Network Monitor → Rules → New Rule
+   - Process: `/usr/libexec/replayd` | Action: Deny | Connections: Any
+   - Verify with: `sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch export-model /tmp/ls-verify.json`
 
 1. **Preserve the recording file offline:**
    - File: `~/Desktop/Screen Recording 2026-06-02 at 6.24.56 PM.mov` (4.03 GB)
