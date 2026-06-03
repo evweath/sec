@@ -610,6 +610,8 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | MONITOR | LS model API violations at boot — caused May 29 DoH incident; watch each boot |
 | MONITOR | XPC requester for privatecloudcomputed — dasd is scheduler; original requester unknown |
 | MONITOR | DuckDuckGo zoom — verify stays at 1.0 each scan session |
+| MONITOR | DuckDuckGo excessive disk writes (INCIDENT #18) — 2GB over 2.9h on Jun 3; killed by OS. Verify not recurring. |
+| INFO | Little Snitch networkext kernel panic (May 23) — archived. Monitor LS version; shutdown stalls correlate with LS model changes. |
 
 ### Known Limitations
 | Attack vector | Current mitigation | Gap |
@@ -619,6 +621,33 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | Adversary deletes Keychain entries | Paper recovery key (desk) | Medium |
 | Firmware/kernel-level compromise | Not detectable from userspace | Critical |
 | Between-scan window | 24-48 hour scan cadence | Medium |
+
+---
+
+## DIAGNOSTIC REPORTS SUMMARY (2026-06-03)
+
+Checked `/Library/Logs/DiagnosticReports/` — key findings:
+
+### Little Snitch Kernel Panic — 2026-05-23 18:33 CDT
+- **File:** `Retired/panic-full-2026-05-23-183333.0002.panic`
+- **Panicked task:** `at.obdev.littlesnitch.networkext` (PID 532)
+- **Type:** Kernel tag check fault — ARM memory tagging violation in LS network extension kext
+- **Significance:** LS is capable of kernel panics; every session involving LS model changes left a shutdown stall. The networkext is SIP-protected; LS version 6.3.3 remains loaded.
+
+### Shutdown Stalls — Pattern (7 total)
+All correlate with sessions where the LS model was modified/exported/restored:
+- May 27 16:39 (LS +1,283 rules), May 28 16:22, May 29 16:36, May 31 19:45
+- Jun 1 11:07 (before schg), Jun 1 13:48 (intentional reboot with schg), Jun 1 19:39
+- **No Jun 2 shutdown stall or panic.** Jun 2 reboot was instantaneous — consistent with forced software update reboot or remote management, not a crash.
+
+### DuckDuckGo Excessive Disk Writes — 2026-06-03 (INCIDENT #18)
+- **File:** `DuckDuckGo_2026-06-03-150941_evws-MacBook-Pro.diag`
+- **Window:** 12:15:38 – 15:09:40 CDT (2.9 hours)
+- **Written:** 2,147 MB file-backed memory dirtied at 205 KB/s (limit: 24.86 KB/s) — **8× over limit**
+- macOS killed DuckDuckGo via resource limit enforcement
+- DuckDuckGo also crashed May 28 and May 29 (prior sessions)
+- Current on-disk DuckDuckGo data: ~612 MB (normal); 2GB figure is VM write pressure during session
+- Status: **OPEN** — cause of sustained write rate unknown; may be normal heavy browsing or injected JS write loop
 
 ---
 
