@@ -602,7 +602,7 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | HIGH | replayd screen recording trigger — client PID 1373 not identified (logs rotated); recurrence possible |
 | HIGH | 4.03 GB recording file on Desktop — preserve offline / forensic analysis |
 | HIGH | Touch ID unenrolled — keybag UUID mismatch from ew→evw migration; wipe will recur on keybag repair |
-| HIGH | Unexplained reboot Jun 2 09:26 CDT — root cause unknown; triggered replayd recording |
+| HIGH | Unexplained reboot Jun 2 09:24:48 CDT — kernel log from pre-reboot period is rotated; no panic/shutdown message in post-boot window. softwareupdated made HTTPS connections at 12:33 and 18:26 CDT (after boot). fsck_apfs at boot = unclean shutdown. Root cause unknown. To recover pre-boot logs: `sudo log collect --last 48h --output ~/Desktop/system-logs-jun2.logarchive` |
 | CLOSED | TCC audit (kTCCServiceScreenCapture) — completed 2026-06-03. System TCC.db: only DENIED entries for Terminal (Accessibility + ScreenCapture). No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented). |
 | MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; root cause (what process wrote 0.5) unknown |
 | LOW | osascript spawning every ~60s — needs Terminal FDA to trace parent |
