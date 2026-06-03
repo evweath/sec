@@ -470,7 +470,8 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 ### Session Checklist — 2026-06-03 (later session, ~20:08Z)
 
 **Check 1 — disabled.501.plist entries:**
-10 of 11 confirmed via grep (case-sensitive pattern missed `remotemanagementd` — needs targeted follow-up). All 10 confirmed: ✅ true.
+**ALL 11 OF 11 CONFIRMED ✅** (two-step: initial grep caught 10; targeted grep for `remotemanagementd` confirmed the 11th).
+All entries present and `=> true`: RemoteManagementAgent, remotemanagementd, sharingd, identityservicesd, replicatord, studentd, privatecloudcomputed, apns-dev, apns-prod, replayd, replaykit.sharingsession. schg holding — no regressions.
 
 **Check 2 — plist-monitor log:**
 CLEAN — zero write attempts. All accesses read-only (`R_____N`). Processes logged:
@@ -567,7 +568,7 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | Control | Mechanism | Verified |
 |---------|-----------|---------|
 | Plist immutability | `schg` on `/var/db/com.apple.xpc.launchd/disabled.501.plist` | ✅ 2 reboots |
-| Plist contents | All 11 entries `=> true` | ✅ 2026-06-03 |
+| Plist contents | All 11 entries `=> true` | ✅ fully verified 2026-06-03 20:08Z |
 | Network block — remotemanagementd | LS deny → any | ✅ |
 | Network block — RemoteManagementAgent | LS deny → any | ✅ |
 | Network block — all 15 RemoteManagement XPCs | LS deny → any | ✅ |
