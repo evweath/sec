@@ -134,3 +134,61 @@ Nothing actively in progress.
 4. **LS model API violations at boot** — monitor each boot
 5. **osascript spawning ~60s** — needs Terminal FDA
 6. **XPC requester for privatecloudcomputed** — dasd is scheduler; original unknown
+
+---
+
+# Session State — 2026-06-03T21:30Z (evening session)
+
+## Accomplished This Session
+
+### Security Checks (full checklist run)
+- **Plist entries: 11/11 confirmed** — two-step grep confirmed all entries including `com.apple.remotemanagementd`
+- **Plist-monitor log: CLEAN** — zero write attempts; backupd accessed backup copy on Passport volume (not live plist); all other accesses from our own Claude/plutil/ls reads
+- **TCC audit (system TCC.db with sudo): CLEAN** — only DENIED entries for Terminal (ScreenCapture + Accessibility); no unauthorized grants; replayd absent from TCC (uses private entitlement bypass as documented)
+- **All 8 monitored services: NONE external network**
+- **schg flag: present**; replayd running idle (no plist, no network)
+- **PCC D85CF66F: absent**; DNS quad9: intact; SIP: enabled
+
+### Fixes Applied
+- **DuckDuckGo default-page-zoom reset** from 0.5 → 1.0 (INCIDENT #17) — user-reported small font; confirmed via `defaults read`; reset and verified
+
+### New Tools Created
+- **`tcc-audit.sh`** — TCC permissions audit (user TCC.db no-sudo; system requires sudo; DDG zoom check; private entitlement bypass documentation)
+- **`scan-hashes.sh` rewritten** — expanded from 47 → 74 files; adds launchd, cfprefsd, nsurlsessiond, remotemanagementd, RemoteManagementAgent, Little Snitch binary, DuckDuckGo binary, pyenv Python 3.13.13, LaunchAgent/Daemon plists, 14 Claude project memory files
+- **`l5-stamp.sh` rewritten** — comprehensive coverage + DuckDuckGo prefs snapshot
+- **`preserve-recording.sh`** — forensic preservation bundle (verifies hash, bundles with chain-of-custody, AES-256 encrypted to /Volumes/Passport)
+- **`replayd-incident-chain-of-custody.txt`** — full forensic chain-of-custody document
+
+### Investigations
+- **Jun 2 reboot (INCIDENT #15):** Kernel log window (Jun 1 20:00 – Jun 2 09:30) contains only post-boot events; pre-boot logs rotated. No panic or shutdown stall file for Jun 2 → reboot was instantaneous (forced, not crash). `sudo log collect --last 48h` needed to recover prior boot logs.
+- **Diagnostic reports audit:**
+  - Little Snitch `at.obdev.littlesnitch.networkext` caused **kernel panic May 23** (tag check fault); archived to `Retired/`
+  - **7 shutdown stalls** — correlate with every LS model-change session (May 27, 28, 29, 31, Jun 1 ×3); LS networkext hanging on shutdown is likely cause
+  - **DuckDuckGo INCIDENT #18** — killed Jun 3 12:15–15:09 for 2GB disk writes at 8× resource limit; also crashed May 28 and May 29; cause unknown
+
+## In Progress
+- Preserve recording file to /Volumes/Passport (user running `preserve-recording.sh` now)
+
+## Next Steps (ordered)
+
+### IMMEDIATE
+1. **Run preserve-recording.sh** — write bundle SHA-256 on paper alongside recovery key; eject Passport
+2. **Re-enroll Touch ID** — System Settings → Touch ID & Password → Add Fingerprint
+3. **Collect prior boot logs** (optional but valuable for Jun 2 reboot):
+   `sudo log collect --last 48h --output ~/Desktop/system-logs-jun2.logarchive`
+
+### Next scan session
+4. **Run standard checklist** — verify 11 plist entries, plist-monitor log, LS model export, binary hashes (scan-hashes.sh — 74 files), tcc-audit.sh
+5. **Run weekly L5 stamp** — `bash ~/dev/security/l5-stamp.sh` (expanded coverage)
+6. **Monitor DuckDuckGo** — verify disk write rate not excessive; verify zoom stays at default (1.0)
+7. **Consider Citizen Lab / Access Now contact** — replayd + plist regression + DDG incidents meets reporting threshold
+
+## Key Context
+- **disabled.501.plist** — 11 entries, schg present (mtime Jun 3 11:39 = when replayd entries were added)
+- **replayd** — SIP-protected, running idle PID 822; no plist, no network; mitigations: launchctl disabled, LS deny-any rule, disabled.plist entries
+- **Recording file** — Desktop, 4.03 GB, SHA-256 `2bd93974e2a91d9e74fad6c73399047a32a7118cf18d3baece2b409685a83898`; preserve-recording.sh targets /Volumes/Passport
+- **Little Snitch** — LS networkext kernel panic May 23 (archived); shutdown stalls correlate with every LS session; monitor
+- **DuckDuckGo** — zoom reset (INCIDENT #17); excessive disk writes (INCIDENT #18); recurring crashes May 28, 29, Jun 3
+- **Memory key** — Keychain intact; recovery fingerprint `56830115...2205b9` (paper, desk)
+- **LS model** — 3,189 rules / 1,348 deny; scan-2026-06-03/ls-model.json
+- **Claude Code** — v2.1.161; scan-hashes.sh covers all 3 installed versions
