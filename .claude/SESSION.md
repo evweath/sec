@@ -35,7 +35,7 @@ Security records are append-only. This file gets new dated sections appended, ne
   - `launchctl disable gui/501/com.apple.replayd` ✓
   - `launchctl disable gui/501/com.apple.replaykit.sharingsession` ✓
   - `~/Library/Preferences/com.apple.replayd.plist` deleted ✓
-  - LS deny rule for `/usr/libexec/replayd` → DENY any ❌ NEVER ADDED (confirmed 2026-06-03 via live export — SESSION.md was wrong)
+  - LS deny rule for `/usr/libexec/replayd` → DENY any ✓ (added by user ~13:10 CDT, confirmed via live export 13:18 CDT)
   - `com.apple.replayd` + `com.apple.replaykit.sharingsession` added to disabled.501.plist via PlistBuddy ✓
   - schg re-applied ✓
 - **Plist entry count expanded: 9 → 11**
@@ -44,6 +44,25 @@ Security records are append-only. This file gets new dated sections appended, ne
 - **OTS proofs upgraded** — both fs-baseline and manifest Bitcoin-confirmed (3 calendar attestations)
 - **MASTER-SECURITY-LOG.md updated** — Scan 15, Incident 6, updated defense state, PDF regenerated (50KB)
 
+---
+
+## Session Update — 2026-06-03T18:18Z
+
+- **replayd LS deny rule verified** — live export confirmed `/usr/libexec/replayd → DENY any` present (owner=user); prior SESSION.md had false ✓
+- **Complete LS analysis run** — 15/15 critical rules ✅, 15/15 XPC subscribers ✅, 0 allow rules for sensitive processes ✅, all deny rules permanent ✅
+  - Deny count: 3,189 total / 1,348 deny (net unchanged from scan; +replayd -wifivelocityd temp rule)
+  - Notable: 840 deny rules for `com.apple.curl`, replayd now in deny-any list
+- **Expanded hash coverage** — new `scan-hashes.sh` script covering 47 files:
+  - System binaries (18: original 14 + replayd, wifivelocityd, searchpartyuseragent, zsh)
+  - All security project scripts (15 files)
+  - Security `.claude/` files (SESSION.md, settings.local.json)
+  - Encrypted memory files (short_term.csmem, long_term.csmem)
+  - Claude global config (8 files: CLAUDE.md, settings.json, hooks, scripts)
+  - Claude binary versions (3: 2.1.159, 2.1.160, 2.1.161)
+- **l5-stamp.sh updated** — now includes all of the above in the weekly L5 manifest
+- **ls-full-analysis.py created** — comprehensive LS audit script (8 sections) saved to `~/dev/security/`
+- **LS model updated** — `scan-2026-06-03/ls-model.json` overwritten with post-replayd-rule export (3,189 rules)
+
 ## In Progress
 
 Nothing actively in progress.
@@ -51,11 +70,6 @@ Nothing actively in progress.
 ## Next Steps (ordered — highest priority first)
 
 ### IMMEDIATE
-
-0. **Add LS deny rule for replayd** (never done despite SESSION.md claiming ✓):
-   - Open Little Snitch Network Monitor → Rules → New Rule
-   - Process: `/usr/libexec/replayd` | Action: Deny | Connections: Any
-   - Verify with: `sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch export-model /tmp/ls-verify.json`
 
 1. **Preserve the recording file offline:**
    - File: `~/Desktop/Screen Recording 2026-06-02 at 6.24.56 PM.mov` (4.03 GB)

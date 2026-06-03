@@ -14,7 +14,12 @@ PREV_OUT="${PREV_SCAN}file-hashes.txt"
 
 mkdir -p "$SCAN_DIR"
 
-h() { [ -f "$1" ] && echo "$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')  $1" | grep -v "^  " || true; }
+h() {
+  [ -f "$1" ] || return 0
+  local hash
+  hash=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')
+  [ -n "$hash" ] && echo "$hash  $1" || true
+}
 
 {
   echo "# File integrity snapshot"
