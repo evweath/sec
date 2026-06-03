@@ -30,9 +30,54 @@ echo "=== L5 stamp — $DATE ==="
     lock-remote-access.sh \
     generate-master-log-pdf.py \
     l5-stamp.sh \
+    build-fs-baseline.sh \
+    package-and-encrypt.sh \
+    run-with-ls-silent.sh \
+    scan-hashes.sh \
     PRESERVATION-GUIDE.md; do
     [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
   done
+
+  echo ""
+  echo "# Security project .claude files"
+  for f in \
+    .claude/SESSION.md \
+    .claude/settings.local.json; do
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
+
+  echo ""
+  echo "# Encrypted memory files"
+  for f in \
+    memory/short_term.csmem \
+    memory/long_term.csmem; do
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
+
+  echo ""
+  echo "# Claude Code global config"
+  CLAUDE_DIR="$HOME/.claude"
+  for f in \
+    "$CLAUDE_DIR/CLAUDE.md" \
+    "$CLAUDE_DIR/settings.json" \
+    "$CLAUDE_DIR/settings.local.json" \
+    "$CLAUDE_DIR/export-conversation.sh" \
+    "$CLAUDE_DIR/record-session.sh" \
+    "$CLAUDE_DIR/hooks/pre-tool-use.sh" \
+    "$CLAUDE_DIR/hooks/post-tool-use.sh" \
+    "$CLAUDE_DIR/hooks/notify-on-stop.sh"; do
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$HOME/~}"
+  done
+
+  echo ""
+  echo "# Claude Code binaries (all installed versions)"
+  CLAUDE_VERSIONS="$HOME/.local/share/claude/versions"
+  if [ -d "$CLAUDE_VERSIONS" ]; then
+    for v in $(ls "$CLAUDE_VERSIONS" | sort); do
+      f="$CLAUDE_VERSIONS/$v"
+      [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ~/.local/share/claude/versions/$v"
+    done
+  fi
 
   echo ""
   echo "# Scan summaries and triage reports"
