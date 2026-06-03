@@ -467,6 +467,28 @@ The schg (kernel immutable) flag on disabled.501.plist blocks launchd from reset
 - L5 manifest OTS proof upgraded: Bitcoin-confirmed
 - 1,984 files + 28 key security files permanently anchored in Bitcoin blockchain
 
+### Session Checklist — 2026-06-03 (later session, ~20:08Z)
+
+**Check 1 — disabled.501.plist entries:**
+10 of 11 confirmed via grep (case-sensitive pattern missed `remotemanagementd` — needs targeted follow-up). All 10 confirmed: ✅ true.
+
+**Check 2 — plist-monitor log:**
+CLEAN — zero write attempts. All accesses read-only (`R_____N`). Processes logged:
+- `backupd`: accessed *backup copy* at `/Volumes/passport1/...` (Time Machine) — not the live plist
+- `Claude Code 2.1.161` (3 instances): our own read-only security scans
+- `plutil` (multiple): our own `plutil -p` verification commands
+- `ls`: our own `ls -lO` schg flag checks
+schg flag working as designed: nothing attempted a write.
+
+**Check 3 — TCC audit (system TCC.db with sudo):**
+CLEAN — only two entries, both DENIED:
+- `kTCCServiceAccessibility → com.apple.Terminal` = DENIED (auth_value=0)
+- `kTCCServiceScreenCapture → com.apple.Terminal` = DENIED (auth_value=0)
+No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented).
+
+**All monitored services:** NONE external network connections ✅
+**SIP:** enabled ✅ | **D85CF66F attestation container:** absent ✅ | **Quad9 hosts entry:** present ✅
+
 ### Actions Taken
 - **Identified and documented replayd screen recording incident** ✓
 - **Added replayd + replaykit to disabled.501.plist** via PlistBuddy (M-flag workaround) ✓
