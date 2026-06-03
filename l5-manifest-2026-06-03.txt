@@ -1,0 +1,136 @@
+# L5 Hash Manifest — 2026-06-03T20:36:40Z
+# Machine: evw’s MacBook Pro
+# Purpose: OpenTimestamps public hash witness
+
+# Core OS / launchd
+19125e57084c807292904cc97ef81dad703861453fad6b5442cbe6b7f2886350  /sbin/launchd
+86859188b063fb28ef3217e5e21242e5e27cb92e892a49509a943907ef9fdb1a  /usr/libexec/nsurlsessiond
+
+# System binaries (monitored)
+470f812f6e71ee4ca1b49c79f9c2982c054493e22502d4648bd010feb4b2a9b2  /usr/bin/ssh
+6a743f5398c9456aec2c9c59e48e5ab475082c71b74bcdaa7d373f8b53261d8d  /usr/sbin/sshd
+b5de787df7ff8404f683a384fc4371f1bb9807dd3e33b4dd91924e1a0e9cd77d  /usr/libexec/sshd-keygen-wrapper
+fde343ee184953c1fa1185abddeaa8be61c6acbebae4eb54db5d6b55b09a5755  /bin/bash
+ad5c194b05f83bc5e793c1cd67b148a4b680467b5a5730ab1a31fe4e6460ee9f  /bin/sh
+1f473d234dd65157f530b4f676686517ec97fe9aa64c76d82f2611674cc44314  /bin/zsh
+179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818  /usr/bin/python3
+5ab042572ea0e068644e3b8f9e8dd1ad197bfcf33d199316615b46ddc4390a41  /usr/bin/curl
+c232aa25bffd20eb5562d9badff6ad01b53950558bbc101602787a3a487ac158  /usr/bin/login
+abda2bfd23a6c9a8e57adf2291f0aea4abd8faf440558ee49fe4ced55e8d9ad0  /usr/bin/perl
+427423db6d5d5e9f720c5e110a2c9b3cba39ea089dafed4ab936d04dd218bdac  /usr/bin/nc
+517827f877751b6d7abebe404a296fa8e82425c63694a73ab06db35e6d9a8362  /usr/bin/openssl
+8b53735080acbe01ff70899a348743d4ff95f11207ffe27cff1118781c66853d  /usr/sbin/tcpdump
+5f8733621fc6dfdd1bb8f5b93f27b9644453288fc301bf3192738e1ecce57621  /sbin/pfctl
+UNREADABLE (needs sudo)  /usr/bin/sudo
+86687cb751efee8ffef191b516e63b6e295fcef4acea718df875227fb7957d9a  /usr/libexec/replayd
+253cbce54e478a374de972fa7d4509e5b6f0593ecf8aa8d28771010bcbf630f7  /usr/libexec/wifivelocityd
+f566b4e3718e23ee9c00b4294e88ac48a68fc699e91f5c625e9420cf9ef6d98c  /usr/libexec/searchpartyuseragent
+
+# Security project scripts
+3b0e880847e9c652604a7c1944d5fe5049425dd4e5ce3faca2bd7ddb4237baf7  build-fs-baseline.sh
+c5bbd2583485ac8a117168abe71d90114b29e4c0cc94fc562d4f130eb1ac842e  evw-plist-monitor.sh
+21dea44f4483ed9ff7d7e8d10b03c6c394d75c1acbbdf233633bb380b4bf8254  harden.sh
+3bdd776cb1c49343115040ee43aa9863dc726c69643ab573afa97c6b0cc4dc65  l5-stamp.sh
+d9f0f31c60516844e298a0f3a91c899154e2dfd0cfdf26700328bbfac42d2fc0  lock-remote-access.sh
+c2b3319bb5579e1aa90163dee6cb29662276cf4cf78977bc123ea5b2d398dc7f  package-and-encrypt.sh
+4fa2adb93222e38697fa69cd361844fa2b84c419357fb5c9af34df7be3bff08c  preserve-recording.sh
+87bc028a581d6fce077e41140d12d82fe7626aa9cb640a16d1a1e8795023bdc8  run-with-ls-silent.sh
+7f67959a706c01ebbbd46218ea1bcf43744a295663f244e442503a65aa4105d5  scan-hashes.sh
+1c6adc6eb0d98a37efa704cbb06d91e4f3025472d832e7940a280d70b9c6a184  tcc-audit.sh
+7bf7d33ef8c96683e39331335ce1099dac49cfff1e1b2512b27e9804d46b5d42  generate-hooks-pdf.py
+939b1b5e4ecd688f5ead27e738568b9b04d8ebcf1b129f44b3e547f4590986d5  generate-master-log-pdf.py
+df7aa27528536b3e5fb4e28704e177cc4d2fa82488a5357be5ef67d51fd77f8b  ls-full-analysis.py
+c81b655392279dacb5768d9c1acb9c19740167bcd2b9350475000481997ae642  security-memory-manager.py
+
+# Security project docs and manifests
+62936010a72f0c10b448567512e02733d84f7a381f1fd50c32b8dc748cb55fae  MASTER-SECURITY-LOG.md
+a45553b797b599e5965863f174dde37699353ab62ac2c8d67797a195b1d1669d  MASTER-SECURITY-LOG.pdf
+72ac8e7ce8b52405571d14a5c6aa99cfa4549c8642474fc6058f172c7039ee19  MANIFEST.sha256
+a149ba0f03043815906c4e674c72bca8febe53b6802bccf459c7242a51f82772  PRESERVATION-GUIDE.md
+aad64a894eef62ba6f0d719a884a2b822d8e9caceb89e7465e43410e3d412c9a  com.evw.plist-monitor.plist
+b4a4b74a146b51e06716e1c44e6edbc315f8a83c382332691a7cb99925dd5760  l5-hash-log.txt
+
+# Security project .claude files
+196bf14a23fc4f5f9b850a69ed1eb083d6fa92903a728c02c200a485b09aa0ce  .claude/SESSION.md
+6882bf1fc5710f6dd969435825d987810e179dea76c2d079182a9364230722d3  .claude/settings.local.json
+
+# Encrypted memory files (repo)
+fe60c3152bd2f7eb51ad98a331e52f57cf9eadb22e0486e363d297efdfc48b06  memory/short_term.csmem
+e2e5844c79974afb7d55ffee388ac69c70d14b178fede2fab608a61a9742acfd  memory/long_term.csmem
+
+# Claude Code global config
+f339631e883630edee57831ecfda3112c6c3830c3d621727292c5a33aaf72227  ~/.claude/CLAUDE.md
+c4c2a1cd879a251c1cc23834a94e95ce08c98258a119836d2f9b0fbb86d1bcb8  ~/.claude/settings.json
+0f354356b71fcec81291ef448501d2336756447f78c7871ec1d8e369e9f672f8  ~/.claude/settings.local.json
+fcd0e63bae6d0a7440f92b789b2d1db4c7d9ec371f8ba5cf59e63ce4dcad6bff  ~/.claude/export-conversation.sh
+0887e54e876972939dd5e83f7de3c7ba1bc7a168711f0d5f225c660623f85b51  ~/.claude/record-session.sh
+288954640badf8bb5412123c43a3b67ec5ff25ac525394c97826930f82d5f055  ~/.claude/hooks/pre-tool-use.sh
+51e23dcffd78a611b2c0fad7331cad42b547a93e7d9daafbba0b56295d17ee85  ~/.claude/hooks/post-tool-use.sh
+d3703b85c9f4fa1ef84390c70ee25a9304c1ec39c44b53f652de1639863a8bc2  ~/.claude/hooks/notify-on-stop.sh
+
+# Claude Code project memory (security)
+1642cd693dc09bccdf06a17a2f56ee0ded9a234c6cd9b74bee5a26d061755583  ~/.claude/projects/-Users-evw-dev-security/memory/feedback_autonomy.md
+ad18c7d42d1d1c6a1799733154fc7da702262e896022ac8287830b902068c45b  ~/.claude/projects/-Users-evw-dev-security/memory/feedback_hook_errors.md
+3d8eb4f7e280daad36e52af55a66f1d40097157fcaa241d81e1eb37413c6d50f  ~/.claude/projects/-Users-evw-dev-security/memory/feedback_plain_english_approval.md
+4e8b7b8de76b726e63ff6084e9e197240befb7f865451b261e1b3e4ca694de47  ~/.claude/projects/-Users-evw-dev-security/memory/feedback_preservation.md
+72dc1bc33f5b4c67f4f87037b4ab71b98542d6150190db09c0771d593c6191f9  ~/.claude/projects/-Users-evw-dev-security/memory/feedback_security_records_policy.md
+04691de614257b2ef0097e352494360e1f0e4799fc3b8c250b61e4bbbbfdd7db  ~/.claude/projects/-Users-evw-dev-security/memory/MEMORY.md
+a5a400e88bde7f7e1185506fe01e14f82efa63a610e1fcc9ed190247eb423495  ~/.claude/projects/-Users-evw-dev-security/memory/project_ew_to_evw_migration.md
+95df12781bcf3894572d32bf9cfaa55c222243566540b1eeb2acb787ec9afa95  ~/.claude/projects/-Users-evw-dev-security/memory/project_ls_hardening_state.md
+b13a140ed46467c600d7784867ad28361529726dbb436ca7bfd283c368c41949  ~/.claude/projects/-Users-evw-dev-security/memory/project_resilience_architecture.md
+e685f7098db79e4b15db0ee4185a4052a4f5d9ddd8a300b734e979fbb2187e93  ~/.claude/projects/-Users-evw-dev-security/memory/project_scan_checklist.md
+588ccccc201c57724d8258830959a7514dfe4e97619ab60cf61cc79f2583f1d5  ~/.claude/projects/-Users-evw-dev-security/memory/reference_prior_audits.md
+16585c31a843977ad00715a3b5ac7464a076697fbce55aa9a92f67047ab4422a  ~/.claude/projects/-Users-evw-dev-security/memory/user_threat_model.md
+94f8bb1c53219f8cd1c05f534f3b32bc948c0f5a3d8954ed560cd4a39e5c8c86  ~/.claude/projects/-Users-evw-dev-security/memory/long_term.csmem
+a3a64ee77b1700b008debb03aeaa541b1f68d505b5585fb9117871f405a29854  ~/.claude/projects/-Users-evw-dev-security/memory/short_term.csmem
+
+# Claude Code binaries (all installed versions)
+5adf7b4d349f743d669cd5adf2ce76dbb5e146d8ab99b3a63c5aef2ef15595f9  ~/.local/share/claude/versions/2.1.159
+6c9069a9ee0e7b9b6ee43d006c3402e66815e19f87ac4313330cf03f83611968  ~/.local/share/claude/versions/2.1.160
+5b4dc79eab05f9756c252c71deb339efa4429dffc1967dd8392cf87fcde4867f  ~/.local/share/claude/versions/2.1.161
+
+# Python binaries
+84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70  /Users/evw/.pyenv/versions/3.13.13/bin/python3.13
+179301dcb41ea78accc3fa0048a7e6f6710d891945a751a34addd622020c1818  /usr/bin/python3
+
+# Little Snitch binary
+a1e94e14f0812faf3943fd9c9d0e590a8ae4ecef08aa9fb181c356832cdd34ab  /Applications/Little Snitch.app/Contents/Components/littlesnitch
+
+# DuckDuckGo browser binary
+d93e8378e86224c0d8a3e2bb6fc4047fc15e8d87398245ff503f4ff5068f5402  /Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo
+
+# LaunchAgent and LaunchDaemon plists
+0705ead421b6a54a6e80f9f4bc4f4320021d0a4bd1208b4f8f8437930d9db6e1  /Users/evw/Library/LaunchAgents/com.evw.donut-intel.plist
+aad64a894eef62ba6f0d719a884a2b822d8e9caceb89e7465e43410e3d412c9a  /Library/LaunchDaemons/com.evw.plist-monitor.plist
+
+# DuckDuckGo preferences snapshot (zoom + appearance)
+6a8da8dae70f6ddbabb1bf9cee68654f6e89268a77eb5c8ab39928430939ccda  [DDG-prefs-snapshot: DDG_zoom=1 DDG_show-full-url=1]
+
+# Scan summaries and triage reports
+4e4fa0ac5b6af5a629105a371fb193774c7e47c680d01654245ece91ba6d8c83  scan-2026-05-18/TRIAGE-REPORT.md
+df7ee7f63eb3d94993e6bbdffdc2645490bf95c60950fcd3a822d0acff53ca5c  scan-2026-05-23/TRIAGE-REPORT.md
+2138ccfb38cb99ff7dd83e82ca3702fb438305375a4f3b39fd2ac83b64a0b04f  scan-2026-05-26/TRIAGE-REPORT.md
+fbc05f0277289c3f8a0d50672f5684b865b6c33194700e22ce88558817308f1f  scan-2026-05-26b/TRIAGE-REPORT.md
+e6252a35f0a7bf330b3e44605125e507f258ae7ea337d4cccf1446e35a863d39  scan-2026-05-27/TRIAGE-REPORT.md
+3466c9bb8564a3f63caa88bc06a98406b76bf19d8fe64c4c364a2e5d9aa381f2  scan-2026-05-28/TRIAGE-REPORT.md
+9de78da25d5e2c7a7b3e1c1197d8dc6b5bcddf96f4af4a1b5fe8dbf069152b0f  scan-2026-05-29/TRIAGE-REPORT.md
+1e725bb4dd4adc7c3fbe97486a89b9fc519df1b96da8806c0f14867c6fab47e5  scan-2026-05-31/SCAN-SUMMARY.md
+3c201acb1de69ea6d94c29f70c39c3f1855572dd4872e1676107e2338647dc9c  scan-2026-06-01/SCAN-SUMMARY.md
+9bc8e5d5d2ec6ba0a4f069aab586175c70089a4f6464293d11489dede750337a  scan-2026-06-01/TRIAGE-REPORT.md
+79d38745819dfa2212e62f454e991138f34a2b270d52be8b9e18380b680d0af8  scan-2026-06-01b/SCAN-SUMMARY.md
+38305803c074f0f2d53fd267da9b28cefc72cf3e0c1326f9052e60c683245e9d  scan-2026-06-02/SCAN-SUMMARY.md
+4d1f01a891147a1a3a9434f5c79f86ec9d1dade3ea789fc122cafffc77807b75  scan-2026-06-03/SCAN-SUMMARY.md
+
+# LS deny rule files
+a03969ec47ddf78682b07126e380a09be07c98e60a215c92b7c36cb391742d6f  ./scan-2026-05-26b/deny-rules-2026-05-26.lsrules
+1e3f806a7e7147ddd9b8ae82737da336284b25f73b15c3573880b3ba5daed8c9  ./scan-2026-05-28/deny-rules-2026-05-28.lsrules
+f6fa6c0a30148af66219224bb207b258f8c44aac99b1ce95d2cc154d9c90d89a  ./scan-2026-05-29/deny-rules-remotemanagement-2026-05-29.lsrules
+04b2fb4b0d86dcc4bf06167ee5cd287f695d2fcaf1a31abbd0ef32d8fec92c75  ./scan-2026-06-02/deny-rules-2026-06-02.lsrules
+
+# Most recent binary hash + LS model snapshots
+1eaa7d50f5247b149e663204ee208847d6546700d1de5b6972b2f05de90e9778  scan-2026-06-03/file-hashes.txt
+1eaa7d50f5247b149e663204ee208847d6546700d1de5b6972b2f05de90e9778  scan-2026-06-03/binary-hashes.txt
+6d560e8eed83eb44883f0fcbad2583f51e3fcb83051ccf5f9cbec85a18243e24  scan-2026-06-03/ls-model.json
+
+# Hash log (accumulated session snapshots)
+b4a4b74a146b51e06716e1c44e6edbc315f8a83c382332691a7cb99925dd5760  l5-hash-log.txt
