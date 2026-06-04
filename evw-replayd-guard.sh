@@ -14,9 +14,11 @@ while true; do
     if [ -n "$PID" ]; then
         log "ALERT: replayd running PID=$PID — capturing context before kill"
 
-        # Log parent chain
+        # Log parent chain and immediate spawn reason (identifies which Mach port triggered)
         PARENT_PID=$(ps -p "$PID" -o ppid= 2>/dev/null | tr -d ' ')
         log "  ppid=$PARENT_PID parent_cmd=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)"
+        REASON=$(launchctl print gui/501/com.apple.replayd 2>/dev/null | grep "immediate reason" | tr -d '\t')
+        log "  spawn_reason: ${REASON:-unknown}"
 
         # Log open files (video/surface evidence)
         lsof -p "$PID" 2>/dev/null | grep -iE "\.mov|\.mp4|\.m4v|IOSurface|screen|video|capture" \
@@ -33,5 +35,5 @@ while true; do
 
         kill -9 "$PID" 2>/dev/null && log "  killed PID=$PID" || log "  kill failed PID=$PID"
     fi
-    sleep 30
+    sleep 5
 done
