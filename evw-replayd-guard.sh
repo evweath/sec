@@ -15,8 +15,8 @@ while true; do
         log "ALERT: replayd running PID=$PID — capturing context before kill"
 
         # Log parent chain
-        PPID=$(ps -p "$PID" -o ppid= 2>/dev/null | tr -d ' ')
-        log "  ppid=$PPID parent_cmd=$(ps -p "$PPID" -o comm= 2>/dev/null)"
+        PARENT_PID=$(ps -p "$PID" -o ppid= 2>/dev/null | tr -d ' ')
+        log "  ppid=$PARENT_PID parent_cmd=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)"
 
         # Log open files (video/surface evidence)
         lsof -p "$PID" 2>/dev/null | grep -iE "\.mov|\.mp4|\.m4v|IOSurface|screen|video|capture" \
