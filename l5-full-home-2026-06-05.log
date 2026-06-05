@@ -1,2 +1,17 @@
 === L5 Full Home Hash — 2026-06-05T165642Z ===
 Manifest: /Users/evw/dev/security/l5-full-home-2026-06-05.txt
+
+Files hashed:    83915
+Unreadable:      8
+Manifest:        /Users/evw/dev/security/l5-full-home-2026-06-05.txt
+Manifest SHA-256: 030d80411ae1f567cefd6b4ff5f65ca1f46070704f963e3f9a1cdc4fc9509c4a
+
+Submitting to OpenTimestamps calendars...
+Submitting to remote calendar https://a.pool.opentimestamps.org
+Submitting to remote calendar https://b.pool.opentimestamps.org
+Submitting to remote calendar https://a.pool.eternitywall.com
+Submitting to remote calendar https://ots.btc.catallaxy.com
+Failed to create timestamp: need at least 2 attestations but received 0 within timeout
+OTS stamp may have failed — check /Users/evw/dev/security/l5-full-home-2026-06-05.log
+
+=== Done: 2026-06-05T17:11:31Z ===
