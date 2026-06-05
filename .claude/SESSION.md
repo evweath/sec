@@ -192,3 +192,66 @@ Nothing actively in progress.
 - **Memory key** — Keychain intact; recovery fingerprint `56830115...2205b9` (paper, desk)
 - **LS model** — 3,189 rules / 1,348 deny; scan-2026-06-03/ls-model.json
 - **Claude Code** — v2.1.161; scan-hashes.sh covers all 3 installed versions
+
+---
+
+# Session State — 2026-06-05T17:00Z
+
+## Accomplished This Session
+
+### Security Scan (full checklist)
+- **disabled.501.plist** — all 18 entries intact, schg held, mtime unchanged at Jun 3 11:39
+- **replayd guard** — running PID 548, sleep interval restored to 5s (deployed copy had regressed to 30s on Jun 4 10:21 — source in git was correct, deployed copy diverged)
+- **plist-monitor** — running PID 547, no write attempts; mdwrite false positives at boot (read-only Spotlight metadata ops)
+- **TCC** — CLEAN: only Terminal auth_value=0 (DENIED) for ScreenCapture and Accessibility; zero allowed grants
+- **Keybag** — no kb_set_user_uuid or fv_bind_keybag events since boot; no Touch ID wipe recurrence
+- **LS deny rules** — all 5 confirmed: replayd ×1, privatecloudcomputed ×1, remotemanagementd ×3, RemoteManagementAgent ×2, launchctl ×1
+- **Sensitive services network** — all 7 services NONE external connections
+- **Firewall + Stealth** — both ON (audit script had bash logic bug causing false FAIL; verified directly via socketfilterfw)
+
+### Hardening Applied
+- **Bluetooth** — ControllerPowerState=0 (persistent, boot-level); Control Center toggle was "off" but radio was still active
+- **AirDrop** — disabled (DisableAirDrop=1 in user domain)
+- **Universal Control** — disabled (Enabled=0)
+- **Handoff** — disabled (advertise + receive both 0)
+- **Wake on LAN** — disabled (pmset womp=0; was 1)
+- **Power Nap** — disabled (pmset powernap=0; was 1)
+- **Password on wake** — enabled with 0-second delay (was not configured)
+- **iCloud Drive (bird)** — stopped and disabled; NSUbiquityDocumentsSyncDisabled=true
+- **replayd guard interval** — restored to 5s on deployed /usr/local/bin copy
+
+### Threat Model Update
+- **Cursor movement at library (fresh Mac) and in Recovery Mode** — attributed to compromised iPhone/iPad acting as Universal Control relay. Mouse is wired USB — rules out Bluetooth HID injection at mouse layer. Not a hardware implant.
+- **File reversion in Recovery Mode** — attributed to bless --last-sealed-snapshot error (user did not use --create-snapshot variant). Not adversarial file restoration. Target service plists confirmed in base SSV, not Cryptex layer.
+- **Attack chain identified**: Compromised iPhone present at library setup → Universal Control gave adversary real-time cursor/observation access on fresh Mac → ongoing relay channel maintained via iPhone/iPad proximity.
+- **All device bridging now closed**: Universal Control, Handoff, AirDrop, Bluetooth all disabled at persistent/boot level.
+
+### Recovery Mode Findings (new information from user)
+- User followed all 6 steps (csrutil disable + authenticated-root disable + remount + rename + rebless) but did not use --create-snapshot bless variant → booted from Apple's original sealed snapshot, changes discarded
+- Two Recovery Mode anomalies: (1) cursor moved without mouse moving (WiFi radio was active), (2) Ctrl+scroll moved window instead of zooming
+- Same cursor movement observed on brand-new machine at library on personal hotspot ~1.5 months ago
+- iPhone and iPad (both compromised by same actor) were present at library and have been present throughout
+
+## In Progress
+Nothing actively in progress.
+
+## Next Steps (ordered — highest priority first)
+
+1. **Re-enroll Touch ID** — System Settings → Touch ID & Password → Add Fingerprint (keybag UUID mismatch from May 15 migration; expected to recur at next reboot)
+2. **Audit iCloud Keychain** — determine what credential categories sync between Mac and compromised iPhone; consider disabling Keychain sync or moving to a local-only password manager
+3. **Next Recovery Mode session** — turn off WiFi at router before entering, use wired USB mouse; use `bless --folder /Volumes/[name]/System/Library/CoreServices --bootefi --create-snapshot` to preserve changes
+4. **Identify replayd Mach port caller** — guard now logs spawn context; check /private/var/log/evw-replayd-guard.log next session for ppid and caller info
+5. **Run weekly L5 stamp** — `bash ~/dev/security/l5-stamp.sh`
+6. **Jun 2 reboot investigation** — still requires root log access
+7. **Browser zoom INCIDENT seq16** — mechanism still unresolved; re-audit TCC accessibility + input-monitoring with root
+
+## Key Context
+- **disabled.501.plist** — 18 entries (up from 11 at Jun 3; extra entries are benign additional disables), schg present, mtime Jun 3 11:39
+- **replayd** — SIP-protected managed service (5 Mach endpoints), permanently respawning; guard kills every 5s; LS deny-any active; TCC zero grants; no video files open
+- **Device bridging** — ALL disabled: Bluetooth (boot-level), AirDrop, Universal Control, Handoff
+- **Power settings** — Wake on LAN off, Power Nap off, password-on-wake immediate
+- **iCloud Drive** — bird stopped and disabled this session
+- **Guard log** — /private/var/log/evw-replayd-guard.log (readable without sudo); check for spawn_reason and ppid entries
+- **Plist monitor log** — /private/var/log/evw-plist-monitor.log (readable without sudo)
+- **Long-term memory** — entries #20–22 written this session (cursor/Recovery Mode findings, Universal Control relay ID, full scan results)
+- **Commit** — f1de98e "Security session 2026-06-05: full audit + hardening pass"
