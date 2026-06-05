@@ -255,3 +255,7 @@ Nothing actively in progress.
 - **Plist monitor log** — /private/var/log/evw-plist-monitor.log (readable without sudo)
 - **Long-term memory** — entries #20–22 written this session (cursor/Recovery Mode findings, Universal Control relay ID, full scan results)
 - **Commit** — f1de98e "Security session 2026-06-05: full audit + hardening pass"
+- **L5 full home baseline** — 83,915 files hashed; manifest SHA-256: `030d80411ae1f567cefd6b4ff5f65ca1f46070704f963e3f9a1cdc4fc9509c4a`; OTS proof: `l5-full-home-2026-06-05.txt.ots`; Bitcoin tx `259d5652...48ff07` awaiting 6 confirmations — verify with: `/Users/evw/Library/Python/3.9/bin/ots verify ~/dev/security/l5-full-home-2026-06-05.txt.ots` then upgrade once confirmed
+- **Network scan** — CLEAN; Claude→Anthropic CDN+GCP only; donut-intel dev server on localhost:8743 (expected); all sensitive services NONE; no unauthorized listeners
+- **Short-term memory** — updated (entry current as of 2026-06-05)
+- **Long-term memory** — entries #20–23 written this session
