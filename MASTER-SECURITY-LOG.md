@@ -3,7 +3,7 @@
 
 **Document purpose:** Chronological record of every finding, attack indicator, regression, and hardening action. This document exists to demonstrate that the pattern of system manipulation is consistent, recurring, and non-accidental.
 
-**Last updated:** 2026-06-03
+**Last updated:** 2026-06-08
 
 ---
 
@@ -717,6 +717,7 @@ All correlate with sessions where the LS model was modified/exported/restored:
 | 2026-06-01b | `~/dev/security/scan-2026-06-01b/` |
 | 2026-06-02 | `~/dev/security/scan-2026-06-02/` |
 | 2026-06-03 | `~/dev/security/scan-2026-06-03/` |
+| 2026-06-08 | `~/dev/security/scan-2026-06-08/` |
 
 LS deny rule files:
 - `scan-2026-05-28/deny-rules-2026-05-28.lsrules` — privatecloudcomputed block
@@ -732,6 +733,11 @@ LS model snapshots:
 - `ls-model-backup-2026-05-29.json` (2,062 rules, 483 deny)
 - `scan-2026-06-02/ls-model.json` (3,140 rules, 1,343 deny)
 - `scan-2026-06-03/ls-model.json` (3,188 rules, 1,348 deny)
+- `scan-2026-06-08/ls-model-original.json` (3,283 rules, pre-dedup)
+- `scan-2026-06-08/ls-model-deduped.json` (3,221 rules, 62 duplicates removed)
+- `scan-2026-06-08/ls-model-verified.json` (3,226 rules, post-restore)
+- `/tmp/ls-with-ots.json` (3,263 rules — current live model with OTS allow rules + catch-all)
+- `/tmp/ls-stamp-ready.json` (3,262 rules — catch-all removed, for OTS stamp procedure)
 
 Security tools created this session:
 - `tcc-audit.sh` — TCC permissions audit (user TCC.db no-sudo; system requires sudo)
@@ -742,9 +748,75 @@ Security tools created this session:
 L5 OpenTimestamps artifacts:
 - `l5-manifest-2026-06-02.txt` + `.ots` — 28 key files, Bitcoin-confirmed
 - `fs-baseline/fs-baseline-2026-06-02.txt` + `.ots` — 1,984 files, Bitcoin-confirmed
+- `l5-manifest-full-2026-06-08.txt` + `.ots` — 1,147 security files, OTS stamped (upgrade pending)
+- `l5-full-home-2026-06-08.txt` + `.ots` — 83,413 home files, OTS stamped (upgrade pending)
 - `l5-hash-log.txt` — cumulative session snapshots
 
 Encrypted memory:
 - `memory/short_term.csmem` — AES-256, HMAC-verified; key in Keychain `claude-security-memory-v1 / claude-ai`
 - `memory/long_term.csmem` — AES-256, HMAC chain of 13 entries
 - Recovery key fingerprint: `56830115...2205b9` (paper, desk)
+
+---
+
+## SCAN 2026-06-08
+
+**Date:** 2026-06-08  
+**Type:** Full comprehensive scan + LS dedup + L5 integrity + network audit  
+**Status:** ✅ CLEAN
+
+### Summary
+All Jun 5 hardening held. 18 entries in disabled.501.plist (schg present). Zero unexpected binary changes. Zero active sharing. No unauthorized tunnels. LS catch-all deny rule in place.
+
+### Key Actions
+
+#### Little Snitch Deduplication
+- Live model exported: 3,283 rules
+- True duplicates removed: 62 (corrected fingerprint required — initial version produced 3,037 false positives by omitting remote-hosts/remote-domains/remote-addresses fields)
+- Post-restore verified: 3,226 rules, all 15 critical deny rules present
+- Dedup script saved: `ls-dedup.py`
+
+#### OTS Bitcoin Timestamping — Root Cause Found and Fixed
+**Prior failures** (multiple sessions): OTS stamp returned "0 attestations within timeout" with EBADF on all hostname-based sockets.
+
+**Root cause:** Two conditions in combination:
+1. `(any)→deny any` catch-all LS rule (no process field, remote=any, useCount=117,298) blocked hostname-based TCP connections at kernel level with EBADF — even with explicit python3 allow rules present, because catch-all evaluated before process-specific rules for hostname matching
+2. `activeSilentMode=0` — without catch-all, LS prompted for unmatched connections and timed out
+
+**Fix procedure:**
+```
+sudo restore-model /tmp/ls-stamp-ready.json   # removes (any)→deny any catch-all
+run-with-ls-silent.sh ots stamp ...           # sets activeSilentMode=1 for duration
+sudo restore-model /tmp/ls-with-ots.json      # restores catch-all
+```
+
+**Result:** Both manifests successfully stamped to 4 Bitcoin calendar servers.
+- `l5-manifest-full-2026-06-08.txt.ots` (667 bytes, OTS v1)
+- `l5-full-home-2026-06-08.txt.ots` (667 bytes, OTS v1)
+
+#### Network Audit — No Tunnels
+- 4 utun interfaces (utun0–3): link-local IPv6 (fe80::) only, <5 bytes each since boot
+- All internet traffic via en0 (WiFi) exclusively
+- All sharing services NOT LOADED or disabled by preference
+- No VPN, no WireGuard, no PPP, no OpenVPN
+
+#### rapportd Disabled
+- `com.apple.rapportd` added to disabled.501.plist (schg cycle: clear → PlistBuddy → re-lock)
+- Universal Control already `Enabled=0`; rapportd now also plist-blocked on next boot
+- utun1 persists in live session via XPC re-activation (SIP prevents full removal)
+- LS catch-all deny rule: rapportd has zero allow rules, cannot make outbound connections
+
+### File Hash Diffs (vs scan-2026-06-04)
+| Status | File |
+|--------|------|
+| Modified | SESSION.md, settings.local.json, l5-hash-log.txt |
+| Modified | memory/short_term.csmem, memory/long_term.csmem |
+| New | Claude Code 2.1.165, 2.1.168 |
+| Removed | Claude Code 2.1.160, 2.1.161 |
+
+All changes expected and authenticated.
+
+### Pending
+1. OTS upgrade after Bitcoin confirmation: `ots upgrade l5-manifest-full-2026-06-08.txt.ots l5-full-home-2026-06-08.txt.ots`
+2. TCC audit (requires sudo)
+3. Touch ID re-enrollment (keybag UUID mismatch from Jun 5)

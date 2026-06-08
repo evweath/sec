@@ -339,3 +339,20 @@ Fix: restore model WITHOUT catch-all + wrap stamp in `run-with-ls-silent.sh` (se
 - `ls-dedup.py` at `/Users/evw/dev/security/ls-dedup.py` — corrected fingerprint (includes remote-hosts, remote-domains, remote-addresses)
 - Current live model: `/tmp/ls-with-ots.json` (3,263 rules: 3,226 deduped + 6 python3 OTS allow + 1 catch-all restored)
 - Future OTS stamps: `sudo restore /tmp/ls-stamp-ready.json` → `run-with-ls-silent.sh ots stamp` → `sudo restore /tmp/ls-with-ots.json`
+
+---
+
+# Session Update — 2026-06-08T20:00Z (security logs updated)
+
+## Documents Updated
+- `scan-2026-06-08/SCAN-SUMMARY.md` — created (full scan summary, all actions, artifacts)
+- `MASTER-SECURITY-LOG.md` — appended SCAN 2026-06-08 section, updated artifact tables, last-updated date
+- `MASTER-SECURITY-LOG.md` line count: ~830 lines
+
+## OTS Upgrade Still Pending
+Run when Bitcoin confirms:
+```
+sudo restore /tmp/ls-stamp-ready.json
+run-with-ls-silent.sh ots upgrade ~/dev/security/l5-manifest-full-2026-06-08.txt.ots ~/dev/security/l5-full-home-2026-06-08.txt.ots
+sudo restore /tmp/ls-with-ots.json
+```
