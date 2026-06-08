@@ -312,3 +312,30 @@ Nothing actively in progress.
 - **Network scan** — CLEAN; Claude→Anthropic CDN+GCP only; donut-intel dev server on localhost:8743 (expected); all sensitive services NONE; no unauthorized listeners
 - **Short-term memory** — updated (entry current as of 2026-06-05)
 - **Long-term memory** — entries #20–23 written this session
+
+---
+
+# Session Update — 2026-06-08T17:30Z (OTS stamp resolved)
+
+## OTS Bitcoin Timestamping — RESOLVED
+Root cause: Two simultaneous conditions blocked OTS:
+1. `(any)→deny any` catch-all LS rule blocked hostname-based TCP connections with EBADF
+2. `activeSilentMode: 0` (alert mode) — without catch-all, LS prompted on unmatched rules and timed out
+
+Fix: restore model WITHOUT catch-all + wrap stamp in `run-with-ls-silent.sh` (sets mode=1 for duration).
+
+## OTS Proof Files Created
+- `l5-manifest-full-2026-06-08.txt.ots` (667 bytes, OTS v1, 4 calendars, Bitcoin pending)
+- `l5-full-home-2026-06-08.txt.ots` (667 bytes, OTS v1, 4 calendars, Bitcoin pending)
+- Calendars: a.pool.opentimestamps.org, b.pool.opentimestamps.org, a.pool.eternitywall.com, ots.btc.catallaxy.com
+
+## Next Steps
+1. **OTS upgrade** (~1 hour after stamp): `! /Users/evw/Library/Python/3.9/bin/ots upgrade ~/dev/security/l5-manifest-full-2026-06-08.txt.ots ~/dev/security/l5-full-home-2026-06-08.txt.ots`
+2. **OTS verify**: `! /Users/evw/Library/Python/3.9/bin/ots verify ~/dev/security/l5-manifest-full-2026-06-08.txt.ots`
+3. **TCC audit** (requires sudo): `sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT service,client,auth_value,last_modified FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent') ORDER BY service,auth_value DESC;"`
+4. **Touch ID re-enrollment**: System Settings → Touch ID & Password → Add Fingerprint (pending Jun 5 keybag mismatch)
+
+## LS State After This Session
+- `ls-dedup.py` at `/Users/evw/dev/security/ls-dedup.py` — corrected fingerprint (includes remote-hosts, remote-domains, remote-addresses)
+- Current live model: `/tmp/ls-with-ots.json` (3,263 rules: 3,226 deduped + 6 python3 OTS allow + 1 catch-all restored)
+- Future OTS stamps: `sudo restore /tmp/ls-stamp-ready.json` → `run-with-ls-silent.sh ots stamp` → `sudo restore /tmp/ls-with-ots.json`
