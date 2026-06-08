@@ -195,6 +195,59 @@ Nothing actively in progress.
 
 ---
 
+# Session State — 2026-06-08T14:15Z
+
+## Accomplished This Session
+
+### Full Security Scan
+- **disabled.501.plist** — all 11 critical entries confirmed (18 total), schg PRESENT, mtime Jun 3 11:39 unchanged
+- **plist-monitor** — running PID 549 ✓ (pgrep -x gives false alarm; use pgrep -f)
+- **replayd-guard** — running PID 550 ✓; 2,656 kills logged; no video files open (Metal GPU cache only)
+- **Monitored services** — ALL 7: NONE external network (RemoteManagementAgent, remotemanagementd, sharingd, identityservicesd, replicatord, studentd, privatecloudcomputed)
+- **LS critical deny rules** — 15/15 present, 15/15 XPC subscribers blocked, all permanent
+- **Network** — CLEAN: Claude→Anthropic CDN (160.79.104.10) only + localhost:8743 donut-intel
+- **Firewall + Stealth** — both ON ✓
+- **Hardening held**: BT ControllerPowerState=0, AirDrop disabled, Handoff disabled, WoL off, PowerNap off, screensaver lock immediate, Universal Control disabled
+- **iCloud bird** — running but NSUbiquityDocumentsSyncDisabled=1, network: NONE ✓
+- **Keybag** — no kb_set_user_uuid / fv_bind_keybag events ✓
+- **System extensions** — only LS networkext 6.3.3 (MLZF7K7B5R) ✓
+- **Binary hashes** — 77 files; all 5 changes expected (Claude 2.1.165/168 added, 2.1.160/161 removed; SESSION.md, settings, memory files)
+- **No new recording files on Desktop** — Jun 2 original preserved; no new unauthorized recordings
+- **PCC container D85CF66F** — absent ✓
+- **No new LaunchAgents/Daemons since Jun 5** ✓
+- **No diagnostic crashes since Jun 5** ✓
+- **DuckDuckGo zoom** — default 1.0, stable ✓
+
+### Little Snitch Deduplication
+- **Live model exported**: 3,283 rules
+- **62 true duplicates removed** (55 allow, 5 deny, 2 suggestion)
+- **Restored deduped model**: 3,226 rules (3,283 → 3,226)
+- **All 10 critical deny rules survived** ✓; 5 harmless allow duplicates remain (catch-all factory rules)
+- **Archives**: `scan-2026-06-08/ls-model-original.json`, `ls-model-deduped.json`, `ls-model-verified.json`
+- **Dedup script**: `/tmp/ls-dedup.py` (fixed fingerprint includes remote-hosts, remote-domains, remote-addresses)
+
+## In Progress
+Nothing actively in progress.
+
+## Next Steps (ordered)
+1. **TCC audit** (requires sudo terminal): `sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT service,client,auth_value,last_modified FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent') ORDER BY service,auth_value DESC;"`
+2. **Re-enroll Touch ID** — System Settings → Touch ID & Password → Add Fingerprint
+3. **Audit iCloud Keychain** — determine what syncs to compromised iPhone
+4. **Run weekly L5 stamp** — `bash ~/dev/security/l5-stamp.sh`
+5. **Next Recovery Mode session** — WiFi off at router, wired mouse, use `--create-snapshot` bless variant
+6. **Citizen Lab / Access Now contact** — replayd incident + plist regressions meets reporting threshold
+
+## Key Context
+- **LS model** — 3,226 rules / 1,350 deny; `scan-2026-06-08/ls-model-verified.json`
+- **disabled.501.plist** — 18 entries, schg present, mtime Jun 3 11:39
+- **replayd** — SIP-protected, guard kills every 5s, no video files, no plist, LS deny-any active
+- **Device bridging** — ALL disabled: BT (boot-level), AirDrop, Universal Control, Handoff
+- **Guard log** — /private/var/log/evw-replayd-guard.log; plist-monitor log: /private/var/log/evw-plist-monitor.log
+- **Recording evidence** — ~/Desktop/Screen Recording 2026-06-02 at 6.24.56 PM.mov (4.03 GB, preserved)
+- **Dedup script** — /tmp/ls-dedup.py (copy to ~/dev/security/ for persistence)
+
+---
+
 # Session State — 2026-06-05T17:00Z
 
 ## Accomplished This Session
