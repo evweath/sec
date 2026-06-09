@@ -390,22 +390,25 @@ sudo restore /tmp/ls-with-ots.json
 - `scan-2026-06-09/file-hash-diff-vs-scan-2026-06-08.txt` — delta
 - `MASTER-SECURITY-LOG.md` — SCAN 2026-06-09 appended (line count ~900+)
 
+## Sudo Commands Run (user confirmed)
+- plist: 17 true entries → RESOLVED: LS agent entry changed true→false (correct — LS should be enabled)
+- LS export: 3,287 rules, all 8 critical deny rules present
+- System TCC: only Terminal DENIED entries — CLEAN
+
+## Plist Resolution
+`at.obdev.littlesnitch.agent => false` (was `true`) — this is CORRECT state (LS should run).
+All 11/11 critical entries present. No regression.
+
 ## In Progress
 Nothing actively in progress.
 
 ## Next Steps (ordered)
 
 ### IMMEDIATE
-1. **Close the WhatsApp tab in DuckDuckGo** — do not contact the number
-2. **Confirm or delete CodeWhale bookmark** — was `github.com/Hmbown/CodeWhale` (DeepSeek+MiMo) intentionally bookmarked on Jun 5?
-
-### Require sudo (run in Terminal with `!` prefix)
-3. **Verify plist entries (18 expected):**
-   `! sudo plutil -p /var/db/com.apple.xpc.launchd/disabled.501.plist | grep -c true`
-4. **Export and audit LS model:**
-   `! sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch export-model /tmp/ls-scan-jun9.json && python3 -c "import json; d=json.load(open('/tmp/ls-scan-jun9.json')); print('Total:', len(d['rules']), 'Deny:', sum(1 for r in d['rules'] if r.get('action')=='deny'))"`
-5. **System TCC audit:**
-   `! sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT service,client,auth_value,last_modified FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent') ORDER BY service,auth_value DESC;"`
+1. **Close the WhatsApp tab in DuckDuckGo** — do not contact +8615937826701
+2. **Add WhatsApp deny rules to LS** (block future opens):
+   `! sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch restore-model /tmp/ls-with-wa-block.json`
+   (Model prepared at /tmp/ls-with-wa-block.json — 3,290 rules, adds deny for api/web/www.whatsapp.com)
 
 ### Next scan session
 6. **OTS upgrade** (Bitcoin confirmation for Jun 8 stamps):
