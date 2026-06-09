@@ -1,0 +1,18 @@
+# /etc/security/audit_control — evw hardened config 2026-06-09
+# Changes vs default:
+#   flags:  added ex (exec with argv), pc (process fork/exit/kill)
+#   policy: added argv — CRITICAL: captures full exec argument list
+#   filesz: 20M per log file (was 2M default)
+#   expire-after: 500M total (was 5M default)
+
+dir:/var/audit
+flags:lo,aa,ex,pc
+minfree:5
+naflags:lo,aa,ex,pc
+policy:cnt,argv
+filesz:20M
+expire-after:500M
+superuser-set-sflags-mask:has_authenticated,has_console_access
+superuser-clear-sflags-mask:has_authenticated,has_console_access
+member-set-sflags-mask:
+member-clear-sflags-mask:has_authenticated
