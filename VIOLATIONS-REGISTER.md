@@ -88,7 +88,20 @@ ioreg -l | grep -i "IOAudioEngine\|microphone\|capture" | head -20
 log show --last 24h --predicate 'subsystem == "com.apple.coreaudio" OR subsystem == "com.apple.avfoundation"' --style compact 2>/dev/null | grep -i "microphone\|record\|capture\|input" | head -30
 ```
 
-**Status:** OPEN — audit not yet run
+**Audit results (2026-06-09):**
+- System TCC.db (`kTCCServiceMicrophone`): **no entries** — zero grants or denials
+- User TCC.db (`kTCCServiceMicrophone`): **no entries** — zero grants or denials
+- ioreg audio devices: Internal microphone 1/2/3 (hardware registered, not in active use), "Leap Mic" (Apple internal beamforming label), External microphone connector — all normal hardware descriptors
+- No process currently holds an audio capture session detectable via TCC
+
+**Caveat:** Same bypass vector as V-003 (replayd) exists for audio. A process with
+`com.apple.private.coreaudio.recordingpermission` or equivalent CoreAudio private entitlement
+can record audio without any TCC entry — identical to how replayd bypassed screen-capture TCC.
+Absence of TCC records does not guarantee no covert audio recording via entitlement bypass.
+
+**Add to each scan:** Check TCC + `log show --last 24h --predicate 'subsystem == "com.apple.coreaudio"' | grep -i "record\|input\|microphone"` for audio capture events.
+
+**Status:** MITIGATED — no TCC grants found; entitlement-bypass recording remains undetectable without process-level entitlement enumeration
 
 ---
 
