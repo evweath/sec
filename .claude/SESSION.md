@@ -460,3 +460,40 @@ Nothing actively in progress.
 - **LS model**: 3,290 rules total (Jun 9 export: /tmp/ls-current.json, 2,281,248 bytes)
 - **Scan artifacts**: scan-2026-06-09/ directory with file-hashes.txt and SCAN-SUMMARY.md
 - **Plist-monitor log**: /private/var/log/evw-plist-monitor.log
+
+---
+
+# Session State — 2026-06-09T20:00Z (context-compacted continuation)
+
+## Accomplished This Session (afternoon)
+- V-001 mitigated: Terminal→any/any/any rule removed via `ls-remove-terminal-any.sh` (3290→3289 rules); binary identified as pyenv Python 3.13
+- V-002 mitigated: microphone TCC audit — no grants anywhere (system or user TCC.db)
+- V-003–V-010: all documented in VIOLATIONS-REGISTER.md with full evidence and status
+- V-010 closed: concealed paste explained — loginwindow SecureInput during lid-open login at 09:34, not an attack
+- WhatsApp tab closed; api.whatsapp.com useCount confirmed at 8 (all blocked)
+- Violations register created: `/Users/evw/dev/security/VIOLATIONS-REGISTER.md` (10 violations, V-001 through V-010)
+- ls-remove-terminal-any.sh: atomic export→strip→import script for removing LS blanket rules
+- ls-permissive-analysis.py: reusable scan script for ranking LS rules by permissiveness + anomaly checks
+- Scan checklist updated (items 9–14): audit monitor health, BSM status, process accounting, LS permissive scan, standard scan sequence, violations register review
+- MASTER-SECURITY-LOG.md appended with full session record
+
+## In Progress
+- Nothing outstanding; all session work committed
+
+## Next Steps (ordered)
+1. OTS upgrade — Bitcoin block confirmation pending from prior session
+2. Re-enroll Touch ID — keybag UUID mismatch from May 15 ew→evw migration
+3. Audit iCloud Keychain — what syncs to compromised iPhone?
+4. Citizen Lab / Access Now contact — replayd + plist regression + DDG incidents meets reporting threshold
+5. Tighten LS rules 24–30 — Safari/Terminal to google/youtube/bing/rebuyengine: restrict to 443/TCP
+6. Process accounting re-enable after reboot — `accton` does not survive reboot; needs `sudo accton /var/account/acct` each boot
+7. VirusTotal check — SHA256 `84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70` (pyenv Python 3.13, severity low but unconfirmed clean)
+
+## Key Context
+- **Violations register**: 10 violations documented; V-001/002/003/004/005/006/007/008/010 mitigated; V-009 closed
+- **LS rule count**: 3,289 (post V-001 removal); prior 3,290
+- **Anonymous binary (V-001)**: identified as pyenv Python 3.13 via LS codeRequirements field; not found on disk; likely temp/cleaned
+- **BSM still dead on Darwin 25**: unified log stream is active capture path (audit monitor running pid 62342)
+- **WhatsApp INCIDENT #21**: tab closed, 8 block events confirmed, LaunchServices URL delivery vector (no TCC required)
+- **Key scripts**: ls-permissive-analysis.py, ls-remove-terminal-any.sh, evw-audit-monitor.py
+- **Scan dir**: scan-2026-06-09/ — ls-permissive-top30.md, file-hashes.txt, SCAN-SUMMARY.md
