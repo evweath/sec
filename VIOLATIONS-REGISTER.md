@@ -276,7 +276,17 @@ ioreg -l | grep -i "secureinput\|securekey"
 sudo launchctl list | grep -v "^-" | awk '{print $3}' | sort
 ```
 
-**Status:** OPEN — active investigation required
+**Status:** CLOSED — explained by normal login screen behavior
+
+**Resolution (2026-06-09):**
+Unified log confirms: only `loginwindow[408]` touched SecureInput, at exactly 09:34:03–09:34:07 (lid-open login). Standard macOS behavior — login window holds SecureInput=1 during password entry, releases it at 09:34:07.107. User pasted into Claude Code terminal shortly after login while SecureInput was still briefly active from the lock screen transition. No attacker process involved.
+
+Confirmatory findings:
+- `kTCCServiceListenEvent`: no grants (keyboard monitoring not granted to any process)
+- `kTCCServicePostEvent`: no grants (input injection not granted to any process)
+- `kTCCServiceAccessibility|Terminal`: auth_value=0 (DENIED)
+- `ioreg`: no active SecureInput holder
+- No audit alerts
 
 ---
 
