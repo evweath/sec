@@ -48,7 +48,17 @@ The binary could not be identified by code signing — only by SHA256 hash.
    `84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70`
 3. Watch for recurrence: audit monitor will flag any new Terminal→any exec patterns
 
-**Status:** OPEN — LS model import pending user confirmation; binary unrecoverable
+**Binary identified (2026-06-09):**
+The `codeRequirements` field in the LS model identified the binary as:
+`/Users/evw/.pyenv/versions/3.13.13/bin/python3.13` — pyenv Python 3.13 (unsigned, hence hash-only ID).
+Not confirmed malware. A Python script running in Terminal connected to `equipmentplus.myshopify.com`
+(a Shopify store). Likely a dev/scraping script. Binary not found on disk — already deleted or temp.
+
+**Fix applied (2026-06-09):**
+Rule removed via `ls-remove-terminal-any.sh` — atomic export→strip→import in single root shell.
+3,290 → 3,289 rules. Confirmed: `SUCCESS — Terminal->any rule removed`.
+
+**Status:** MITIGATED — rule removed; binary identified as pyenv Python 3.13 (not confirmed malicious)
 
 ---
 
