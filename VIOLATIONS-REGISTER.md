@@ -33,13 +33,22 @@ The binary could not be identified by code signing — only by SHA256 hash.
 - useCount 1,761 — rule was actively used after creation
 - Rule artifact: `scan-2026-06-09/ls-permissive-top30.md`
 
-**Fix required:**
-1. Import cleaned LS model (removes this rule):
-   `sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch restore-model /tmp/ls-minus-terminal-any.json`
-2. Search for binary: `find ~/dev ~/Library /usr/local -type f -newer /tmp/ls-current.json 2>/dev/null | xargs shasum -a 256 2>/dev/null | grep 84915e7c`
-3. If binary found: hash it, submit to VirusTotal, quarantine
+**Binary forensics (2026-06-09):**
+- Searched: ~/dev, ~/Library, /tmp, /opt/homebrew, /usr/local/bin, /usr/local/sbin
+- Result: **NOT FOUND on disk**
+- LS factoryHelpText recorded no filesystem path — only the SHA256 hash
+- This means LS could not locate the binary's path when it ran (2026-05-28)
+- Binary was likely executed from a temp location and cleaned up, or was memory-resident (fileless execution)
+- The LS rule is the only persistent artifact remaining
 
-**Status:** OPEN — LS model import pending user confirmation
+**Fix required:**
+1. Import cleaned LS model (removes this rule) — PENDING:
+   `sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch restore-model /tmp/ls-minus-terminal-any.json`
+2. Binary not recoverable — submit SHA256 to VirusTotal for reputation check:
+   `84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70`
+3. Watch for recurrence: audit monitor will flag any new Terminal→any exec patterns
+
+**Status:** OPEN — LS model import pending user confirmation; binary unrecoverable
 
 ---
 
