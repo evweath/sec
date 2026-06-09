@@ -166,13 +166,13 @@ LS blocked all TCP connections to api.whatsapp.com (8 blocks confirmed same day)
 
 **Mitigations applied:**
 - LS deny rules: api.whatsapp.com, web.whatsapp.com, www.whatsapp.com ✅
-- DDG tab should be closed by user ⚠️ PENDING
+- DDG tab closed 2026-06-09 ✅ (had been open ~1 hour into this session; 8 blocked connection attempts confirmed before closure)
 
 **Still unknown:**
 - Which process delivered the URL via LaunchServices
 - BSM auditing would have captured this; auditd blocked by macOS 16 policy
 
-**Status:** MITIGATED — network blocked; URL delivery process not identified
+**Status:** MITIGATED — network blocked; tab closed; URL delivery process not identified
 
 ---
 
