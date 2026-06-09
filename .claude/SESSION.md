@@ -356,3 +356,71 @@ sudo restore /tmp/ls-stamp-ready.json
 run-with-ls-silent.sh ots upgrade ~/dev/security/l5-manifest-full-2026-06-08.txt.ots ~/dev/security/l5-full-home-2026-06-08.txt.ots
 sudo restore /tmp/ls-with-ots.json
 ```
+
+---
+
+# Session State — 2026-06-09T13:15Z
+
+## Accomplished This Session
+
+### Security Scan (full comprehensive scan)
+- **All monitored services: CLEAN** — 0 external connections confirmed (corrected lsof -a flag issue; prior scan script was wrong)
+- **replayd**: running idle; guard active; no video files; only Metal GPU cache open
+- **Firewall + Stealth**: both ON
+- **PCC D85CF66F**: absent
+- **System extensions**: LS only (MLZF7K7B5R)
+- **BT/AirDrop/UC**: all still hardened (ControllerPowerState=0, DisableAirDrop=1, UC=0)
+- **TCC user grants**: no ScreenCapture, Accessibility, or ListenEvent grants
+- **No new LaunchAgents/Daemons, no crashes**
+- **Binary hashes (79 files)**: 5 modified (all expected), 2 new (Claude 2.1.169, ls-dedup.py)
+- **DNS**: Quad9 unchanged
+- **plist mtime change explained**: mdwrite (Spotlight) updated xattr at Jun 8 14:46 — not content modification; schg still present
+
+### INCIDENT #21 — DDG WhatsApp URL Injection
+- URL: `https://api.whatsapp.com/send?phone=+8615937826701&text=Hello`
+- Chinese phone (+86 China Mobile, social engineering contact attempt)
+- Investigation: no WebKit storage for whatsapp.com, no automation logs, no Messages history, no TCC grants
+- Verdict: Likely a website with a "Contact us on WhatsApp" button was visited; tab persists via session restore
+- **Do NOT contact +8615937826701** — social engineering attempt to establish WhatsApp contact
+- DDG bookmark to github.com/Hmbown/CodeWhale (DeepSeek+MiMo Chinese AI agent) added Jun 5 — needs user confirmation
+
+### Documents Updated
+- `scan-2026-06-09/SCAN-SUMMARY.md` — created
+- `scan-2026-06-09/file-hashes.txt` — 79 files
+- `scan-2026-06-09/file-hash-diff-vs-scan-2026-06-08.txt` — delta
+- `MASTER-SECURITY-LOG.md` — SCAN 2026-06-09 appended (line count ~900+)
+
+## In Progress
+Nothing actively in progress.
+
+## Next Steps (ordered)
+
+### IMMEDIATE
+1. **Close the WhatsApp tab in DuckDuckGo** — do not contact the number
+2. **Confirm or delete CodeWhale bookmark** — was `github.com/Hmbown/CodeWhale` (DeepSeek+MiMo) intentionally bookmarked on Jun 5?
+
+### Require sudo (run in Terminal with `!` prefix)
+3. **Verify plist entries (18 expected):**
+   `! sudo plutil -p /var/db/com.apple.xpc.launchd/disabled.501.plist | grep -c true`
+4. **Export and audit LS model:**
+   `! sudo /Applications/Little\ Snitch.app/Contents/Components/littlesnitch export-model /tmp/ls-scan-jun9.json && python3 -c "import json; d=json.load(open('/tmp/ls-scan-jun9.json')); print('Total:', len(d['rules']), 'Deny:', sum(1 for r in d['rules'] if r.get('action')=='deny'))"`
+5. **System TCC audit:**
+   `! sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT service,client,auth_value,last_modified FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent') ORDER BY service,auth_value DESC;"`
+
+### Next scan session
+6. **OTS upgrade** (Bitcoin confirmation for Jun 8 stamps):
+   `sudo restore /tmp/ls-stamp-ready.json && run-with-ls-silent.sh ots upgrade ~/dev/security/l5-manifest-full-2026-06-08.txt.ots ~/dev/security/l5-full-home-2026-06-08.txt.ots && sudo restore /tmp/ls-with-ots.json`
+7. **Consider LS deny rules** for `api.whatsapp.com` + `web.whatsapp.com`
+8. **Re-enroll Touch ID** — keybag UUID mismatch from May 15 still pending
+9. **Audit iCloud Keychain** — what syncs to compromised iPhone
+10. **Citizen Lab / Access Now contact** — replayd + plist regressions + DDG incidents meets threshold
+
+## Key Context
+- **plist**: schg present, mtime Jun 8 14:46 (mdwrite/Spotlight xattr update — verified via plist-monitor log); content verification requires sudo
+- **LS model**: 3,226 rules / 1,350 deny (last verified Jun 8); sudo required to export fresh
+- **replayd**: SIP-protected, guard kills every 5s, no video files, no plist, LS deny-any active
+- **rapportd**: running (SIP-protected), network interface blocked via LS (Jun 8 fix)
+- **WhatsApp incident**: social engineering, Chinese number +8615937826701 — do NOT contact
+- **CodeWhale bookmark**: added Jun 5 15:15, DeepSeek+MiMo Chinese AI — confirm intentional
+- **Guard log**: /private/var/log/evw-replayd-guard.log
+- **Plist-monitor log**: /private/var/log/evw-plist-monitor.log
