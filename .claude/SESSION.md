@@ -426,4 +426,37 @@ Nothing actively in progress.
 - **WhatsApp incident**: social engineering, Chinese number +8615937826701 — do NOT contact
 - **CodeWhale bookmark**: added Jun 5 15:15, DeepSeek+MiMo Chinese AI — confirm intentional
 - **Guard log**: /private/var/log/evw-replayd-guard.log
+
+---
+
+# Session State — 2026-06-09T15:00Z (afternoon continuation)
+
+## Accomplished This Session
+- Installed and confirmed running: `com.evw.audit-monitor` LaunchDaemon (pid 62342)
+  - Script: `/usr/local/bin/evw-audit-monitor.py`
+  - Plist: `/Library/LaunchDaemons/com.evw.audit-monitor.plist`
+  - Captures: unified log stream (launchservices/tccd/xpc at debug)
+  - Alerts: `/private/var/log/evw-audit-monitor.log`, `/private/var/log/evw-audit-alerts.log`
+- Enabled unified log debug verbosity for launchservices, tccd, xpc
+- Enabled process accounting: `/var/account/acct` via `accton`
+- Installed hardened `/etc/security/audit_control` (ex,pc flags, argv policy) — moot since auditd is SIGKILLed by macOS 16
+- Confirmed WhatsApp LS deny rules already active (api/web/www.whatsapp.com)
+  - **api.whatsapp.com useCount: 8** — tab is still open and being blocked repeatedly
+
+## In Progress
+- Nothing; all planned auditing layers installed
+
+## Next Steps (ordered)
+1. **Close WhatsApp tab in DuckDuckGo** — useCount: 8 means it's still attempting connections
+2. OTS upgrade — Bitcoin block confirmation pending
+3. Re-enroll Touch ID — keybag UUID mismatch from May 15 migration
+4. Audit iCloud Keychain — what syncs to compromised iPhone?
+5. Citizen Lab / Access Now contact — replayd + plist regression + DDG incidents meets threshold
+
+## Key Context
+- **BSM auditd**: Dead on Darwin 25 — macOS 16 security policy SIGKILLs it immediately
+- **Audit monitor**: Running; unified log path works; BSM path gracefully blocked on /dev/auditpipe
+- **WhatsApp rules**: 3 deny rules in live LS model; api.whatsapp.com blocked 8× today
+- **LS model**: 3,290 rules total (Jun 9 export: /tmp/ls-current.json, 2,281,248 bytes)
+- **Scan artifacts**: scan-2026-06-09/ directory with file-hashes.txt and SCAN-SUMMARY.md
 - **Plist-monitor log**: /private/var/log/evw-plist-monitor.log

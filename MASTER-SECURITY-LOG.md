@@ -900,3 +900,47 @@ Removed: 0
 # 3. System TCC
 ! sudo sqlite3 /Library/Application\ Support/com.apple.TCC/TCC.db "SELECT service,client,auth_value,last_modified FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent') ORDER BY service,auth_value DESC;"
 ```
+
+---
+
+## SESSION 2026-06-09 (afternoon) — Auditing Setup
+
+### Actions Completed
+
+**WhatsApp LS deny rules — CONFIRMED ACTIVE**
+- `api.whatsapp.com` DENY (useCount: 8 — tab was actively blocked 8 times this morning)
+- `web.whatsapp.com` DENY
+- `www.whatsapp.com` DENY
+- Rules created at 2026-06-09T13:40:17Z via prior session restore-model import
+- **FINDING:** useCount: 8 on api.whatsapp.com means the DDG tab is still open and repeatedly attempting to phone home. Close the tab.
+
+**BSM auditd — BLOCKED by macOS 16**
+- `sudo /usr/sbin/auditd -l` → `zsh: killed` (SIGKILL from OS security policy)
+- Darwin 25.5.0 (macOS 16 Tahoe) effectively removes BSM auditing
+- `/etc/security/audit_control` installed with hardened config (ex,pc flags, argv policy)
+- Moot until Apple re-enables the subsystem
+
+**com.evw.audit-monitor — RUNNING**
+- Script: `/usr/local/bin/evw-audit-monitor.py`
+- Plist: `/Library/LaunchDaemons/com.evw.audit-monitor.plist`
+- State: running, pid 62342, last exit: never
+- Captures: unified log stream (com.apple.launchservices debug, com.apple.security.tccd debug, com.apple.xpc info)
+- Alerts to: `/private/var/log/evw-audit-monitor.log`, `/private/var/log/evw-audit-alerts.log`
+- Watch patterns: https://, whatsapp, noschg, nouchg, disabled.501.plist, PlistBuddy, launchctl enable/disable, osascript, Keychain, .ssh/, id_rsa
+- BSM path inactive (praudit blocks on /dev/auditpipe since auditd is dead — handled gracefully)
+
+**Unified log verbosity — SET**
+- `com.apple.launchservices`: level:debug, persist:debug
+- `com.apple.security.tccd`: level:debug, persist:debug
+- `com.apple.xpc`: level:info, persist:info
+
+**Process accounting — ACTIVE**
+- `/var/account/acct` created, `accton` enabled
+- Lightweight exec record via `lastcomm`
+
+### Pending
+- Close WhatsApp tab in DuckDuckGo (useCount: 8 confirms it's still active)
+- OTS upgrade (Bitcoin block confirmation)
+- Re-enroll Touch ID (keybag UUID mismatch from May 15 migration)
+- Audit iCloud Keychain
+- Citizen Lab / Access Now contact
