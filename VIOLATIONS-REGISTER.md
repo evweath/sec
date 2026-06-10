@@ -142,6 +142,15 @@ it was discovered during the Jun 3 scan.
 
 **Status:** MITIGATED — controls prevent recurrence, but triggering client never identified
 
+**Recurrence note (2026-06-10):**
+macOS 26.5 (Build 25F71) update reset launchd's in-memory disabled state for `com.apple.replayd`.
+- `disabled.501.plist` still has correct entry (`"com.apple.replayd" => true`) — schg held
+- `launchctl print-disabled gui/501` does NOT show replayd as disabled (runtime mismatch)
+- replayd respawning continuously at boot; guard daemon (PID 533) killing each spawn
+- PIDs observed this session: 23831, 24310, 25289 — each killed within 5s by guard
+- No video output files open at kill time; no network connections
+- Action needed: re-run `launchctl disable gui/501/com.apple.replayd` to sync runtime state
+
 ---
 
 ### V-004 | DuckDuckGo WhatsApp URL Tab Injection
@@ -310,6 +319,41 @@ Confirmatory findings:
 - `kTCCServiceAccessibility|Terminal`: auth_value=0 (DENIED)
 - `ioreg`: no active SecureInput holder
 - No audit alerts
+
+---
+
+### V-011 | replayd Runtime State Mismatch After macOS Update
+**Severity:** HIGH
+**Discovered:** 2026-06-10
+**Type:** Mitigation regression / OS update behavior
+
+**What happened:**
+macOS 26.5 update (Build 25F71) was installed between the 2026-06-09 and 2026-06-10 scans.
+The update reset launchd's in-memory disabled state for `com.apple.replayd`, causing it to
+respawn at every boot despite `disabled.501.plist` having the correct disable entry.
+The `launchctl print-disabled gui/501` output shows only `replaykit.sharingsession` as disabled;
+`replayd` is missing from runtime state, confirming a plist vs runtime divergence.
+
+The replayd-guard daemon is functional and kills each spawn within 5 seconds, but this is
+a defense-in-depth failure: the primary mitigation (launchctl disable) is not being honored.
+
+**Pattern concern:** This is the same pattern as V-005 (plist entries disappearing after macOS
+update/reboot). The schg flag protected the plist file itself, but launchd's in-memory state
+was reset independently of the file. The mechanism by which macOS updates can reset launchd
+runtime state even when the underlying plist is schg-protected is not fully understood.
+
+**Evidence:**
+- `launchctl print gui/501/com.apple.replayd` shows `state = running` at boot
+- `launchctl print-disabled gui/501 | grep replayd` → no output (not shown as disabled)
+- `plutil -p /var/db/com.apple.xpc.launchd/disabled.501.plist | grep replayd` → `"com.apple.replayd" => true` (plist correct)
+- Guard log: PIDs 23831, 24310, 25289 killed within 5s each (2026-06-10 09:04 CDT)
+- macOS 26.5 Build 25F71 confirmed via `sw_vers`
+
+**Immediate mitigation:**
+- Re-run `launchctl disable gui/501/com.apple.replayd` to sync runtime state ← ACTION REQUIRED
+- Add to post-update checklist: re-run all launchctl disables after macOS updates
+
+**Status:** OPEN — runtime mismatch active; guard is killing spawns; re-disable required
 
 ---
 
