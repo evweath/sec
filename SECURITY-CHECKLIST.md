@@ -178,7 +178,18 @@ sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
 **Expected:** Only known Apple processes and explicitly authorized tools (Little Snitch).  
 Any `auth_value=2` for ScreenCapture/Accessibility/ListenEvent on third-party app = CRITICAL.
 
-### D-4. Check privatecloudcomputed containers
+### D-4. Verify comms-guard is running (added 2026-06-10)
+```bash
+sudo launchctl print system/com.evw.comms-guard | grep -E 'state|pid'
+sudo tail -10 /private/var/log/evw-comms-guard.log
+```
+**Expected:** `state = running`. Log shows `[START]` banner and any `[KILL]` lines.
+**Watched processes (25s interval):** bluetoothd, BTLEServer, AirPlayReceiver, universalcontrol,
+rapportd, PersonalHotspotAgent, screensharingd, ARDAgent, mediaremoted, nearbyd, replayd, plus all
+previously-disabled services as belt-and-suspenders.
+**If not running:** `sudo launchctl kickstart system/com.evw.comms-guard`
+
+### D-5. Check privatecloudcomputed containers
 ```bash
 ls ~/Library/Daemon\ Containers/ 2>/dev/null | wc -l
 ls ~/Library/Daemon\ Containers/ 2>/dev/null
@@ -336,6 +347,16 @@ python3 ~/dev/security/checklist-pdf.py --scan-dir "$SCANDIR"
 ```
 **Output:** `$SCANDIR/SECURITY-SCAN-REPORT-$(date +%Y-%m-%d).pdf`
 
+### J-1b. Verify auto-update is disabled (check after every OS update — V-012)
+```bash
+defaults read /Library/Preferences/com.apple.SoftwareUpdate | grep -E "AutomaticDownload|AutomaticallyInstall"
+```
+**Expected:** Both = `0`. If either = `1`, macOS re-enabled it (happens silently during OS updates):
+```bash
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool FALSE
+```
+
 ### J-2. Commit scan artifacts to git
 ```bash
 cd ~/dev/security
@@ -362,7 +383,9 @@ Covered by session backup procedure in CLAUDE.md.
 | A-1 through I-2 | 2026-06-10 | Initial checklist created from 3-week scan history |
 | B-3 (launchctl runtime state) | 2026-06-10 | macOS update reset runtime state despite correct plist — caught replayd running |
 | D-2 (replayd-guard) | 2026-06-10 | Guard daemon added 2026-06-03; verify it's running each scan |
+| D-4 (comms-guard) | 2026-06-10 | New guard daemon covering all non-WiFi channels (Bluetooth, AirPlay, Universal Control, etc.) at 25s interval |
 | E-3 (BSM auditd updated) | 2026-06-10 | auditd now running on macOS 26.5 (was blocked on earlier Darwin 25.x) |
+| J-1b (auto-update check) | 2026-06-10 | V-012: macOS silently re-enables AutomaticallyInstallMacOSUpdates after OS updates |
 
 ---
 

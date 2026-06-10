@@ -357,6 +357,43 @@ runtime state even when the underlying plist is schg-protected is not fully unde
 
 ---
 
+### V-012 | AutomaticallyInstallMacOSUpdates Re-Enabled Without User Action
+**Severity:** HIGH
+**Discovered:** 2026-06-10
+**Type:** Configuration tampering / policy reset
+
+**What happened:**
+User confirmed they disabled automatic macOS updates when first setting up the machine.
+On 2026-06-10, `defaults read /Library/Preferences/com.apple.SoftwareUpdate` shows:
+```
+AutomaticDownload = 1
+AutomaticallyInstallMacOSUpdates = 1
+CriticalUpdateInstall = 1
+```
+The V-011 replayd runtime mismatch is consistent with a macOS update having been
+applied automatically between the 2026-06-09 and 2026-06-10 sessions.
+
+**Forensic gap:**
+- No macOS update entry in `softwareupdate --history` — Apple does not log full OS
+  install history for cryptographically sealed volumes
+- `LastAttemptBuildVersion = "26.5 (25F71)"` and `LastFullSuccessfulDate = "2026-06-10 13:39:33 +0000"` — but this reflects the background scan, not an install
+- Exact time and mechanism of re-enablement not yet determined
+- Plausible explanations: (a) Apple reset the preference during an OS update (documented Apple behavior), (b) malicious preference modification
+
+**Note:** Apple routinely resets `AutomaticallyInstallMacOSUpdates` during OS upgrades.
+This may not be malicious. The forensic investigation (checking unified log for who
+wrote the preference key) has not been completed.
+
+**Immediate mitigation:**
+```bash
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool FALSE
+sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool FALSE
+```
+
+**Status:** OPEN — preference disabled; who re-enabled it not yet determined
+
+---
+
 ## CLOSED VIOLATIONS
 
 ### V-009 | AI Orchestrator Backdoor Discovery
