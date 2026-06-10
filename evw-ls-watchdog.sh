@@ -32,6 +32,9 @@ fi
 
 log "--- watchdog tick ---"
 
+# Write heartbeat so the monitor daemon can confirm we're alive
+date +%s > /private/var/run/evw-ls-watchdog-heartbeat.ts
+
 # Debounce: skip if a model import happened very recently
 if [[ -f "$LAST_IMPORT_FILE" ]]; then
     last_ts=$(cat "$LAST_IMPORT_FILE" 2>/dev/null || echo 0)
