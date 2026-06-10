@@ -76,5 +76,24 @@ while true; do
             done
         fi
     done
+    # ── en0 connectivity watchdog ─────────────────────────────────────────
+    # Alert if WiFi interface goes down unexpectedly (attacker toggling it).
+    EN0_STATE_FILE="/private/var/run/evw-en0-prev-state.txt"
+    en0_now=$(ifconfig en0 2>/dev/null | grep -o 'status: [a-z]*' | awk '{print $2}')
+    en0_was=$(cat "$EN0_STATE_FILE" 2>/dev/null || echo "active")
+    if [[ "$en0_was" == "active" && "$en0_now" != "active" ]]; then
+        log "ALERT: en0 went DOWN (status='${en0_now}') — possible connectivity attack"
+        CONSOLE_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
+        if [[ -n "$CONSOLE_USER" ]]; then
+            CUID=$(id -u "$CONSOLE_USER" 2>/dev/null || echo "")
+            [[ -n "$CUID" ]] && launchctl asuser "$CUID" /usr/bin/osascript \
+                -e 'display notification "WiFi interface en0 went down — possible attack" with title "SECURITY ALERT" subtitle "Connectivity Killed" sound name "Basso"' \
+                2>/dev/null || true
+        fi
+    elif [[ "$en0_was" != "active" && "$en0_now" == "active" ]]; then
+        log "INFO: en0 recovered (status='${en0_now}')"
+    fi
+    printf '%s' "${en0_now:-unknown}" > "$EN0_STATE_FILE"
+
     sleep "$INTERVAL"
 done

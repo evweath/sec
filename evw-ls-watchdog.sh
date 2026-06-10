@@ -153,17 +153,24 @@ def should_delete(r):
     if via.startswith("identifier.SHA256/"):
         return "unsigned-binary via={}...".format(via[18:34])
 
-    if remote in ("any", "*") and origin == "monitor":
-        return "any-remote monitor rule"
+    # Any-remote allow from monitor or alert origin — both are attacker-injectable.
+    # origin=monitor: LS network-monitor mode auto-created it.
+    # origin=alert: user (possibly tricked) clicked Allow on a pop-up dialog.
+    # frontend/ruleImport/factory are intentional; leave those alone.
+    UNTRUSTED_ORIGINS = {"monitor", "network monitor", "alert"}
+    if remote in ("any", "*") and origin in UNTRUSTED_ORIGINS:
+        return "any-remote {} rule".format(origin)
 
     if rule_hits_blocked_domain(r):
         return "blocked-domain {}".format(rule_remote(r)[:50])
 
-    if origin in ("monitor", "network monitor") and proc:
+    # Allow rule for a disabled/guarded process — catch both monitor-created
+    # and alert-created (user tricked into clicking Allow for a dead process).
+    if origin in UNTRUSTED_ORIGINS and proc:
         proc_tail = proc.split("/")[-1] if "/" in proc else proc
         for dp in DISABLED_PROCS:
             if dp in proc or proc_tail in dp:
-                return "disabled-process {}".format(short_proc(r))
+                return "disabled-process {} origin={}".format(short_proc(r), origin)
 
     return None
 
