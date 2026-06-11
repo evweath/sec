@@ -1,6 +1,6 @@
 # Security Violations Register
 # Append-only. New violations added at bottom of their status section.
-# Updated: 2026-06-09
+# Updated: 2026-06-11
 # Owner: evw
 
 ---
@@ -354,6 +354,81 @@ runtime state even when the underlying plist is schg-protected is not fully unde
 - Add to post-update checklist: re-run all launchctl disables after macOS updates
 
 **Status:** OPEN — runtime mismatch active; guard is killing spawns; re-disable required
+
+---
+
+### V-013 | WiFi Self-Toggle + LS Watchdog Dormancy + Unsigned Binary LS Rules (Jun 10)
+**Severity:** HIGH
+**Discovered:** 2026-06-11 (events occurred 2026-06-10)
+**Type:** Observable network manipulation / monitoring gap / unauthorized LS rule insertion
+
+**What happened:**
+On 2026-06-10, three distinct but temporally related anomalies were observed:
+
+**1. WiFi self-toggle (user-observed, time unknown)**
+The WiFi toggle switch in Control Center or menu bar visibly moved from ON → OFF → ON without
+user action. No reboot, login, or other visible system event accompanied it.
+
+**Root cause investigation:**
+- No direct airportd power-state log entries accessible without interactive `sudo log show`
+- Boot sequence (08:24 CDT) shows replayd (PID 790) running; killed by replayd-guard at 08:24:41
+- launchd made 3 write ATTEMPTS to `disabled.501.plist` at 09:17, 09:22, 09:46 (see Finding 2)
+- `com.apple.AutoWake.plist` was modified at 10:40 CDT (after write attempts, before Claude session)
+- **Most likely cause:** Network stack reload during launchd service reconfiguration, OR
+  brief interface cycle during the repeated kill/respawn cycle of `identityservicesd` (PID 668)
+  and `sharingd` (PID 722) which held UDP sockets at boot
+- **Cannot confirm without:** `sudo log show --predicate 'process == "airportd"' --last 48h`
+  (requires interactive TTY for password)
+
+**2. Three unauthorized launchd plist write attempts (blocked by schg)**
+`launchd` workers (PIDs 107918, 119110, 161375) attempted to write `disabled.501.plist`
+at 09:17, 09:22, and 09:46 CDT — all with O_WRONLY|O_CREAT|O_TRUNC flags.
+- All three wrote **identical content** (19-entry plist matching Jun 8 session state)
+- schg flag was confirmed in place (Jun 8 14:49 `SF_IMMUTABLE` was last set); mtime held at
+  Jun 8 value until Claude session wrote at 11:25
+- Write attempts were **blocked by schg** — the plist-monitor snapshots reflect protected content
+- Likely trigger: replayd-guard repeatedly running `launchctl disable gui/501/com.apple.replayd`
+  in response to replayd spawning at boot (V-011 active), each triggering a launchd plist write
+
+**3. LS watchdog dormant for 27+ hours — two unsigned-binary rules inserted**
+The `com.evw.ls-watchdog` daemon was not running for approximately 1,666 minutes
+(Jun 9 ~09:44 CDT → Jun 10 13:34 CDT). During this unprotected window, two unsigned-binary
+LS rules appeared in the Little Snitch model:
+
+| Rule | Via Binary | Destination | Uses |
+|------|-----------|-------------|------|
+| Terminal → api.github.com | SHA256:`582a40676acf1394fcaf1c8c8bc5bad21806bd8c864b209d37b185c2df45dc92` = **Homebrew `gh` (GitHub CLI)** | api.github.com | 0 |
+| Terminal → cdn.tailwindcss.com | SHA256:`aa25f2e795c02d5cb5ef5d6987745cc5bbe7d8bea58827390c7a4c81c8d2dd7b` = **Playwright chromium headless shell** | cdn.tailwindcss.com | 0 |
+
+Both rules had `uses=0` — inserted but never exercised before the watchdog deleted them.
+Both binaries are **identified as benign dev tools** (gh CLI, Playwright). The rules were
+auto-created by LS network monitor during normal development activity. Their appearance
+during the watchdog dormancy window is not itself malicious, but the 27h gap left the
+LS model unprotected and susceptible to rule insertion from any unsigned binary.
+
+**WiFi toggle — most likely cause identified (2026-06-11):**
+`pmset -g log` shows: "Sleep/Wakes since boot at 2026-06-10 08:24:34: 2, Dark Wake Count: 1"
+A dark wake brings WiFi up briefly for background maintenance (iCloud, backup, CRL checks),
+then drops it when the system returns to sleep. The user likely observed the WiFi icon at
+the dark-wake-exit → sleep transition point: WiFi dropped (OFF) then came back (ON) when
+the user manually woke the machine. This is consistent with normal macOS dark wake behavior.
+**Airportd log confirmation still pending** (requires `sudo log show` with interactive TTY).
+
+**Evidence:**
+- `evw-plist-monitor.log`: write attempts at 08:24, 09:17, 09:22, 09:46 Jun 10
+- `evw-replayd-guard.log`: replayd PID=790 running at boot 08:24, killed by guard
+- `evw-ls-watchdog.log`: `[2026-06-10T13:41:32] monitor: ALERT: LS watchdog has not run in 1666 min`
+- `evw-ls-watchdog.log`: `[2026-06-10T13:34:06] DEL Terminal→api.github.com via=582a40676acf1394...`
+- `evw-ls-watchdog.log`: `[2026-06-10T13:34:06] DEL Terminal→cdn.tailwindcss.com via=aa25f2e795c02d5c...`
+- Prior scan models (May 21–25): confirm aa25f2e7... = Playwright chromium headless shell path
+
+**Outstanding tasks:**
+1. ~~Confirm 582a binary~~ — RESOLVED: Homebrew `gh` CLI
+2. Run `sudo log show --predicate 'process == "airportd"' --start "2026-06-10 08:00:00" --end "2026-06-10 12:00:00"` (interactive TTY) to confirm dark wake as WiFi toggle cause
+3. Determine why ls-watchdog was dormant for 27h — check whether the system was asleep (pmset) or the daemon failed/was killed
+4. Re-run `launchctl disable gui/501/com.apple.replayd` to fix V-011 runtime mismatch (see V-011)
+
+**Status:** OPEN — WiFi toggle most likely dark wake (benign), pending airportd log confirmation; watchdog dormancy cause unknown
 
 ---
 
