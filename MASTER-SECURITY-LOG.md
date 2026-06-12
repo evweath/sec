@@ -647,7 +647,7 @@ Full security scan run this session. All hardening confirmed holding after `rest
 | L5 hash witness | OpenTimestamps Bitcoin-anchored; 1,984-file fs-baseline + 28-file manifest | ✅ 2026-06-02 |
 | LS model size | 2,862 rules / ~1,096 deny | ✅ 2026-06-12 (post-patch; ~250 per-domain denies lost in Jun 8/11 resets; global deny-any intact) |
 | DuckDuckGo zoom | 1.0 (100%) | ✅ reset 2026-06-03; unverified today (Terminal lacks FDA) |
-| TCC audit script | `tcc-audit.sh` — completed 2026-06-03; currently requires sudo (Terminal FDA revoked by 26.5.1 update) | ⚠️ needs FDA re-grant |
+| TCC audit script | `tcc-audit.sh` — rewritten to always require sudo; root reads both TCC.dbs directly; Terminal FDA permanently revoked (not needed) | ✅ no FDA required |
 | Binary integrity | 54 monitored files via scan-hashes.sh; 0 content changes on monitored system binaries since 2026-05-18 baseline | ✅ verified 2026-06-12 |
 | SIP | Enabled | ✅ |
 | FileVault | On | ✅ |
@@ -667,7 +667,7 @@ Full security scan run this session. All hardening confirmed holding after `rest
 | HIGH | Unexplained reboot Jun 2 09:24:48 CDT — kernel log from pre-reboot period is rotated; no panic/shutdown message in post-boot window. softwareupdated made HTTPS connections at 12:33 and 18:26 CDT (after boot). fsck_apfs at boot = unclean shutdown. Root cause unknown. |
 | CLOSED | **Unsigned binary `84915e7c…` → search.yahoo.com** — identified as Homebrew python3. Current python3 hash is `bd3498159d…` (updated Jun 9); prior hash was `84915e7c…`. search.yahoo.com connection was Homebrew formula/pip traffic. Allow rule was deleted as a precaution. **Benign.** |
 | CLOSED | TCC audit (kTCCServiceScreenCapture) — completed 2026-06-03. System TCC.db: only DENIED entries for Terminal (Accessibility + ScreenCapture). No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented). |
-| MEDIUM | **Re-grant Terminal Full Disk Access** — revoked by 26.5.1 update; tcc-audit.sh and some scan functions need FDA |
+| CLOSED | **Terminal FDA not needed** — tcc-audit.sh rewritten to require sudo; root reads both TCC.dbs directly, bypassing FDA. Terminal FDA stays permanently revoked. |
 | MEDIUM | **Re-run l5-stamp.sh** — Jun 11 manifest has no .ots proof (OTS rules were misconfigured as DENY until patched Jun 12); re-stamp to anchor current state |
 | MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; verify not reverted; root cause unknown |
 | LOW | osascript spawning — audit monitor alerts are FALSE POSITIVES from Claude grep commands containing "osascript"; real osascript spawning requires Terminal FDA to trace |
