@@ -540,7 +540,7 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 **Every macOS update replaces disabled.501.plist and silently drops schg.** Post-update checklist must include: re-apply 11 disables → re-apply schg → verify LS critical denies → verify factory rules still disabled.
 
 ### New Open Items
-- Identify the unsigned binary `84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70` that connected to search.yahoo.com on Jun 11 (rule deleted; binary not yet located)
+- ~~Identify unsigned binary `84915e7c…` → search.yahoo.com~~ **CLOSED** — Homebrew python3 prior to Jun 9 update; search.yahoo.com is Homebrew/pip traffic. Benign.
 - Re-grant Terminal Full Disk Access so tcc-audit.sh works again
 - Re-run l5-stamp.sh now that OTS calendars are reachable (Jun 11 manifest is unstamped)
 - Note: LS deny count dropped 1,348 → ~1,096 vs Jun 3 — ~250 per-domain browser/Terminal denies lost in Jun 8/11 config resets; low practical impact (global deny-any catch-all still present, useCount 138k) but the loss is documented
@@ -665,7 +665,7 @@ Full security scan run this session. All hardening confirmed holding after `rest
 | HIGH | Touch ID unenrolled — keybag UUID mismatch from ew→evw migration; wipe will recur on keybag repair |
 | HIGH | **GitHub sync blocked** — local repo 101 commits ahead of origin/main; github.com:443 blocked by LS deny-all; requires outbound allow to sync |
 | HIGH | Unexplained reboot Jun 2 09:24:48 CDT — kernel log from pre-reboot period is rotated; no panic/shutdown message in post-boot window. softwareupdated made HTTPS connections at 12:33 and 18:26 CDT (after boot). fsck_apfs at boot = unclean shutdown. Root cause unknown. |
-| HIGH | **Identify unsigned binary** `84915e7c242d8cb3f80ab9940a1aeaba1553467be7e02c0172014af764a53b70` — connected to search.yahoo.com on Jun 11; allow rule deleted; binary not located |
+| CLOSED | **Unsigned binary `84915e7c…` → search.yahoo.com** — identified as Homebrew python3. Current python3 hash is `bd3498159d…` (updated Jun 9); prior hash was `84915e7c…`. search.yahoo.com connection was Homebrew formula/pip traffic. Allow rule was deleted as a precaution. **Benign.** |
 | CLOSED | TCC audit (kTCCServiceScreenCapture) — completed 2026-06-03. System TCC.db: only DENIED entries for Terminal (Accessibility + ScreenCapture). No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented). |
 | MEDIUM | **Re-grant Terminal Full Disk Access** — revoked by 26.5.1 update; tcc-audit.sh and some scan functions need FDA |
 | MEDIUM | **Re-run l5-stamp.sh** — Jun 11 manifest has no .ots proof (OTS rules were misconfigured as DENY until patched Jun 12); re-stamp to anchor current state |
