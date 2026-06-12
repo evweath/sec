@@ -3,7 +3,7 @@
 # Run weekly: bash ~/dev/security/l5-stamp.sh
 set -euo pipefail
 
-OTS="/Users/evw/Library/Python/3.9/bin/ots"
+OTS="$HOME/Library/Python/3.14/bin/ots"
 SECURITY_DIR="$HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
 MANIFEST="$SECURITY_DIR/l5-manifest-full-${DATE}.txt"
@@ -106,7 +106,7 @@ hdir() {
   for f in /usr/bin/python3 \
             "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
             "$HOME/.pyenv/versions/3.13.13/bin/python3" \
-            "$HOME/Library/Python/3.9/bin/ots"; do
+            "$HOME/Library/Python/3.14/bin/ots"; do
     h "$f"
   done
 
