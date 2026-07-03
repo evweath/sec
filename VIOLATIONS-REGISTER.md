@@ -469,6 +469,50 @@ sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownl
 
 ---
 
+### V-010 | Self-Inflicted DNS Outage via Quad9 Pin on NAT64 Network
+**Severity:** HIGH (availability)
+**Discovered:** 2026-07-03
+**Type:** Configuration error — hardening incompatible with network transport
+
+**What happened:**
+Acting on a "fix dns" request, DNS was re-pinned to Quad9 (`9.9.9.9 149.112.112.112
+2620:fe::fe 2620:fe::9`) on all services and a new `com.evw.dns-guard` LaunchDaemon
+(StartInterval 300) was installed to re-pin it on drift. On this **IPv6-only /
+NAT64 network (T-Mobile)**, IPv4-only hosts are reachable only when the resolver
+performs **DNS64** synthesis. Quad9 does not do DNS64, so all IPv4-only hosts
+(e.g. `admin.shopify.com` → `23.227.39.20`, no AAAA) became unreachable
+("Network is unreachable"). The guard re-applied the broken config every 5 min,
+defeating manual reverts — the user's "something automatically resets it."
+
+**Evidence:**
+- `netstat -rn -f inet` → no IPv4 default route (IPv6-only)
+- en0 IPv4 = `169.254.170.191` (APIPA — IPv4 DHCP failed)
+- `admin.shopify.com` A=`23.227.39.20`, AAAA=none; `nc 23.227.39.20 443` → "Network is unreachable"
+- `/etc/hosts` clean, no LS deny rule for shopify — DNS resolution itself was fine
+- Degraded link (separate, not config): ping6 en0 gateway 1,900–2,900 ms, no CLAT, NAT64 well-known prefix times out — T-Mobile signal/gateway issue
+
+**Fix applied:**
+```bash
+# 1. Remove the guard that keeps re-breaking DNS
+sudo launchctl bootout system /Library/LaunchDaemons/com.evw.dns-guard.plist
+sudo rm -f /Library/LaunchDaemons/com.evw.dns-guard.plist /usr/local/bin/evw-dns-guard.sh
+# 2. Revert DNS to automatic (restores ISP DNS64)
+while IFS= read -r svc; do [[ -n "$svc" && "$svc" != \** ]] || continue; sudo networksetup -setdnsservers "$svc" Empty; done < <(networksetup -listallnetworkservices | tail -n +2)
+sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+```
+- `evw-dns-guard.sh` hardened with a **NAT64 safety gate**: stands down (exit 0)
+  whenever there is no IPv4 default route. Safe to reuse on dual-stack networks;
+  not re-deployed as a daemon on this connection.
+
+**Related:** Same failure class as MASTER-SECURITY-LOG.md SCAN 10 (2026-05-29) —
+opinionated DNS (DoH/Quad9) is fragile on this network.
+
+**Status:** 🟡 MITIGATED — root cause confirmed, guard hardened; connectivity
+restored once the revert commands above are run (require interactive sudo).
+Promote to 🟢 CLOSED after `curl https://admin.shopify.com/` returns an HTTP code.
+
+---
+
 ## CLOSED VIOLATIONS
 
 ### V-009 | AI Orchestrator Backdoor Discovery

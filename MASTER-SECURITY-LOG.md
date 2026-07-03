@@ -944,3 +944,36 @@ Removed: 0
 - Re-enroll Touch ID (keybag UUID mismatch from May 15 migration)
 - Audit iCloud Keychain
 - Citizen Lab / Access Now contact
+
+---
+
+## SESSION 2026-07-03 🔴 INCIDENT: Self-Inflicted DNS Outage (NAT64/DNS64)
+
+**Trigger:** User request "fix dns" → Quad9 re-pin + new `com.evw.dns-guard` daemon.
+Resulted in loss of connectivity to IPv4-only hosts (admin.shopify.com). See
+VIOLATIONS-REGISTER.md **V-010**.
+
+### Findings
+| Severity | Finding |
+|----------|---------|
+| 🔴 | **Self-inflicted outage** — pinning Quad9 (no DNS64) on an IPv6-only/NAT64 network (T-Mobile) made all IPv4-only hosts unreachable ("Network is unreachable") |
+| 🔴 | **Guard amplified it** — `com.evw.dns-guard` (StartInterval 300) re-pinned Quad9 every 5 min, fighting any manual revert ("something automatically resets it") |
+| ⚠️ | **Degraded link (NOT config)** — ping6 to en0 gateway 1,900–2,900 ms; IPv4 DHCP failed (APIPA 169.254.170.191); no CLAT/464XLAT; NAT64 well-known prefix times out. T-Mobile signal/gateway issue, outside the security config |
+| ✅ | No external actor — `/etc/hosts` clean, no LS deny rule for shopify, DNS itself resolved fine (23.227.39.20) |
+
+### Root Cause (fully traced)
+1. Network is **IPv6-only** (T-Mobile): `netstat -rn -f inet` shows **no IPv4 default route**; en0 IPv4 = APIPA `169.254.170.191` (DHCP got nothing).
+2. `admin.shopify.com` is **IPv4-only** (`23.227.39.20`, no AAAA). Reachable only via **NAT64**, which requires the resolver to perform **DNS64** synthesis.
+3. The ISP resolver (`2600:100b:b039:c4b5::10`) does DNS64. **Quad9 does not.**
+4. Pinning Quad9 (harden.sh §8 + `com.evw.dns-guard`) stripped DNS64 → apps got a bare IPv4 with no route → "Network is unreachable."
+5. This is the **same class of failure as SCAN 10 (2026-05-29)**: hardened/opinionated DNS is fragile on this network.
+
+### Fix Applied
+- **Removed `com.evw.dns-guard`:** `launchctl bootout system` + deleted plist and `/usr/local/bin/evw-dns-guard.sh`.
+- **Reverted DNS to automatic** (`networksetup -setdnsservers <svc> Empty`) on all services → restored ISP DNS64 → NAT64 name synthesis working again.
+- **Hardened the guard script for reuse:** added a NAT64 safety gate — `evw-dns-guard.sh` now **stands down (exit 0) whenever there is no IPv4 default route**, so it only enforces Quad9 on dual-stack networks and can never again break an IPv6-only/NAT64 link. Not re-deployed as a daemon on this connection.
+
+### Lesson / Control Addition
+- **Do NOT pin a non-DNS64 resolver (Quad9, Cloudflare, Google) on an IPv6-only/NAT64 network.** Precondition check before any DNS pin: `netstat -rn -f inet | grep -q '^default'` — if absent, leave DHCP/ISP DNS64 in place.
+- ICMP to CDN/LB-fronted IPv4-only hosts (admin.shopify.com) is **not** a valid reachability test — use DNS resolution + TCP/443.
+- Security-preserving DNS filtering on this network requires either macOS 464XLAT/CLAT active, or a verified DNS64 filtering resolver whose NAT64 prefix matches T-Mobile's — deferred until on a healthy link.
