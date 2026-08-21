@@ -130,6 +130,7 @@ echo ""
 
 # ── 5. Install guard script ──────────────────────────────────────────
 log "[5/6] Installing guard script..."
+install -d -m 755 -o root -g wheel /usr/local/bin
 install -m 755 -o root -g wheel "$GUARD_SRC" "$GUARD_DST"
 log "  installed $GUARD_DST"
 

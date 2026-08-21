@@ -173,8 +173,8 @@ if [ -n "$PREV_SCAN" ] && [ -f "$PREV_OUT" ]; then
   echo ""
   echo "Diffing vs $(basename "$(dirname "$PREV_OUT")")/$(basename "$PREV_OUT")..."
 
-  grep "^[a-f0-9]" "$PREV_OUT" | awk '{print $1, $2}' | sort -k2 > /tmp/sh_prev.txt
-  grep "^[a-f0-9]" "$OUT"      | awk '{print $1, $2}' | sort -k2 > /tmp/sh_curr.txt
+  grep "^[a-f0-9]" "$PREV_OUT" | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/sh_prev.txt
+  grep "^[a-f0-9]" "$OUT"      | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/sh_curr.txt
 
   {
     echo "# File hash delta"
@@ -183,17 +183,17 @@ if [ -n "$PREV_SCAN" ] && [ -f "$PREV_OUT" ]; then
     echo ""
 
     echo "=== MODIFIED ==="
-    join -j 2 /tmp/sh_prev.txt /tmp/sh_curr.txt \
-      | awk '$2 != $3 {print "MODIFIED", $1, "\n  prev:", $2, "\n  curr:", $3}' || true
+    join -t$'\t' -j 2 /tmp/sh_prev.txt /tmp/sh_curr.txt \
+      | awk -F'\t' '$2 != $3 {print "MODIFIED", $1, "\n  prev:", $2, "\n  curr:", $3}' || true
 
     echo ""
     echo "=== NEW ==="
-    comm -13 <(awk '{print $2}' /tmp/sh_prev.txt) <(awk '{print $2}' /tmp/sh_curr.txt) \
+    comm -13 <(cut -f2 /tmp/sh_prev.txt) <(cut -f2 /tmp/sh_curr.txt) \
       | while read -r p; do echo "NEW      $p"; done || true
 
     echo ""
     echo "=== REMOVED ==="
-    comm -23 <(awk '{print $2}' /tmp/sh_prev.txt) <(awk '{print $2}' /tmp/sh_curr.txt) \
+    comm -23 <(cut -f2 /tmp/sh_prev.txt) <(cut -f2 /tmp/sh_curr.txt) \
       | while read -r p; do echo "REMOVED  $p"; done || true
   } > "$DELTA"
 

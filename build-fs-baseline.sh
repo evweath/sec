@@ -31,7 +31,7 @@ hash_tree() {
   find "$dir" -type f 2>/dev/null \
     | grep -vE "$exclude" \
     | sort \
-    | xargs shasum -a 256 2>/dev/null \
+    | while IFS= read -r f; do shasum -a 256 "$f" 2>/dev/null; done \
     >> "$TMP" || true
 }
 
@@ -90,8 +90,8 @@ if [ -n "$PREV" ]; then
   echo ""
   echo "--- Delta vs $(basename "$PREV") ---"
 
-  grep "^[a-f0-9]" "$PREV"     | awk '{print $1, $2}' | sort -k2 > /tmp/l5_prev.txt
-  grep "^[a-f0-9]" "$MANIFEST" | awk '{print $1, $2}' | sort -k2 > /tmp/l5_curr.txt
+  grep "^[a-f0-9]" "$PREV"     | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/l5_prev.txt
+  grep "^[a-f0-9]" "$MANIFEST" | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/l5_curr.txt
 
   {
     echo "# Delta: $(basename "$PREV") → fs-baseline-${DATE}.txt"
@@ -100,20 +100,20 @@ if [ -n "$PREV" ]; then
 
     echo "=== MODIFIED ==="
     # Files present in both but with different hash
-    join -j 2 /tmp/l5_prev.txt /tmp/l5_curr.txt \
-      | awk '$2 != $3 {print "MODIFIED", $1, "\n  prev:", $2, "\n  curr:", $3}' \
+    join -t$'\t' -j 2 /tmp/l5_prev.txt /tmp/l5_curr.txt \
+      | awk -F'\t' '$2 != $3 {print "MODIFIED", $1, "\n  prev:", $2, "\n  curr:", $3}' \
       || true
 
     echo ""
     echo "=== NEW ==="
     # Paths in curr not in prev
-    comm -13 <(awk '{print $2}' /tmp/l5_prev.txt) <(awk '{print $2}' /tmp/l5_curr.txt) \
+    comm -13 <(cut -f2 /tmp/l5_prev.txt) <(cut -f2 /tmp/l5_curr.txt) \
       | while read p; do echo "NEW      $p"; done || true
 
     echo ""
     echo "=== REMOVED ==="
     # Paths in prev not in curr
-    comm -23 <(awk '{print $2}' /tmp/l5_prev.txt) <(awk '{print $2}' /tmp/l5_curr.txt) \
+    comm -23 <(cut -f2 /tmp/l5_prev.txt) <(cut -f2 /tmp/l5_curr.txt) \
       | while read p; do echo "REMOVED  $p"; done || true
 
   } > "$DELTA" 2>/dev/null
@@ -130,8 +130,12 @@ fi
 # ── OTS stamp ─────────────────────────────────────────────────────────────────
 echo ""
 echo "--- OpenTimestamps stamp ---"
-"$OTS" stamp "$MANIFEST"
-echo "Proof: ${MANIFEST}.ots"
+if [ -x "$OTS" ]; then
+  "$OTS" stamp "$MANIFEST"
+  echo "Proof: ${MANIFEST}.ots"
+else
+  echo "WARNING: ots not found at $OTS — skipping stamp (reinstall opentimestamps-client)"
+fi
 
 echo "$TIMESTAMP $(shasum -a 256 "$MANIFEST" | awk '{print $1}') fs-baseline-${DATE}.txt ($TOTAL files)" \
   >> "$SECURITY_DIR/l5-hash-log.txt"

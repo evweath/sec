@@ -30,6 +30,7 @@ echo "=== evw-ls-watchdog setup ==="
 echo ""
 
 echo "[1/6] Installing watchdog script..."
+install -d -m 755 -o root -g wheel /usr/local/bin
 install -m 755 -o root -g wheel "$WATCHDOG_SRC" "$WATCHDOG_DST"
 echo "      $WATCHDOG_DST"
 

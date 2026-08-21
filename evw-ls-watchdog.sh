@@ -246,10 +246,12 @@ if [[ -f "$REPORT" ]]; then
 fi
 
 if [[ $PY_EXIT -eq 0 ]] && [[ -f "$MODIFIED" ]]; then
-    "$LSCLI" restore-model "$MODIFIED" 2>/dev/null \
-        && log "IMPORT OK" \
-        || log "IMPORT FAILED"
-    date +%s > "$LAST_IMPORT_FILE"
+    if "$LSCLI" restore-model "$MODIFIED" 2>/dev/null; then
+        log "IMPORT OK"
+        date +%s > "$LAST_IMPORT_FILE"
+    else
+        log "IMPORT FAILED"
+    fi
 elif [[ $PY_EXIT -eq 2 ]]; then
     log "no changes needed"
 else

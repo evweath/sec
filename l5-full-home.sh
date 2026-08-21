@@ -224,8 +224,12 @@ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $MANIFEST_HASH l5-full-home-${DATE}" >> "$S
 
 # Submit to OpenTimestamps
 echo "" | tee -a "$LOG"
-echo "Submitting to OpenTimestamps calendars..." | tee -a "$LOG"
-"$OTS" stamp "$MANIFEST" 2>&1 | tee -a "$LOG"
+if [ -x "$OTS" ]; then
+  echo "Submitting to OpenTimestamps calendars..." | tee -a "$LOG"
+  "$OTS" stamp "$MANIFEST" 2>&1 | tee -a "$LOG"
+else
+  echo "WARNING: ots not found at $OTS — skipping stamp (reinstall opentimestamps-client)" | tee -a "$LOG"
+fi
 
 if [ -f "${MANIFEST}.ots" ]; then
   echo "" | tee -a "$LOG"

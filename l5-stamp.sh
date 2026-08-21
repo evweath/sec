@@ -270,15 +270,20 @@ HASHES=$(grep -c "^[a-f0-9]" "$MANIFEST" || true)
 echo "Manifest: $MANIFEST ($LINES lines, $HASHES file hashes)"
 
 # Stamp
-echo "Submitting to OpenTimestamps calendars..."
-"$OTS" stamp "$MANIFEST"
-echo "Proof: ${MANIFEST}.ots"
+if [ -x "$OTS" ]; then
+  echo "Submitting to OpenTimestamps calendars..."
+  "$OTS" stamp "$MANIFEST"
+  echo "Proof: ${MANIFEST}.ots"
+else
+  echo "WARNING: ots not found at $OTS — skipping stamp (reinstall opentimestamps-client)"
+fi
 
 # Append to hash log
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $(shasum -a 256 "$MANIFEST" | awk '{print $1}') l5-manifest-${DATE}.txt [comprehensive]" >> "$SECURITY_DIR/l5-hash-log.txt"
 
 # Commit
-git add "l5-manifest-full-${DATE}.txt" "l5-manifest-full-${DATE}.txt.ots" l5-hash-log.txt
+git add "l5-manifest-full-${DATE}.txt" l5-hash-log.txt
+[ -f "l5-manifest-full-${DATE}.txt.ots" ] && git add "l5-manifest-full-${DATE}.txt.ots"
 git commit -m "L5 comprehensive stamp ${DATE} — ${HASHES} file hashes timestamped"
 
 echo ""

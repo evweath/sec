@@ -33,10 +33,10 @@ decode_auth() {
     sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       echo "  [$status] $service → $client"
-    done
+    done || true
     echo ""
     echo "  Raw (for diffing):"
-    sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | sed 's/^/  /'
+    sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
   else
     echo "  Not found: $USER_TCC"
   fi
@@ -50,10 +50,10 @@ decode_auth() {
       flag=""
       [ "$status" = "ALLOWED" ] && flag=" ←── GRANTED"
       echo "  [$status]$flag $service → $client"
-    done
+    done || true
     echo ""
     echo "  Raw (for diffing):"
-    sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /'
+    sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
   else
     echo "  Rerun with sudo to read system TCC.db:"
     echo "  sudo bash ~/dev/security/tcc-audit.sh $SCAN_DIR"

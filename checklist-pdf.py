@@ -86,7 +86,8 @@ def md_to_html(md_path: Path, title: str) -> str:
             html_lines.append(f'<li>{line[2:]}</li>')
         # Numbered list
         elif re.match(r'^\d+\. ', line):
-            html_lines.append(f'<li>{re.sub(r"^\d+\. ", "", line)}</li>')
+            item = re.sub(r'^\d+\. ', '', line)
+            html_lines.append(f'<li>{item}</li>')
         # Blank line
         elif line.strip() == '':
             html_lines.append('<br>')

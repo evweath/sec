@@ -12,8 +12,12 @@ ALERT=/private/var/log/evw-audit-alerts.log
 exec 2>>"$LOG"
 echo "$(date -Iseconds)   [START] evw-audit-monitor pid=$$" >> "$LOG"
 
-# Stream the audit pipe through the Python parser
-/usr/sbin/praudit /dev/auditpipe 2>/dev/null | /usr/bin/python3 -u - "$LOG" "$ALERT" << 'PYEOF'
+# Stream the audit pipe through the Python parser.
+# The parser must come from a file, not stdin: stdin belongs to the praudit
+# pipe (a heredoc on stdin would silently replace it and the pipe is lost).
+PARSER=$(mktemp -t evw-audit-monitor)
+trap 'rm -f "$PARSER"' EXIT
+cat > "$PARSER" << 'PYEOF'
 import sys, os
 from datetime import datetime
 
@@ -94,3 +98,5 @@ for raw in sys.stdin:
             record    = []
             exec_args = []
 PYEOF
+
+/usr/sbin/praudit /dev/auditpipe 2>/dev/null | /usr/bin/python3 -u "$PARSER" "$LOG" "$ALERT"

@@ -16,6 +16,8 @@ Usage:
   python3 ls-domain-audit.py <current-model.json> [prior-model.json]
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys
