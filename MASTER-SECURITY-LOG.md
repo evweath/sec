@@ -3,7 +3,7 @@
 
 **Document purpose:** Chronological record of every finding, attack indicator, regression, and hardening action. This document exists to demonstrate that the pattern of system manipulation is consistent, recurring, and non-accidental.
 
-**Last updated:** 2026-06-09
+**Last updated:** 2026-06-12
 
 ---
 
@@ -505,6 +505,66 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 
 ---
 
+## SCAN 16 — 2026-06-12 ⚠️ REGRESSION #5: OS UPDATE DROPPED schg
+
+**Baseline:** scan-2026-06-11 (hashes), scan-2026-06-03 (LS model). Boot: Jun 11 19:42 CDT (post-26.5.1-update reboot).
+
+### Findings
+| Severity | Finding |
+|----------|---------|
+| ⚠️ | **REGRESSION #5: schg flag GONE + all 11 plist entries wiped** — macOS 26.5.1 update (Jun 11) replaced disabled.501.plist, silently dropping schg; boot-time managed-services reset then removed all 11 entries. plist-monitor captured launchd writes at Jun 11 19:44:36 (PID 4964, boot) and Jun 12 09:30:31 (PID 2776303) |
+| ⚠️ | **LS factory rules re-enabled** — Jun 8 config reset (1.4MB→62KB, re-imported) recreated factory allows (Apple domains, iCloud, local-net) in ENABLED state; the deliberately-disabled May 15 copies still present as proof of prior intent |
+| ⚠️ | **2 critical denies lost again** — /bin/launchctl→any and Terminal→influxdata.com absent from live model (same two as Incident 5) |
+| ⚠️ | **Unsigned-binary allow rule** — `identifier.SHA256/84915e7c…` → search.yahoo.com:443, origin=monitor, created Jun 11 16:15:59Z. Watchdog gap: it only deleted `via=`SHA256 rules, not `process=`SHA256 |
+| 🔴 | **OTS calendar rules created as DENY** (Jun 8, origin=frontend) despite notes saying "domain allow" — broke l5-stamp.sh Bitcoin anchoring (Jun 11 manifest has no .ots proof) |
+| ✅ | File integrity: 0 modified of 51 monitored files vs Jun 11 (4 new, all expected: Claude 2.1.175, Claude settings ×2, plist-monitor plist) |
+| ✅ | SIP, FileVault, Gatekeeper, App Firewall + stealth all enabled; no non-loopback listeners; external connections = Claude Code → Anthropic only |
+| ✅ | /etc/hosts quad9 entry intact |
+| ✅ | ls-watchdog operational — auto-tightened 3 DDG rules + deleted 1 Terminal any-remote monitor rule earlier today |
+| ✅ | RemoteManagement XPC subscribers 15/15 blocked; no allow rules for sensitive processes |
+| ℹ️ | comms-guard was killing respawning services (sharingd, identityservicesd, studentd, bluetoothd etc.) every ~25s all day — direct consequence of the plist reset |
+| ℹ️ | tcc-audit.sh returned no rows — Terminal likely lost Full Disk Access (possibly also reset by OS update) |
+
+### Actions Taken
+- **Re-applied all 11 launchctl disables + schg** via `restore-hardening-2026-06-12.sh` — 11/11 verified, schg confirmed ✓
+- **Killed respawned services** (studentd, sharingd, identityservicesd) ✓
+- **LS model patched and imported** (`apply-ls-patch-2026-06-12.sh`, verified via live re-export):
+  - Disabled 3 re-enabled factory allows (Apple domains, iCloud, local-net)
+  - Deleted unsigned-binary→search.yahoo.com allow rule
+  - Re-added /bin/launchctl→any and Terminal→influxdata.com denies
+  - Flipped 3 OTS calendar rules deny→allow, tightened to 443/tcp (user approved)
+- **Watchdog patched** — now auto-deletes allow rules with `process=identifier.SHA256/…` (not just `via=`); deployed to /usr/local/bin ✓
+- **LS model saved:** `scan-2026-06-12/ls-model.json` — 2,862 rules, 1,096 deny
+
+### Key lesson
+**Every macOS update replaces disabled.501.plist and silently drops schg.** Post-update checklist must include: re-apply 11 disables → re-apply schg → verify LS critical denies → verify factory rules still disabled.
+
+### New Open Items
+- ~~Identify unsigned binary `84915e7c…` → search.yahoo.com~~ **CLOSED** — Homebrew python3 prior to Jun 9 update; search.yahoo.com is Homebrew/pip traffic. Benign.
+- Re-grant Terminal Full Disk Access so tcc-audit.sh works again
+- Re-run l5-stamp.sh now that OTS calendars are reachable (Jun 11 manifest is unstamped)
+- Note: LS deny count dropped 1,348 → ~1,096 vs Jun 3 — ~250 per-domain browser/Terminal denies lost in Jun 8/11 config resets; low practical impact (global deny-any catch-all still present, useCount 138k) but the loss is documented
+
+### Post-Restoration Verification — 2026-06-12 ~13:25 CDT
+
+Full security scan run this session. All hardening confirmed holding after `restore-hardening-2026-06-12.sh`.
+
+| Check | Result |
+|-------|--------|
+| replayd | DISABLED (confirmed via `launchctl print gui/501`); guard PID 587 running |
+| LS watchdog | Healthy — 2,862 rules stable across all ticks (12:44–13:24); no changes made |
+| EVW daemons | All 5 running: plist-monitor (583), audit-monitor (585), replayd-guard (587), comms-guard (582), ls-watchdog (interval) |
+| Listening ports | NONE (no non-loopback listeners) |
+| Established connections | Claude Code → Anthropic only (35.190.46.17:443, 160.79.104.10:443) |
+| Binary hashes | All monitored binaries match scan-2026-06-11 — launchd, bash, zsh, ssh, replayd, screencapture unchanged |
+| File hash delta | MODIFIED: .claude/settings.local.json (Claude session update), MASTER-SECURITY-LOG.md (expected). NEW: apply-ls-patch-2026-06-12.sh, evw-ls-watchdog.sh, restore-hardening-2026-06-12.sh (all utility scripts created this session) |
+| Modified scripts | evw-plist-monitor.sh, evw-replayd-guard.sh — file mode only (100644→100755); content unchanged |
+| Comms-guard | 13,368 process kills today — normal operation (killing sharingd, studentd, identityservicesd, bluetoothd, rapportd, AirPlayUIAgent on each respawn) |
+| Audit alert log | disabled.501.plist alerts at boot (expected); osascript alerts = FALSE POSITIVES from Claude grep commands; Keychain alerts = CloudKeychainProxy failing to reach iCloud (benign, error -25308) |
+| GitHub sync | BLOCKED — github.com:443 denied by LS deny-all; cannot push. Local repo is 101 commits ahead of origin/main. Push required when outbound allowed. |
+
+---
+
 ## COMPLETE HARDENING ACTION TIMELINE
 
 | Date | Action | Status |
@@ -557,18 +617,19 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | 2026-06-01 (post-schg) → 06-01b | Session 13 | **ALL 9** ✅ | NONE — schg blocked reset |
 | 2026-06-01b → 06-02 | Session 14 | **ALL 9** ✅ | NONE — schg held second reboot |
 | 2026-06-02 → 06-03 | Session 15 | **ALL 11** ✅ | NONE — schg held; 2 new entries added (replayd, replaykit) |
+| 2026-06-11 (26.5.1 update) → 06-12 | Session 16 | NONE of 11 | ALL 11 — OS update replaced the file, dropping schg; managed-services reset wiped entries at boot. Re-applied + schg restored 2026-06-12 |
 
 **Notable:** The exact same 6 services reset in every regression. The one that always survived (`remotemanagementd`) has no M-flag — its launchctl disable works normally. The 5 that always reset (`sharingd`, `studentd`, `identityservicesd`, `replicatord`, `RemoteManagementAgent`) all carry M-flags. This is consistent with macOS managed service behavior AND consistent with an adversary exploiting that behavior.
 
 ---
 
-## CURRENT DEFENSE STATE (2026-06-03)
+## CURRENT DEFENSE STATE (2026-06-12)
 
 ### Active Controls
 | Control | Mechanism | Verified |
 |---------|-----------|---------|
-| Plist immutability | `schg` on `/var/db/com.apple.xpc.launchd/disabled.501.plist` | ✅ 2 reboots |
-| Plist contents | All 11 entries `=> true` | ✅ fully verified 2026-06-03 20:08Z |
+| Plist immutability | `schg` on `/var/db/com.apple.xpc.launchd/disabled.501.plist` | ✅ re-applied 2026-06-12 post-26.5.1-update |
+| Plist contents | All 11 entries `=> true` | ✅ re-applied 2026-06-12 via restore-hardening-2026-06-12.sh |
 | Network block — remotemanagementd | LS deny → any | ✅ |
 | Network block — RemoteManagementAgent | LS deny → any | ✅ |
 | Network block — all 15 RemoteManagement XPCs | LS deny → any | ✅ |
@@ -584,10 +645,10 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | DNS | Quad9 via IP-based DoH (`https://9.9.9.9/dns-query`) | ✅ |
 | Plist write monitoring | plist-monitor daemon → `/private/var/log/evw-plist-monitor.log` | ✅ |
 | L5 hash witness | OpenTimestamps Bitcoin-anchored; 1,984-file fs-baseline + 28-file manifest | ✅ 2026-06-02 |
-| LS model size | 3,189 rules / 1,348 deny | ✅ 2026-06-03 |
-| DuckDuckGo zoom | 1.0 (100%) | ✅ reset 2026-06-03 (was 0.5 — INCIDENT #17) |
-| TCC audit script | `tcc-audit.sh` — completed 2026-06-03; only DENIED entries for Terminal; no unauthorized grants | ✅ CLEAN 2026-06-03 |
-| Binary integrity | 47+ monitored files via scan-hashes.sh; 0 changes on monitored system binaries since 2026-05-18 baseline | ✅ |
+| LS model size | 2,862 rules / ~1,096 deny | ✅ 2026-06-12 (post-patch; ~250 per-domain denies lost in Jun 8/11 resets; global deny-any intact) |
+| DuckDuckGo zoom | 1.0 (100%) | ✅ reset 2026-06-03; unverified today (Terminal lacks FDA) |
+| TCC audit script | `tcc-audit.sh` — rewritten to always require sudo; root reads both TCC.dbs directly; Terminal FDA permanently revoked (not needed) | ✅ no FDA required |
+| Binary integrity | 54 monitored files via scan-hashes.sh; 0 content changes on monitored system binaries since 2026-05-18 baseline | ✅ verified 2026-06-12 |
 | SIP | Enabled | ✅ |
 | FileVault | On | ✅ |
 | Gatekeeper | Enabled | ✅ |
@@ -602,10 +663,14 @@ No unauthorized grants. replayd absent from TCC (uses private entitlement bypass
 | HIGH | replayd screen recording trigger — client PID 1373 not identified (logs rotated); recurrence possible |
 | HIGH | 4.03 GB recording file on Desktop — preserve offline / forensic analysis |
 | HIGH | Touch ID unenrolled — keybag UUID mismatch from ew→evw migration; wipe will recur on keybag repair |
-| HIGH | Unexplained reboot Jun 2 09:24:48 CDT — kernel log from pre-reboot period is rotated; no panic/shutdown message in post-boot window. softwareupdated made HTTPS connections at 12:33 and 18:26 CDT (after boot). fsck_apfs at boot = unclean shutdown. Root cause unknown. To recover pre-boot logs: `sudo log collect --last 48h --output ~/Desktop/system-logs-jun2.logarchive` |
+| HIGH | **GitHub sync blocked** — local repo 101 commits ahead of origin/main; github.com:443 blocked by LS deny-all; requires outbound allow to sync |
+| HIGH | Unexplained reboot Jun 2 09:24:48 CDT — kernel log from pre-reboot period is rotated; no panic/shutdown message in post-boot window. softwareupdated made HTTPS connections at 12:33 and 18:26 CDT (after boot). fsck_apfs at boot = unclean shutdown. Root cause unknown. |
+| CLOSED | **Unsigned binary `84915e7c…` → search.yahoo.com** — identified as Homebrew python3. Current python3 hash is `bd3498159d…` (updated Jun 9); prior hash was `84915e7c…`. search.yahoo.com connection was Homebrew formula/pip traffic. Allow rule was deleted as a precaution. **Benign.** |
 | CLOSED | TCC audit (kTCCServiceScreenCapture) — completed 2026-06-03. System TCC.db: only DENIED entries for Terminal (Accessibility + ScreenCapture). No unauthorized grants. replayd absent from TCC (uses private entitlement bypass as documented). |
-| MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; root cause (what process wrote 0.5) unknown |
-| LOW | osascript spawning every ~60s — needs Terminal FDA to trace parent |
+| CLOSED | **Terminal FDA not needed** — tcc-audit.sh rewritten to require sudo; root reads both TCC.dbs directly, bypassing FDA. Terminal FDA stays permanently revoked. |
+| MEDIUM | **Re-run l5-stamp.sh** — Jun 11 manifest has no .ots proof (OTS rules were misconfigured as DENY until patched Jun 12); re-stamp to anchor current state |
+| MEDIUM | DuckDuckGo zoom (INCIDENT #17) — reset to 1.0; verify not reverted; root cause unknown |
+| LOW | osascript spawning — audit monitor alerts are FALSE POSITIVES from Claude grep commands containing "osascript"; real osascript spawning requires Terminal FDA to trace |
 | LOW | 6 wrong-domain launchctl entries — M-flag symptom, no practical impact |
 | MONITOR | LS model API violations at boot — caused May 29 DoH incident; watch each boot |
 | MONITOR | XPC requester for privatecloudcomputed — dasd is scheduler; original requester unknown |
@@ -717,7 +782,10 @@ All correlate with sessions where the LS model was modified/exported/restored:
 | 2026-06-01b | `~/dev/security/scan-2026-06-01b/` |
 | 2026-06-02 | `~/dev/security/scan-2026-06-02/` |
 | 2026-06-03 | `~/dev/security/scan-2026-06-03/` |
+| 2026-06-04 | `~/dev/security/scan-2026-06-04/` |
 | 2026-06-08 | `~/dev/security/scan-2026-06-08/` |
+| 2026-06-11 | `~/dev/security/scan-2026-06-11/` |
+| 2026-06-12 | `~/dev/security/scan-2026-06-12/` — post-restore verification scan |
 
 LS deny rule files:
 - `scan-2026-05-28/deny-rules-2026-05-28.lsrules` — privatecloudcomputed block

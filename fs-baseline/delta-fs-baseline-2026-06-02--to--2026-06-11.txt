@@ -1,0 +1,105 @@
+# Delta: fs-baseline-2026-06-02.txt → fs-baseline-2026-06-11.txt
+# 2026-06-11T21:10:21Z
+
+=== MODIFIED ===
+MODIFIED /Library/Preferences/.GlobalPreferences.plist 
+  prev: b858614ba688d4470323ce7f6dd033bae49448d831a3eacd280aa7923f8cebf1 
+  curr: 57a6b85707e92bbff773b5fe058d704e0b83a69a07078c2eaaec63816b5be96a
+MODIFIED /Library/Preferences/Audio/com.apple.audio.SystemSettings.plist 
+  prev: 6b41b05f61bf33a07f1072ee5569fd98f162b131cbfc48076b0cd136a2dee1a5 
+  curr: a06b7a0122121570208d9f47a720b606579ce3716962457f3707a8e4b59f89a5
+MODIFIED /Library/Preferences/com.apple.AppleFileServer.plist 
+  prev: 43e26885489cac69e14740dd560611a2ee3f54df28eefd4c8471dc259d2bb299 
+  curr: 0ce93f1b6c2a58a57cd0c03213b21dd77ce5ae17b184500db7236c5ce052bc42
+MODIFIED /Library/Preferences/com.apple.AssetCache.plist 
+  prev: 20bab314477202aaab40253dbd19a163b6f355b67abe8d5a96e6676476f24f2c 
+  curr: 6ffddd16dce6df07400db1d1749c62c7111a01b87aeb06621ae0753e75c78bc2
+MODIFIED /Library/Preferences/com.apple.biometrickitd.plist 
+  prev: 0de9170f6fef284349fc3727aa3e5dd31ca9e9aade35cb6d80015d57925db4dc 
+  curr: 36e9bbd80e005364739e55ff9e0d80aeb4ba015f3e831134e5267d98a4be0e65
+MODIFIED /Library/Preferences/com.apple.bluetooth.plist 
+  prev: e37b0546f5c8d8246398dfd21d0a604cfbb3d5cc053ebc6ba1d13b41222ba624 
+  curr: 608095aa637a501b633ef1a579b579c909533ac996583a9846f549fa0126b63f
+MODIFIED /Library/Preferences/com.apple.loginwindow.plist 
+  prev: da73d5e39b3379f75ddcefe04aa654eea66678edc599fa6811ccc382d01ec389 
+  curr: d8536a200f4858bb23d41d6dd675269b3adeec27fdc36427649fc8a0dd670be2
+MODIFIED /Library/Preferences/com.apple.MCX.plist 
+  prev: 9bff83e500b6f2ef9b0b3a664800da645a1834752052beb3d230a08a97c8728f 
+  curr: 01e94959edcb7d2a355d3260711842c00b41fab17a4547ab7c1a4209bf71f4ae
+MODIFIED /Library/Preferences/com.apple.networkd.networknomicon.plist 
+  prev: 6e552b6fe1b81b7ebd75e606738f72282ac5b0042bf197d834d634d58671a506 
+  curr: d4e31a6936e2e4c28a5d4914cadf52cba5e302b05f81dcf1429b25675dde0868
+MODIFIED /Library/Preferences/com.apple.networkextension.plist 
+  prev: 1ad1876c556958c13e1bcce17d84d82b639dbad7b6d3258aca3188f4826adf20 
+  curr: 924dc9d88af60f9b712c390701bf64ef42e1153731522b636da5a7134ec202fc
+MODIFIED /Library/Preferences/com.apple.networkextension.uuidcache.plist 
+  prev: c4b0ad6fdc30f2a9232c221817dc2405c11ff1aa177e2778236acef3aa0c6c8f 
+  curr: 736a65d3f4c3a8323191ee0b2faccb84c566b95770236b323d1b22b0f63fe09a
+MODIFIED /Library/Preferences/com.apple.powerlogd.plist 
+  prev: a99c79e0ebbd452120f21c99e71578780f2bc82b0de6bd02f12cbc6fb2e4ad31 
+  curr: e26ad25b0856e9368546bb52065a0cafeb08058e7e525bdf9de062e1e8691ea1
+MODIFIED /Library/Preferences/com.apple.PowerManagement.9CAE4E59-D3A4-597D-93AF-3176799DCAA1.plist 
+  prev: 794b07987a4f15c7722a25bf4aec3b3699fd743b0754a7d05ee436af146c7168 
+  curr: 244339b639b587180dc3fd0d461fd24cf890073ea85db25b4c347617e305ab81
+MODIFIED /Library/Preferences/com.apple.PowerManagement.plist 
+  prev: aeb999cdcd59177af062de1153f6fec71f69221dc9c8f1d98c873e8f57ba29ed 
+  curr: 73453ad699b6943c5458809bbb352b20db96228000bed9f528a5a0b77de838a1
+MODIFIED /Library/Preferences/com.apple.security.systemidentities.plist 
+  prev: 26cc44cfbadf90434c8d23efc4e75c1533b28968c39a61820cc3167eb136377f 
+  curr: 7bef59a29275d2919c09442d8501903e3fc21d4e90f67b34afe24677808682dc
+MODIFIED /Library/Preferences/com.apple.SoftwareUpdate.plist 
+  prev: 04212acbccf71ad624dcb73ead680e24e83f2e44b48ee2132f2cb923bea8acf2 
+  curr: fc357e88a2203b1af54a70e323d0c8859443609de835dd751e4331f2c31dae9d
+MODIFIED /Library/Preferences/com.apple.updatesettings.plist 
+  prev: b9abb8081c2598236cfcca2c45a070618769654721b35cd30547997172dc8bcb 
+  curr: d0c63be3993d53479af90663401c42527573a5a60b912a211dabcf33796db0c0
+MODIFIED /Library/Preferences/SystemConfiguration/com.apple.smb.server.plist 
+  prev: 8d9884aa20c9e0a16c455e0b8d3d38a9cf65c20ae3db866caa9dfdbd8da9ccb1 
+  curr: 2af7a5c777baa1734c4336fa7be5cf9ed9f3f0d59c9790567adc684999e9b024
+MODIFIED /Library/Preferences/SystemConfiguration/preferences.plist 
+  prev: 1436c27f18dec6e230c9c44184af0d0fad488b6c4d358a7d242461d64473c919 
+  curr: 89498c9e6c987fb8b50434d08c981938552c0e434f6e52ebb6e80459bb0e4b0f
+MODIFIED /private/etc/hosts 
+  prev: e7d2cef9de8d66012f256502f4860f31ac3c8eb72b616d2573af680c3fbb2560 
+  curr: c7dd0e2ed261ce76d76f852596c5b54026b9a894fa481381ffd399b556c0e2da
+MODIFIED /usr/libexec/dirhelper 
+  prev: d0fdfbe22da03ba23328a204c1dcd5fedf981afd77ae4555a0aa987a8b959a5b 
+  curr: 901d27a29c9c5b3f87191c896a22cdb28b2f749c3626afb28915cb460d40a62c
+MODIFIED /usr/libexec/neagent 
+  prev: 066e1b14de76d71039320e319933534db5780263d5728c22700fb0471eabec91 
+  curr: 25cd90b2bb3a0110afd701df09455847ae11fbad394aa450729d70fbfc0a051e
+MODIFIED /usr/libexec/nehelper 
+  prev: 497c7f8ccbedf054a77ffc320c6f5b7f4fd71b1799181832d20ff82f92c0708f 
+  curr: 4ab9e182ee4ff7b645a4c1ccceaaa550a9772e057dbc8b7a7305ae73ef9ba2a7
+MODIFIED /usr/libexec/nesessionmanager 
+  prev: 002de0312cb7317c321da7b3f826b7f154c215647822fb414143b4776a5eda0e 
+  curr: e5e19d25eecb9642d9025d69aee955d5ddf9a402dbfc6d6b125d1d0eceb7e918
+
+=== NEW ===
+NEW      /Library/Preferences/com.apple.apsd.plist
+NEW      /Library/Preferences/OpenDirectory/Configurations/Contacts.plist
+NEW      /Library/Preferences/OpenDirectory/Configurations/Search.plist
+NEW      /Library/Preferences/OpenDirectory/opendirectoryd.plist
+NEW      /private/etc/sudoers
+NEW      /usr/bin/sudo
+NEW      /usr/libexec/cups/backend/dnssd
+NEW      /usr/libexec/cups/backend/ipp
+NEW      /usr/libexec/cups/backend/lpd
+NEW      /usr/libexec/cups/backend/smb
+NEW      /usr/libexec/security_authtrampoline
+NEW      /usr/sbin/authserver/tools/weakpass
+NEW      /usr/sbin/cupsd
+NEW      /usr/sbin/visudo
+
+=== REMOVED ===
+REMOVED  /Library/LaunchDaemons/com.evw.plist-monitor.plist
+REMOVED  /Library/LaunchDaemons/com.evw.plist-monitor.plist
+REMOVED  /Library/Preferences/Audio/com.apple.audio.DeviceSettings.plist
+REMOVED  /Library/Preferences/com.apple.gridDataServices.plist
+REMOVED  /Library/Preferences/com.apple.noticeboard.plist
+REMOVED  /Library/Preferences/com.apple.powerlogHelperd.plist
+REMOVED  /Library/Preferences/com.apple.windowserver.displays.plist
+REMOVED  /Library/Preferences/SystemConfiguration/com.apple.AutoWake.plist
+REMOVED  /Library/Preferences/SystemConfiguration/com.apple.nat.plist
+REMOVED  /Library/Preferences/SystemConfiguration/preferences.plist.old
+REMOVED  /usr/local/bin/evw-plist-monitor.sh

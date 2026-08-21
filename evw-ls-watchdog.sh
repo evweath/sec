@@ -153,6 +153,10 @@ def should_delete(r):
     if via.startswith("identifier.SHA256/"):
         return "unsigned-binary via={}...".format(via[18:34])
 
+    # Unsigned process itself (not just via) — delete its allow rules outright.
+    if str(proc).startswith("identifier.SHA256/"):
+        return "unsigned-binary process={}...".format(proc[18:34])
+
     # Any-remote allow from monitor or alert origin — both are attacker-injectable.
     # origin=monitor: LS network-monitor mode auto-created it.
     # origin=alert: user (possibly tricked) clicked Allow on a pop-up dialog.

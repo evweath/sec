@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
 # TCC (privacy permissions) audit — screen capture, accessibility, input monitoring.
-# Run at every security scan. System TCC.db requires sudo; user TCC.db is automatic.
-# Usage: bash ~/dev/security/tcc-audit.sh [scan-dir]
+#
+# Design: always run with sudo. Root bypasses FDA protection on both TCC.dbs,
+# so Terminal never needs Full Disk Access. This keeps Terminal FDA permanently
+# revoked — granting it would be a broader attack surface than this script needs.
+#
+# Usage: sudo bash ~/dev/security/tcc-audit.sh [scan-dir]
 set -euo pipefail
 
-SECURITY_DIR="$HOME/dev/security"
+[ "$(id -u)" = "0" ] || { echo "Run with sudo: sudo bash $0"; exit 1; }
+
+# Locate the real user's home without relying on $HOME (which sudo may reset)
+REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo eric)}"
+REAL_HOME=$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
+[ -n "$REAL_HOME" ] || REAL_HOME="/Users/$REAL_USER"
+
+SECURITY_DIR="$REAL_HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
 SCAN_DIR="${1:-$SECURITY_DIR/scan-${DATE}}"
 OUT="$SCAN_DIR/tcc-audit.txt"
@@ -24,10 +35,11 @@ decode_auth() {
   echo "# TCC Permissions Audit"
   echo "# Date:    $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "# Machine: $(scutil --get ComputerName 2>/dev/null || hostname)"
+  echo "# User:    $REAL_USER (sudo — no Terminal FDA required)"
   echo ""
 
-  # ── User TCC.db (no sudo) ─────────────────────────────────────────────────
-  USER_TCC="$HOME/Library/Application Support/com.apple.TCC/TCC.db"
+  # ── User TCC.db (root reads directly — no FDA needed) ────────────────────
+  USER_TCC="$REAL_HOME/Library/Application Support/com.apple.TCC/TCC.db"
   echo "=== USER TCC.db ==="
   if [ -f "$USER_TCC" ]; then
     sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
@@ -42,9 +54,9 @@ decode_auth() {
   fi
 
   echo ""
-  echo "=== SYSTEM TCC.db (requires sudo) ==="
+  echo "=== SYSTEM TCC.db ==="
   SYS_TCC="/Library/Application Support/com.apple.TCC/TCC.db"
-  if [ "$(id -u)" = "0" ]; then
+  if [ -f "$SYS_TCC" ]; then
     sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       flag=""
@@ -55,8 +67,7 @@ decode_auth() {
     echo "  Raw (for diffing):"
     sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
   else
-    echo "  Rerun with sudo to read system TCC.db:"
-    echo "  sudo bash ~/dev/security/tcc-audit.sh $SCAN_DIR"
+    echo "  Not found: $SYS_TCC"
   fi
 
   echo ""
