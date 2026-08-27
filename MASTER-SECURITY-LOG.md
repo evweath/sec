@@ -33,7 +33,6 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 - Port 8743 (donut-intel) listening on all interfaces
 - Port 65017 (symptomsd) listening
 - Facebook CDN and Ahrefs in Little Snitch allow rules for Claude Desktop (HIGH risk)
-- Santa endpoint security extension installed but not active
 
 ---
 
@@ -50,7 +49,6 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 | ✅ | LS network extension only |
 | ✅ | No binaries in /tmp or /var/folders |
 | ✅ | DNS: Quad9 only |
-| ⚠️ | Santa endpoint security extension `waiting for user` — not enforcing |
 | ⚠️ | 4 utun interfaces (ProtonVPN/iCloud Private Relay — verify) |
 | ⚠️ | `Claude Code URL Handler.app` unsigned (expected — auto-generated) |
 | ⚠️ | LS rules not readable (no sudo); last export 14 days old (299 rules) |
@@ -58,7 +56,7 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 ### Actions Taken
 - Established baseline: 1,783 binary hashes in `/bin`, `/sbin`, `/usr/bin`, `/usr/sbin`, `/usr/libexec`
 - Documented all LaunchAgents/Daemons, kexts, sysexts, network state
-- Recommended: resolve Santa, verify utun interfaces, implement resilience architecture
+- Recommended: verify utun interfaces, implement resilience architecture
 
 ### Artifacts
 `scan-2026-05-18/` — binary hashes, persistence, network, signature audit, suspect paths
@@ -125,7 +123,6 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 | ✅ | No external connections except Claude Code → Anthropic |
 | ⚠️ | **RemoteManagementAgent respawned** (PID 1260) — WRONG_DOMAIN disables don't survive reboots; running with 0 network connections |
 | ⚠️ | 5 WRONG_DOMAIN entries in disabled list (disabled at system domain, not gui/501 — no effect) |
-| ⚠️ | Santa: `[activated waiting for user]` — still not enforcing |
 | ⚠️ | DuckDuckGo `allow any→any` catch-all rule in LS — HIGH RISK (3,776 uses) |
 | ⚠️ | LS model not exported (no sudo) |
 | ℹ️ | `defaults read com.apple.alf` returns empty — ALF defaults path changed in macOS 26; socketfilterfw confirms firewall ON |
@@ -141,7 +138,6 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 ### Outstanding
 - WRONG_DOMAIN disabled entries need fixing at gui/501 domain
 - RemoteManagementAgent needs proper disable at correct domain
-- Santa needs decision
 
 ---
 
@@ -156,7 +152,6 @@ Over 15+ scanning sessions from 2026-05-11 through 2026-06-02, the following pat
 | ✅ | Network: Claude Code → Anthropic only |
 | ✅ | No new persistence |
 | ✅ | SIP, FileVault, Gatekeeper, App Firewall, no MDM |
-| ✅ | Santa orphaned sysext auto-purged by macOS (was `waiting for user`) |
 | ⚠️ | RemoteManagementAgent (PID 1429) running — not in disabled plist; 0 network |
 
 ### Actions Taken

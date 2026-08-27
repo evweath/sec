@@ -10,3 +10,8 @@ scan-*/
 # Temp files
 *.tmp
 /tmp/
+
+# Run artifacts
+logs/
+__pycache__/
+tools-zips/

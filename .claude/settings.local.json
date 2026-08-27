@@ -171,7 +171,6 @@
       "Bash(/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -dump)",
       "Bash(sqlite3 \"/Library/Application Support/com.apple.TCC/TCC.db\" \"SELECT client, auth_value FROM access WHERE service='kTCCServiceAccessibility' AND client LIKE '%Terminal%';\")",
       "Bash(sqlite3 '__TRACKED_VAR__/Library/Application Support/com.apple.TCC/TCC.db' 'SELECT client, auth_value FROM access WHERE service='\\\\''kTCCServiceAccessibility'\\\\'';')",
-      "Bash(/Applications/Santa.app/Contents/MacOS/sleigh --help)",
       "Bash(mkdir -p ~/.claude_home/security-scan-2026-05-26b)",
       "Bash(cp -r /Users/evw/dev/security/scan-2026-05-26b/* ~/.claude_home/security-scan-2026-05-26b/)",
       "Bash(cp -r /Users/evw/dev/security/scan-2026-05-26b/.claude ~/.claude_home/security-scan-2026-05-26b/)",

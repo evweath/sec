@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.ew.file-sentinel</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/evw/dev/security/scripts/file-sentinel.py</string>
+        <string>--log</string>
+        <string>/var/log/file-sentinel.log</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/var/log/file-sentinel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/file-sentinel-err.log</string>
+</dict>
+</plist>

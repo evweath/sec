@@ -11,7 +11,7 @@ set -euo pipefail
 [ "$(id -u)" = "0" ] || { echo "Run with sudo: sudo bash $0"; exit 1; }
 
 # Locate the real user's home without relying on $HOME (which sudo may reset)
-REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo eric)}"
+REAL_USER="${SUDO_USER:-$(logname 2>/dev/null || echo evw)}"
 REAL_HOME=$(dscl . -read "/Users/$REAL_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
 [ -n "$REAL_HOME" ] || REAL_HOME="/Users/$REAL_USER"
 

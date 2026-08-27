@@ -2,7 +2,7 @@
 # evw-dns-guard-setup.sh
 #
 # One-time install:
-#   - evw-dns-guard.sh → runs every 5 min, re-pins Quad9 DNS if any service drifts
+#   - evw-dns-guard.sh → runs every 5 min, re-pins DNS servers if any service drifts
 #
 # Must run as root: sudo bash ~/dev/security/evw-dns-guard-setup.sh
 

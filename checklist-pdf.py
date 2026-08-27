@@ -157,7 +157,7 @@ def html_to_pdf(html_content: str, output_path: Path) -> None:
 
     Preference order:
       1. pandoc (brew install pandoc) — best output
-      2. wkhtmltopdf (brew install wkhtmltopdf) — good output
+      2. wkhtmltopdf (no longer in Homebrew — used only if already installed)
       3. Open HTML in default browser with instructions to print to PDF
     """
     html_out = output_path.with_suffix('.html')

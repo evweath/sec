@@ -1,0 +1,7 @@
+2026-05-09 12:46:45 [INFO] MacHarden Suite v2.0 started — dry_run=False
+2026-05-09 12:46:45 [INFO] OK: macOS 26.4.1 (Tahoe confirmed)
+2026-05-09 12:46:45 [INFO] OK: Apple Silicon confirmed (arm64)
+2026-05-09 12:46:45 [ERROR] ERR: Do not run this script as root. Run as your admin user; sudo will be invoked as needed.
+2026-05-09 12:46:45 [INFO] OK: Passwordless sudo available
+2026-05-09 12:46:45 [INFO] OK: SIP is ENABLED (leave it enabled)
+2026-05-09 12:46:45 [INFO] OK: Free disk space: 791.0 GB (sufficient)

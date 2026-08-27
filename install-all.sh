@@ -25,14 +25,14 @@ INSTALL_REPLAYD_GUARD=1    # kills replayd on sight, logs forensics first
 INSTALL_AUDIT_MONITOR=1    # BSM auditpipe exec-args monitor (python variant)
 INSTALL_FILE_SENTINEL=1    # kqueue file-change daemon (credentials, ssh, configs)
 INSTALL_BINDING_MONITOR=1  # logs/notifies on processes bound to 0.0.0.0
-INSTALL_DNS_GUARD=1        # re-pins Quad9 DNS whenever it drifts
+INSTALL_DNS_GUARD=1        # re-pins DNS servers whenever they drift
 INSTALL_LS_WATCHDOG=1      # prunes forged/permissive Little Snitch rules every 10 min
 INSTALL_COMMS_GUARD=0      # OFF by default: SIGKILLs Bluetooth/AirPlay/Handoff/etc every 25s
 INSTALL_PF_DEVPORTS=1      # PF anchor blocking inbound connections to dev ports
 INSTALL_DAILY_HARDEN=1     # daily 09:00 root security rescan (mac_harden_rescan.sh)
 
 SEC_DIR="/Users/evw/dev/security"
-LEG_DIR="/Users/evw/dev/scripts"
+LEG_DIR="/Users/evw/dev/security/scripts"
 BIN="/usr/local/bin"
 LD="/Library/LaunchDaemons"
 

@@ -5,7 +5,7 @@
 # Run:  sudo bash /Users/evw/dev/security/harden-now.sh
 #
 # Applies the deviations found in the 2026-08-10 config scan:
-#   1. Pin Quad9 DNS on every active network service (DHCP DNS drift fix)
+#   1. Pin DNS (1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9) on every active network service (DHCP DNS drift fix)
 #   2. Prune the Application Firewall app allow-list (moot under block-all)
 #   3. Enable the three unset automatic-update flags
 #   4. Neutralize the broadcast device name (Bonjour identity leak)
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-DNS_SERVERS="9.9.9.9 149.112.112.112 2620:fe::fe 2620:fe::9"
+DNS_SERVERS="1.1.1.1 1.0.0.1 8.8.8.8 9.9.9.9"
 NEW_NAME="mbp"   # ComputerName + LocalHostName (Bonjour). Edit to taste.
 
 info() { echo "[*] $*"; }
@@ -30,8 +30,8 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# ── 1. Quad9 DNS on every active service ──────────────────────────────────────
-info "Pinning Quad9 DNS on all active network services"
+# ── 1. Pinned DNS on every active service ───────────────────────────────────
+info "Pinning DNS (1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9) on all active network services"
 networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
     [[ "$svc" == \** ]] && continue   # disabled service
     networksetup -setdnsservers "$svc" $DNS_SERVERS
@@ -108,4 +108,4 @@ echo ""
 echo "--- System crontabs (expect: nothing) ---"
 ls -la /usr/lib/cron/tabs/ 2>&1 | sed 's/^/    /'
 echo ""
-ok "Done. Re-run seccheck.sh to confirm: bash /Users/evw/dev/scripts/seccheck.sh"
+ok "Done. Re-run seccheck.sh to confirm: bash /Users/evw/dev/security/scripts/seccheck.sh"
