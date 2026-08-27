@@ -3,7 +3,13 @@
 # Run weekly: bash ~/dev/security/l5-stamp.sh
 set -euo pipefail
 
-OTS="$HOME/Library/Python/3.14/bin/ots"
+# Resolve ots dynamically — it has lived under various Python user dirs
+OTS="$(command -v ots 2>/dev/null || true)"
+if [ -z "$OTS" ]; then
+  for c in "$HOME"/Library/Python/*/bin/ots "$HOME/.local/bin/ots"; do
+    [ -x "$c" ] && OTS="$c" && break
+  done
+fi
 SECURITY_DIR="$HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
 MANIFEST="$SECURITY_DIR/l5-manifest-full-${DATE}.txt"
@@ -80,6 +86,9 @@ hdir() {
     info="$app/Contents/Info.plist"
     [ -f "$binary" ] && h "$binary" "Apps/$appname/MacOS/$appname"
     [ -f "$info"   ] && h "$info"   "Apps/$appname/Info.plist"
+    # CodeResources (code signature manifest)
+    coderes="$app/Contents/_CodeSignature/CodeResources"
+    [ -f "$coderes" ] && h "$coderes" "Apps/$appname/_CodeSignature/CodeResources"
     # Try alternate binary name patterns
     if [ ! -f "$binary" ]; then
       alt=$(find "$app/Contents/MacOS/" -maxdepth 1 -type f 2>/dev/null | head -1)
@@ -100,13 +109,19 @@ hdir() {
     done
   fi
 
+  # ── Deployed evw-* guards + launchd disabled list ─────────────────────────
+  echo ""
+  echo "# Deployed /usr/local/bin/evw-* and disabled.501.plist"
+  find /usr/local/bin -maxdepth 1 -name "evw-*" -type f 2>/dev/null | sort | while read -r f; do h "$f" "/usr/local/bin/$(basename "$f")"; done
+  h "/private/var/db/com.apple.xpc.launchd/disabled.501.plist"
+
   # ── Python ─────────────────────────────────────────────────────────────────
   echo ""
   echo "# Python binaries"
   for f in /usr/bin/python3 \
             "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
             "$HOME/.pyenv/versions/3.13.13/bin/python3" \
-            "$HOME/Library/Python/3.14/bin/ots"; do
+            "${OTS:-/dev/null}"; do
     h "$f"
   done
 
@@ -130,9 +145,15 @@ hdir() {
   echo "# Shell config and dotfiles"
   for f in "$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.zshenv" \
             "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" \
-            "$HOME/.ssh/config" "$HOME/.ssh/known_hosts" \
-            /etc/hosts /etc/shells /etc/zshrc /etc/zprofile; do
+            "$HOME/.ssh/config" "$HOME/.ssh/known_hosts" "$HOME/.ssh/authorized_keys" \
+            /etc/hosts /etc/shells /etc/zshrc /etc/zprofile \
+            /etc/pam.d/sudo /etc/sudoers; do
     h "$f"
+  done
+  # SSH public keys hashed; private keys recorded by existence only
+  find "$HOME/.ssh" -maxdepth 1 -name "*.pub" -type f 2>/dev/null | sort | while read -r f; do h "$f"; done
+  find "$HOME/.ssh" -maxdepth 1 -name "id_*" -not -name "*.pub" -type f 2>/dev/null | sort | while read -r f; do
+    echo "SSH_PRIVATE_KEY_EXISTS(not hashed)  $f"
   done
 
   # ── LaunchAgents and LaunchDaemons ─────────────────────────────────────────

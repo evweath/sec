@@ -83,6 +83,8 @@ CRITICAL = [
     'replayd', 'privatecloudcomputed', 'remotemanagementd',
     'RemoteManagementAgent', 'studentd', 'launchctl', 'kickstart',
     'datadoghq', 'influxdata', 'found.io',
+    # TikTok/Zoho tracker denies (carried over from retired ls-add-deny-tiktok-zoho.sh)
+    'tiktok', 'bytedance', 'zohopublic', 'zohocdn', 'salesiq', 'pagesense',
 ]
 print("\nVerifying critical deny rules survived dedup:")
 deny_rules = [r for r in kept if r.get('action') == 'deny']

@@ -91,12 +91,12 @@ watched_files() {
     echo "${HOME}/.ssh/config"
 
     # ── Custom security scripts ────────────────────────────────────────────
-    echo "${HOME}/dev/scripts/seccheck.sh"
-    echo "${HOME}/dev/scripts/binding-monitor.sh"
-    echo "${HOME}/dev/scripts/setup-pf.sh"
-    echo "${HOME}/dev/scripts/pf-devports.conf"
-    echo "${HOME}/dev/scripts/file-sentinel.py"
-    echo "${HOME}/dev/scripts/config-sentinel.sh"
+    echo "${HOME}/dev/security/scripts/seccheck.sh"
+    echo "${HOME}/dev/security/scripts/binding-monitor.sh"
+    echo "${HOME}/dev/security/scripts/setup-pf.sh"
+    echo "${HOME}/dev/security/scripts/pf-devports.conf"
+    echo "${HOME}/dev/security/scripts/file-sentinel.py"
+    echo "${HOME}/dev/security/scripts/config-sentinel.sh"
 
     # ── Little Snitch rules snapshot ───────────────────────────────────────
     echo "${HOME}/.little-snitch-monitor/rules.txt"
@@ -116,10 +116,10 @@ watched_files() {
     echo "${HOME}/.pgpass"
 
     # ── secdash app (local security dashboard) ─────────────────────────────
-    echo "${HOME}/dev/sec/secdash.py"
-    echo "${HOME}/dev/sec/hardening.sh"
-    echo "${HOME}/dev/sec/lockdown.sh"
-    echo "${HOME}/dev/sec/launchd/com.ew.lockdown.plist"
+    echo "${HOME}/dev/security/sec/secdash.py"
+    echo "${HOME}/dev/security/sec/hardening.sh"
+    echo "${HOME}/dev/security/sec/lockdown.sh"
+    echo "${HOME}/dev/security/sec/launchd/com.ew.lockdown.plist"
 
     # ── Extra watches (managed via secdash UI; one absolute path per line) ──
     local extra="${SENTINEL_DIR}/extra-watches"
@@ -216,7 +216,7 @@ Old hash: ${safe_old}
 New hash: ${safe_new}
 
 Verify this change is authorized, then run:
-  ~/scripts/config-sentinel.sh --baseline
+  ~/dev/security/scripts/config-sentinel.sh --baseline
 
 If this change is unexpected, treat your system as potentially compromised." ¬
     buttons {"Acknowledge"} default button "Acknowledge" ¬
@@ -256,11 +256,11 @@ Old SHA-256 : ${old_hash:-n/a}
 New SHA-256 : ${new_hash:-n/a}
 
 If this change is AUTHORIZED, update the baseline:
-  ~/scripts/config-sentinel.sh --baseline
+  ~/dev/security/scripts/config-sentinel.sh --baseline
 
 If this change is NOT authorized, your system may be compromised.
 Review the change log:
-  ~/scripts/config-sentinel.sh --report"
+  ~/dev/security/scripts/config-sentinel.sh --report"
 
     send_email "⚠️ Security Alert: ${change_type} — ${filename}" "$email_body"
 

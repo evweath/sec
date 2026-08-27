@@ -1,0 +1,17 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host raw.githubusercontent.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 185.199.109.133, 185.199.110.133, 185.199.111.133, 185.199.108.133
+*   Trying 185.199.109.133:443...
+* connect to 185.199.109.133 port 443 from 10.232.94.80 port 49473 failed: Bad file descriptor
+*   Trying 185.199.110.133:443...
+* connect to 185.199.110.133 port 443 from 10.232.94.80 port 49474 failed: Bad file descriptor
+*   Trying 185.199.111.133:443...
+* connect to 185.199.111.133 port 443 from 10.232.94.80 port 49475 failed: Bad file descriptor
+*   Trying 185.199.108.133:443...
+* connect to 185.199.108.133 port 443 from 10.232.94.80 port 49476 failed: Bad file descriptor
+* Failed to connect to raw.githubusercontent.com port 443 after 15 ms: Couldn't connect to server
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Closing connection
+curl: (7) Failed to connect to raw.githubusercontent.com port 443 after 15 ms: Couldn't connect to server

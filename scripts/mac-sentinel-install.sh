@@ -148,25 +148,35 @@ pwpolicy -getglobalpolicy 2>/dev/null >> "$LOG_FILE" || true
 
 
 # ─── FILE-6310: Suppress symlinked mount point warnings ──────────────────────
-info "FILE-6310: Suppressing macOS synthetic symlink warnings in Lynis..."
-LYNIS_CUSTOM="${BREW_PREFIX}/etc/lynis/custom.prf"
-LYNIS_CUSTOM_DIR="${BREW_PREFIX}/etc/lynis"
-mkdir -p "$LYNIS_CUSTOM_DIR"
-for SUPPRESS in FILE-6310 TOOL-5002; do
-    if ! grep -q "$SUPPRESS" "$LYNIS_CUSTOM" 2>/dev/null; then
-        echo "ignore=${SUPPRESS}" >> "$LYNIS_CUSTOM"
-        ok "Suppressed $SUPPRESS in Lynis custom profile"
-    fi
-done
-# Also try default prf location
-LYNIS_DEFAULT_PRF="${BREW_PREFIX}/Cellar/lynis/$(ls ${BREW_PREFIX}/Cellar/lynis/ 2>/dev/null | head -1)/default.prf"
-LYNIS_CUSTOM_FALLBACK="/opt/homebrew/Cellar/lynis/$(ls /opt/homebrew/Cellar/lynis/ 2>/dev/null | head -1)/custom.prf"
-if [[ -n "$LYNIS_CUSTOM_FALLBACK" ]]; then
+info "FILE-6310: Fixing Lynis custom.prf suppression (correct syntax: skip-test)..."
+
+# Remove the bad custom.prf we may have written last time (wrong path + syntax)
+BAD_CUSTOM="${BREW_PREFIX}/etc/lynis/custom.prf"
+if [[ -f "$BAD_CUSTOM" ]]; then
+    rm -f "$BAD_CUSTOM"
+    ok "Removed bad custom.prf at $BAD_CUSTOM"
+fi
+
+# Lynis on Homebrew expects custom.prf in the same dir as default.prf
+LYNIS_VER=$(ls "${BREW_PREFIX}/Cellar/lynis/" 2>/dev/null | head -1)
+if [[ -n "$LYNIS_VER" ]]; then
+    LYNIS_CUSTOM_PRF="${BREW_PREFIX}/Cellar/lynis/${LYNIS_VER}/custom.prf"
+    # Correct syntax is skip-test=, NOT ignore=
     for SUPPRESS in FILE-6310 TOOL-5002; do
-        if ! grep -q "$SUPPRESS" "$LYNIS_CUSTOM_FALLBACK" 2>/dev/null; then
-            echo "ignore=${SUPPRESS}" >> "$LYNIS_CUSTOM_FALLBACK" 2>/dev/null || true
+        if ! grep -q "^skip-test=${SUPPRESS}" "$LYNIS_CUSTOM_PRF" 2>/dev/null; then
+            echo "skip-test=${SUPPRESS}" >> "$LYNIS_CUSTOM_PRF"
+            ok "Added skip-test=${SUPPRESS} to $LYNIS_CUSTOM_PRF"
+        else
+            ok "skip-test=${SUPPRESS} already present"
         fi
     done
+    # Remove any bad ignore= lines we may have written previously
+    if grep -q "^ignore=" "$LYNIS_CUSTOM_PRF" 2>/dev/null; then
+        sed -i '' '/^ignore=/d' "$LYNIS_CUSTOM_PRF"
+        ok "Removed invalid ignore= lines from custom.prf"
+    fi
+else
+    warn "Lynis not found in Homebrew Cellar — skipping custom.prf"
 fi
 
 
@@ -338,11 +348,12 @@ else
     chown root:wheel "${INSTALL_DIR}/mac-sentinel.py"
     ok "Script installed to ${INSTALL_DIR}/mac-sentinel.py"
 
-    # Install fswatch (required for file monitoring)
+    # Install fswatch (required for file monitoring) — must run as real user
     BREW="${BREW_PREFIX}/bin/brew"
     if [[ -f "$BREW" ]]; then
-        if ! command -v fswatch &>/dev/null; then
-            info "Installing fswatch..."
+        FSWATCH_BIN=$(sudo -u "$REAL_USER" "$BREW" --prefix fswatch 2>/dev/null)/bin/fswatch
+        if ! sudo -u "$REAL_USER" command -v fswatch &>/dev/null && [[ ! -f "$FSWATCH_BIN" ]]; then
+            info "Installing fswatch as ${REAL_USER}..."
             sudo -u "$REAL_USER" "$BREW" install fswatch 2>&1 | tee -a "$LOG_FILE" && \
                 ok "fswatch installed" || warn "fswatch install failed — will fall back to polling"
         else

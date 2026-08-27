@@ -2,7 +2,8 @@
 # =============================================================================
 # ls-apply-tightening.sh — apply LS rule tightening to the LIVE Little Snitch model
 #
-# Run:  sudo bash /Users/evw/dev/security/ls-apply-tightening.sh
+# Run:  sudo bash /Users/evw/dev/security/ls-apply-tightening.sh [--dry-run]
+#       --dry-run exports, dedups, tightens and shows the report, but imports nothing
 #
 # Flow (mirrors the toolkit's export/edit/restore idiom):
 #   1. export the LIVE model (root) — never edits a stale snapshot
@@ -46,6 +47,10 @@ echo "[4/5] Change report ($REPORT):"
 echo "----------------------------------------------------------------------"
 cat "$REPORT"
 echo "----------------------------------------------------------------------"
+if [[ "${1:-}" == "--dry-run" ]]; then
+    echo "Dry run — live model untouched. Backup: $BACKUP"
+    exit 0
+fi
 read -r -p "Type APPLY to import these changes into Little Snitch: " reply
 if [[ "$reply" != "APPLY" ]]; then
     echo "Aborted — live model untouched. Backup: $BACKUP"

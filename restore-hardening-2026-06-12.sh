@@ -76,7 +76,7 @@ killall identityservicesd 2>/dev/null && echo "killed identityservicesd" || true
 
 echo ""
 echo "── 7. Export Little Snitch model for rule review ──"
-"$LSCLI" export-model "$LSOUT" && chown eric "$LSOUT" && chmod 600 "$LSOUT" \
+"$LSCLI" export-model "$LSOUT" && chown evw "$LSOUT" && chmod 600 "$LSOUT" \
   && echo "exported $(wc -c < "$LSOUT") bytes → $LSOUT" \
   || echo "LS export FAILED"
 
