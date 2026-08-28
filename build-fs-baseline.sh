@@ -3,6 +3,15 @@
 # Hashes system binaries, /Library, and key config files.
 # On subsequent runs, produces a delta report.
 
+set -uo pipefail
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 OTS="/Users/evw/Library/Python/3.9/bin/ots"
 SECURITY_DIR="$HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
@@ -36,21 +45,21 @@ hash_tree() {
 }
 
 echo "--- Tier 1: System binaries ---"
-hash_tree "bin"         /bin
-hash_tree "sbin"        /sbin
-hash_tree "usr/bin"     /usr/bin
-hash_tree "usr/sbin"    /usr/sbin
-hash_tree "usr/libexec" /usr/libexec  "iRATBW\.mlmodelc|CoreSpeech\.framework|NaturalLanguage"
+guard_run "hash-tree" hash_tree "bin"         /bin
+guard_run "hash-tree" hash_tree "sbin"        /sbin
+guard_run "hash-tree" hash_tree "usr/bin"     /usr/bin
+guard_run "hash-tree" hash_tree "usr/sbin"    /usr/sbin
+guard_run "hash-tree" hash_tree "usr/libexec" /usr/libexec  "iRATBW\.mlmodelc|CoreSpeech\.framework|NaturalLanguage"
 
 echo ""
 echo "--- Tier 2: /Library ---"
-hash_tree "LaunchAgents"  /Library/LaunchAgents
-hash_tree "LaunchDaemons" /Library/LaunchDaemons
-hash_tree "Extensions"    /Library/Extensions
-hash_tree "Preferences"   /Library/Preferences  "ByHost"
-hash_tree "LS config"     "/Library/Application Support/Objective Development/Little Snitch" \
+guard_run "hash-tree" hash_tree "LaunchAgents"  /Library/LaunchAgents
+guard_run "hash-tree" hash_tree "LaunchDaemons" /Library/LaunchDaemons
+guard_run "hash-tree" hash_tree "Extensions"    /Library/Extensions
+guard_run "hash-tree" hash_tree "Preferences"   /Library/Preferences  "ByHost"
+guard_run "hash-tree" hash_tree "LS config"     "/Library/Application Support/Objective Development/Little Snitch" \
   "Connections\.replog|DNSCache\.replog|ip-address-database|\.cacheID"
-hash_tree "Security"      /Library/Security
+guard_run "hash-tree" hash_tree "Security"      /Library/Security
 
 echo ""
 echo "--- Tier 3: Key config files ---"
@@ -131,7 +140,7 @@ fi
 echo ""
 echo "--- OpenTimestamps stamp ---"
 if [ -x "$OTS" ]; then
-  "$OTS" stamp "$MANIFEST"
+  guard_run "ots-stamp" "$OTS" stamp "$MANIFEST"
   echo "Proof: ${MANIFEST}.ots"
 else
   echo "WARNING: ots not found at $OTS — skipping stamp (reinstall opentimestamps-client)"
