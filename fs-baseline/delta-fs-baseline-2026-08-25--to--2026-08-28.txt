@@ -1,5 +1,5 @@
 # Delta: fs-baseline-2026-08-25.txt → fs-baseline-2026-08-28.txt
-# 2026-08-28T21:43:57Z
+# 2026-08-28T21:55:03Z
 
 === MODIFIED ===
 MODIFIED /Library/Application Support/Objective Development/Little Snitch/latestInstalledVersion.plist 
@@ -77,8 +77,6 @@ NEW      /Library/Application Support/Objective Development/Little Snitch/Traffi
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-181833
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-191833
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-201833
-NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-204333
-NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-204833
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-205333
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-205833
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-210333
@@ -90,6 +88,8 @@ NEW      /Library/Application Support/Objective Development/Little Snitch/Traffi
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-213333
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-213833
 NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-214333
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-214837
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-215338
 NEW      /Library/LaunchDaemons/org.wireshark.ChmodBPF.plist
 NEW      /Library/Preferences/com.apple.gridDataServices.plist
 NEW      /Library/Preferences/SystemConfiguration/com.apple.AutoWake.plist

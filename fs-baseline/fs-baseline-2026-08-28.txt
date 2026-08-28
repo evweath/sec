@@ -1,5 +1,5 @@
 # Filesystem Integrity Baseline
-# Date:    2026-08-28T21:43:57Z
+# Date:    2026-08-28T21:55:03Z
 # Machine: evw’s MacBook Pro
 # macOS:   26.6.2 (25G83)
 #
@@ -67,9 +67,7 @@ b2febbe77d14a8ca4fa767867d064aa3757446d780f1fd52a7da5ece8095e891  /Library/Appli
 8080dacb746deeb4c7f7473df9e3b0cb7a0063938e6ee980c013c3ec47063928  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-171833
 4103659a0e4db2ca36918d9d98b86dd7ec402d726761f7053ae00446c1bde351  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-181833
 57ad1e7d9704669cba2f671a75d574034853e1dcec2b4f1af384c0ba96b26fe9  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-191833
-1d55432bc5e971269a1758d218cc955a0228006101ab2834fec8d39a97c1e777  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-201833
-c42cfe564ae9d0d2c0f68eeb7c79468475de9b6e25ef1def9aae59787864eca5  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-204333
-1e93555064237551b4a740485125c809f05b4bc1df2486260d2914600afa9b7e  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-204833
+ed43a87dde7a6257ed61e751f4ef27b523af75af8fdba701354adeddb0ea58c9  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20260828-201833
 8ae6e09de9e66c1ecb228ce02d98be5b3daf69a99ae332f8f1270c319ca37343  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-205333
 07f7875f96034f3df24693df3e7813a975ae13ca6b43ab85f2b48b720b362e5a  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-205833
 cecb8efea0ee0c1b7bc71ff21230d38612c00bbc8e08cb2fb1d2e84dde69ace3  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-210333
@@ -80,7 +78,9 @@ fa0dcbce54811a5ed5da2fc0acb3975ac62725f52983dafb0c53cd8f532a340f  /Library/Appli
 316fcc2dc9be0d2f0abcf2378e637b583a887c6edb3a877d10abd1f9670beef9  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-212833
 0a61f39f30430d48b3f9f0f4712aa30782eaa1437e97021769b1c4ed63e794f0  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-213333
 43c9b65cec91a190246f21dc31bb0db2d213facf5f88316d81f43a4a1c76ee18  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-213833
-25340f203c22a3478ad937b958b44f1a1f8044781b75883134f8af758903cdff  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-214333
+a1a2782db68d73415e71af1992eb1f612325d72538b8ba94b3a2e28cf268674d  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-214333
+ba0b91978df6e29b0a6b5c3c5d328e307cf126f43d2595a9e150ed6041a5a810  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-214837
+c130f153466965d4ece93b02f1feac36b3ef35a6bd23c136549372f631ea2630  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20260828-215338
 36e1f8c8c832bdb8cd06688960184ca6183a1f386b0d28b20a89af25a4b9ac57  /Library/Extensions/HighPointIOP.kext/Contents/_CodeSignature/CodeResources
 689f340f70ff049e4a4d22cffafba7a64f5bf0e5380d86fc0e6ab579f81da1f0  /Library/Extensions/HighPointIOP.kext/Contents/CodeResources
 f6007a7134e3a27c4f3d20b9fac2df7f8cc8d0d3249f8ed76fe17b345b9c155c  /Library/Extensions/HighPointIOP.kext/Contents/Info.plist
