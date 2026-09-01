@@ -288,3 +288,13 @@ copy-back to passport1 OK). Fixes from that run:
 - user interrupt (rsync rc=20/^C) now ABORTS cleanly with a resume hint instead
   of falling back to ditto and restarting a 60GB copy from scratch
 - validated: syntax, tshoot-capture purity, skip-list filter
+
+## 2026-09-01 15:42 — ls-hygiene-guard: LS rule check every 5 min, persistent
+User clarified: conn-guard stays at 30s scans; the 30-min thing they remembered
+was the LS rules check (old ls-watchdog ran 10min, removed today; its manual
+successor ls-hygiene.py had no timer). NEW com.evw.ls-hygiene-guard daemon:
+every 300s exports LS model, applies ls-hygiene (tracker allows, OCSP/configd
+denies, durable tracker denies), restores ONLY on change (no pointless reloads).
+Per applied change: pre-patch model backup (last 30 kept), undo JSON, and
+[AUTO-EVW-LS] line in AUTO-ACTIONS.md. First cycle already removed 2
+regenerated risk rules. Persistent across reboots (LaunchDaemon).
