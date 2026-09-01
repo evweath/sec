@@ -380,3 +380,14 @@ denies). Backup: /var/log/mac-sentinel/ls-model-pre-denyremote-*.json; undo
 manifest: netdiag/logs/ls-deny-remote-undo.json. Not on disk under macOS 26:
 universalcontrol, PersonalHotspotAgent, AirPlayReceiver (skipped). No conflict
 with ls-hygiene-guard (its T1-T3 policy doesn't touch these).
+
+## 2026-09-01 17:37 — LS blanket denies: screen-sharing/remote-desktop programs
+24 tagged ([AUTO-EVW] block screen-sharing) any-remote deny rules planted +
+verified (601 rules total). Apple: ScreenSharing client, screensharing.agent,
+screensharing.menuextra (daemon already denied earlier). Third-party (inert
+unless installed): TeamViewer x3, AnyDesk, Chrome Remote Desktop x2, RealVNC x2,
+Splashtop x2, LogMeIn x2, GoToMyPC, RustDesk, Parsec, NoMachine x2, Zoho
+Assist, DWService, Supremo, MS RDP client. SKIPPED: com.apple.RemoteDesktop
+(substring collision with already-denied RemoteDesktopAgent) — non-issue: the
+ARD admin app is not installed. Backup: /var/log/mac-sentinel/ls-model-pre-
+denyss-*.json; undo: netdiag/logs/ls-deny-screenshare-undo.json.
