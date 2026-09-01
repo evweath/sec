@@ -339,3 +339,13 @@ launchd-spawned osascript has unreliable Automation consent. Fix: plist back to
 display script now resizes/titles its OWN window via xterm escape sequences
 (\e[8;20;1500t + OSC title) — no Apple events anywhere. Verified: new session
 header at 16:28:19, numbering from #1, colors live, window self-sized 1500x20.
+
+## 2026-09-01 16:43 — remote-connectivity daemons: killed + permanently guarded
+Killed all 10 running remote-access processes (remoted, studentd, AirPlayUIAgent,
+AirPlayXPCHelper, rapportd, sharingd, identityservicesd, nearbyd, mediaremoted,
+avconferenced). evw-studentd-guard KILL_LIST expanded to the full set (19 procs:
+remote desktop/screensharing/ARD, AirPlay, Continuity, Nearby, media-remote,
+conferencing, hotspot, SMB) — guard restarted and instantly re-killed respawns.
+bluetoothd EXCLUDED per user's own condition: killing it DOES affect Wi-Fi
+(proven root cause of today's outages). fairplayd left (DRM, not remote access).
+Monitor confirms zero Wi-Fi events during the kill sweep.

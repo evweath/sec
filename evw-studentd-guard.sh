@@ -1,16 +1,16 @@
 #!/bin/bash
-# evw-studentd-guard.sh — kill studentd on sight, every 5 minutes.
+# evw-studentd-guard.sh — kill remote-connectivity daemons on sight, every 5 min.
 #
-# Requested 2026-09-01. Runs as root LaunchDaemon (com.evw.studentd-guard,
-# KeepAlive). studentd is Apple's Classroom managed-device daemon — unneeded on
-# this Mac and already service-disabled by evw-comms-setup.sh; this guard is
-# belt-and-suspenders in case it ever respawns.
+# Requested 2026-09-01 (expanded from studentd-only to the full remote-access
+# set: remote desktop/screensharing/ARD, AirPlay, Continuity/Handoff, Nearby,
+# media-remote, conferencing, hotspot, SMB). All of these are already
+# launchd-disabled by the lockdown — this guard is belt-and-suspenders for
+# instances that respawn anyway (launchd "disabled" does not stop respawns).
 #
-# ⚠️  airportd IS DELIBERATELY NOT IN THE KILL LIST.
-# airportd IS the macOS Wi-Fi daemon: killing it drops the Wi-Fi link every
-# time — the exact outage class root-caused and fixed on 2026-09-01
-# (comms-guard/bluetoothd incident, see /Users/evw/dev/fix/netdiag/STATE.md).
-# NEVER add: airportd, bluetoothd, wifid, mDNSResponder, configd.
+# ⚠️  bluetoothd IS DELIBERATELY NOT IN THE KILL LIST (2026-09-01 incident):
+# killing bluetoothd flaps the shared Wi-Fi/BT radio and caused the recurring
+# internet outages fixed today — see /Users/evw/dev/security/netdiag/STATE.md.
+# Same for airportd, wifid, mDNSResponder, configd, WirelessRadioManagerd.
 #
 # Deployed to: /usr/local/bin/evw-studentd-guard.sh
 # LaunchDaemon: com.evw.studentd-guard  (root, KeepAlive=true)
@@ -40,8 +40,28 @@ INTERVAL=300   # 5 minutes, as requested
 
 KILL_LIST=(
     studentd
+    remoted
+    screensharingd
+    ARDAgent
+    remotemanagementd
+    RemoteManagementAgent
+    AirPlayReceiver
+    AirPlayUIAgent
+    AirPlayXPCHelper
+    rapportd
+    sharingd
+    identityservicesd
+    nearbyd
+    universalcontrol
+    mediaremoted
+    avconferenced
+    PersonalHotspotAgent
+    smbd
+    NetBIOS
 )
-# NEVER add: airportd bluetoothd wifid mDNSResponder configd — network/radio critical.
+# NEVER add: airportd bluetoothd wifid mDNSResponder configd WirelessRadioManagerd
+# — network/radio critical. bluetoothd especially: killing it flaps the shared
+# Wi-Fi/BT radio (proven 2026-09-01 — user confirmed: keep it alive).
 
 log() { printf '%s %s\n' "$(date -Iseconds)" "$*" >> "$LOG"; }
 
