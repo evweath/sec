@@ -225,3 +225,19 @@ scripts/tm-restore.sh: offline, hours-safe, resumable TM restore tool.
   removable-volume writes from other contexts — verified: agent dialog context
   gets EPERM on /Volumes/passport1). If volume mounted RO: sudo mount -uw /Volumes/passport1
 - validated here: syntax, oldest-first ordering, volume autodetect -> /Volumes/passport1
+
+## 2026-09-01 14:00 — MERGED into security repo + full verification (03e1055)
+The fix/netdiag tree is now merged into /Users/evw/dev/security/netdiag/ (commit
+03e1055, pushed). THIS COPY IS NOW CANONICAL; /Users/evw/dev/fix remains as an
+untouched local archive (its own git repo) and can be deleted when convenient.
+Verification sweep (all green):
+- A: all 26 session artifacts present in security (scripts, netdiag tools, STATE)
+- B: gates/tags intact: comms-guard + comms-setup DISABLED gates, install-all
+  LS_WATCHDOG=0/COMMS_GUARD=0, mac-sentinel single-tty + ip_intel, conn-guard
+  anchored pf (-a com.ew.autoblock), 6 menu entries incl. ls-hygiene + tm-restore
+- C: bash -n + py_compile pass on every new script
+- D: deployed copies in /usr/local/bin == sources (7/7 hash match;
+  /usr/local/lib/mac-sentinel verified earlier via boot-audit as root)
+- E: security/netdiag == fix/netdiag (only monitor.log differs — living file;
+  netdiag/.gitignore added in security to keep LS model exports + boot-audit local)
+- Root .gitignore logs/ pattern anchored to /logs/ so netdiag/logs is tracked.
