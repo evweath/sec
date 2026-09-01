@@ -349,3 +349,19 @@ conferencing, hotspot, SMB) — guard restarted and instantly re-killed respawns
 bluetoothd EXCLUDED per user's own condition: killing it DOES affect Wi-Fi
 (proven root cause of today's outages). fairplayd left (DRM, not remote access).
 Monitor confirms zero Wi-Fi events during the kill sweep.
+
+## 2026-09-01 17:16 — remote-access suppression: the honest ceiling
+User asked for a simpler permanent solution than the kill loop. Proven today:
+launchctl disable (both domains, correct labels incl. com.apple.macos.studentd
+which was missed) is IGNORED by macOS for the continuity stack; bootout is SIP
+error 150; removing triggers (Handoff advertising+receiving off, AirDrop off)
+did NOT stop respawns; binaries are SIP-sealed; "bad credentials" is N/A — these
+daemons use the user's iCloud identity certs, not per-service passwords (the only
+credential lever is FaceTime/Messages sign-out). Also from the LS model: deny
+rules already exist for the network-active members (studentd, identityservicesd);
+rapportd/sharingd/mediaremoted/nearbyd/avconferenced/AirPlay agents have ZERO
+outbound connections in the LS model (local-link only, already neutered).
+CONCLUSION: outside enforcement (the guard) IS the permanent solution; interval
+tuned 300s -> 60s -> 15s. Dead-time: ~0% at 300s, ~50% at 60s, ~80% at 15s —
+relaunch is instant, so 15s is the practical ceiling; anything shorter is churn.
+Guard persists at boot (RunAtLoad+KeepAlive). bluetoothd stays excluded.

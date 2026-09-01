@@ -36,7 +36,11 @@ LOG="/private/var/log/evw-studentd-guard.log"
 if ! touch "$LOG" 2>/dev/null; then LOG="$HOME/Library/Logs/$(basename "$LOG")"; fi
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 
-INTERVAL=300   # 5 minutes, as requested
+INTERVAL=15    # seconds — practical suppression ceiling. Apple's continuity
+               # stack relaunches within SECONDS of any kill and ignores
+               # launchctl disable / bootout / trigger removal (all proven
+               # 2026-09-01). Dead-time: ~50% at 60s, ~80% at 15s; below this
+               # is pure churn for diminishing returns. bluetoothd EXCLUDED.
 
 KILL_LIST=(
     studentd
