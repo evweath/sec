@@ -322,3 +322,12 @@ tooling. Zero sudo/auth events, canary clean, no USB, no tamper, no anomalies.
 One fix from review: D2 DNS check false-positived on github.com A-record
 rotation (12 alerts) — now suppressed when sys/public answer sets share the
 same RDAP org; alerts only on genuinely different owners. Deployed + restarted.
+
+## 2026-09-01 16:21 — alert terminal v2: severity colors + 1500x20 scrollable
+Display script now colorizes per-entry in the TERMINAL (CRITICAL=red,
+WARNING=yellow, INFO=plain; display log stays plain-text, no ANSI) with a
+legend line in the header. New evw-sentinel-alert-launch.sh spawns Terminal via
+AppleScript and sets 1500 cols x 20 rows (macOS clamps to screen width) with
+normal scrollback — single-line JSON alerts stay on one line. LaunchAgent plist
+now runs the launcher. Reloaded live; launchd log clean; entries #6-#13
+flowing with the new format.
