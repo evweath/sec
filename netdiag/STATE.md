@@ -331,3 +331,11 @@ AppleScript and sets 1500 cols x 20 rows (macOS clamps to screen width) with
 normal scrollback — single-line JSON alerts stay on one line. LaunchAgent plist
 now runs the launcher. Reloaded live; launchd log clean; entries #6-#13
 flowing with the new format.
+
+## 2026-09-01 16:29 — alert terminal v3: Apple-events-free spawn (TCC-proof)
+Respawn attempt hit -1743 (Not authorized to send Apple events to Terminal) —
+launchd-spawned osascript has unreliable Automation consent. Fix: plist back to
+`open -a Terminal <display.sh>` (LaunchServices, no consent needed) and the
+display script now resizes/titles its OWN window via xterm escape sequences
+(\e[8;20;1500t + OSC title) — no Apple events anywhere. Verified: new session
+header at 16:28:19, numbering from #1, colors live, window self-sized 1500x20.
