@@ -365,3 +365,18 @@ CONCLUSION: outside enforcement (the guard) IS the permanent solution; interval
 tuned 300s -> 60s -> 15s. Dead-time: ~0% at 300s, ~50% at 60s, ~80% at 15s —
 relaunch is instant, so 15s is the practical ceiling; anything shorter is churn.
 Guard persists at boot (RunAtLoad+KeepAlive). bluetoothd stays excluded.
+
+## 2026-09-01 17:27 — LS blanket denies for all remote-access daemons
+User asked which of the 19 LS doesn't block: answer was 17 unruled + 2 with
+narrow per-host denies only (studentd: www.apple.com; identityservicesd: a few
+Apple init hosts). LS is in ALERT mode (activeSilentMode:0) so unruled conns
+would prompt, but none of the 17 ever attempted one (no LS model entries).
+FIX: 16 tagged any-remote deny rules planted via codesign-verified identifiers
+(com.apple.studentd/remoted/RemoteDesktopAgent/remotemanagementd/
+RemoteManagementAgent/AirPlayUIAgent/AirPlayXPCHelper/rapportd/sharingd/
+identityservicesd/nearbyd/mediaremoted/avconferenced/smbd/netbiosd/
+screensharing.daemon). Verified in model (577 rules, 16 [AUTO-EVW] blanket
+denies). Backup: /var/log/mac-sentinel/ls-model-pre-denyremote-*.json; undo
+manifest: netdiag/logs/ls-deny-remote-undo.json. Not on disk under macOS 26:
+universalcontrol, PersonalHotspotAgent, AirPlayReceiver (skipped). No conflict
+with ls-hygiene-guard (its T1-T3 policy doesn't touch these).
