@@ -241,3 +241,16 @@ Verification sweep (all green):
 - E: security/netdiag == fix/netdiag (only monitor.log differs — living file;
   netdiag/.gitignore added in security to keep LS model exports + boot-audit local)
 - Root .gitignore logs/ pattern anchored to /logs/ so netdiag/logs is tracked.
+
+## 2026-09-01 14:10 — tm-restore v3: fully automatic troubleshooting ladder
+Per user req: no files left on Desktop (per-folder move, staging deleted after
+verified copy-back; log/manifest/.done markers live in the TM-disk dest; staging
+dir removed on clean finish) + automatic troubleshooting without human input:
+S1 auto-failover to newest usable snapshot in /Volumes/.timemachine if default
+path gone; S2 read probe retries 3x10s (TCC/FDA grant is the ONLY step no script
+can automate — hard macOS boundary, one-time GUI action); S3 auto mount -uw +
+re-probe (also retried on copy-back failure); S4 engine ladder rsync->ditto->
+cp -Rp; S5 second-pass rsync then MISSING-<name>.txt diagnostic, staging kept
+only for genuinely mismatched folders; S6 staging disk guard (skip oversized
+folder, logged); S7 destination disk guard. Oldest-mtime-first ordering, --all
+mode, resume via STAGE env unchanged. Validated: syntax + ordering + autodetect.
