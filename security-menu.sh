@@ -150,6 +150,8 @@ add "$S" "evw-dns-guard-setup.sh"                      "[SVC,SUDO]" "Install DNS
 add "$S" "evw-studentd-guard.sh"                       "[SVC,DAEMON,SUDO]" "Kill studentd every 5 min (airportd EXCLUDED — killing it drops Wi-Fi)"
 add "$S" "scripts/evw-file-vault.py"                   "[SVC,DAEMON,SUDO]" "Versioned snapshots of security-critical files; every change reversible"
 add "$S" "scripts/vault-restore.sh"                    "[MOD,SUDO]"  "Restore any watched file to a previous vaulted version"
+add "$S" "scripts/evw-auto-conn-guard.py"              "[SVC,DAEMON,SUDO]" "[AUTO-EVW] Score outbound conns; auto kill+1h-block on high score; fully undoable"
+add "$S" "scripts/evw-auto-undo.sh"                    "[MOD,SUDO]"  "[AUTO-EVW] Undo any auto-guard action by id, or flush all auto blocks"
 # DISABLED 2026-09-01: comms-guard caused recurring ~100s Wi-Fi outages — killing
 # bluetoothd flaps the shared Wi-Fi/BT radio. Evidence: /Users/evw/dev/fix/netdiag/STATE.md
 # add "$S" "evw-comms-guard.sh"                        "[SVC,DAEMON,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"
