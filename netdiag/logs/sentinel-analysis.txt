@@ -1,0 +1,518 @@
+SENTINEL LOG ANALYSIS — adjudicate every entry
+
+## A. OUTBOUND CONNECTIONS (process -> ip:port, count, owner/country/fcrdns)
+  ?                            -> ?:?  x280  org=? country=? ptr=? fcrdns=?
+  Brave Browser Helper         -> 2a06:98c1:52::3:443  x5  org=Cloudflare Abuse Contact country=GB ptr=none fcrdns=False
+  Brave Browser Helper         -> 2803:f800:53::3:443  x4  org=CloudFlare Latin America S.R.L country= ptr=none fcrdns=False
+  Brave Browser Helper         -> 172.64.41.3:443  x2  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  Brave Browser Helper         -> 162.159.61.3:443  x1  org=? country=? ptr=? fcrdns=?
+  Brave Browser Helper         -> 151.101.1.32:443  x1  org=? country=? ptr=? fcrdns=?
+  Python                       -> 2001:500:31::160:443  x1  org=ARIN Operations country= ptr=rdap.arin.net fcrdns=False
+  Python                       -> 172.253.124.113:443  x1  org=? country=? ptr=? fcrdns=?
+  at.obdev.littlesnitch.networ -> 2620:fe::10:443  x5  org=Quad9 country= ptr=dns10.quad9.net fcrdns=False
+  at.obdev.littlesnitch.networ -> 2600:100b:b0c2:dfac::cf:53  x5  org=Verizon Business country= ptr=none fcrdns=False
+  at.obdev.littlesnitch.networ -> 2600:100b:b0c7:a7b4::e7:53  x4  org=Verizon Business country= ptr=none fcrdns=False
+  at.obdev.littlesnitch.networ -> 9.9.9.10:443  x3  org=global country=? ptr=none fcrdns=False
+  at.obdev.littlesnitch.networ -> 149.112.112.10:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.Safari.SearchHelpe -> 2607:f8b0:4002:c1b::66:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.Safari.SearchHelpe -> 2607:f8b0:4002:c06::66:443  x1  org=Google LLC country= ptr=yv-in-x66.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2606:4700::6812:105d:443  x5  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.198:443  x5  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.200:443  x5  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.203:443  x5  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.197:443  x5  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 173.194.77.94:443  x5  org=Google LLC country= ptr=gc-in-f94.1e100.net fcrdns=True
+  com.apple.WebKit.Networking  -> 74.125.136.94:443  x5  org=Google LLC country= ptr=yr-in-f94.1e100.net fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c03::11:443  x4  org=Google LLC country= ptr=ya-in-f17.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4847:400:::443  x4  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.199:443  x4  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4841:400:::443  x3  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4844:400:::443  x3  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c1b::64:443  x3  org=Google LLC country= ptr=yt-in-f100.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c1b::8b:443  x3  org=Google LLC country= ptr=yt-in-f139.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.202:443  x3  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::54:443  x3  org=Google LLC country= ptr=ym-in-f84.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4845:400:::443  x3  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4842:400:::443  x3  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.201:443  x3  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 172.253.124.113:443  x3  org=Google LLC country= ptr=ys-in-f113.1e100.net fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4023:402::5e:443  x3  org=Google LLC country= ptr=ge-in-f94.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 104.18.16.93:443  x2  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.217.116.4:443  x2  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c0c::12:443  x2  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::71:443  x2  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2001:4860:4843:400:::443  x2  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:482b:7700:::443  x2  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c10::66:443  x2  org=Google LLC country= ptr=ys-in-f102.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::84:443  x2  org=Google LLC country= ptr=ym-in-f132.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 140.82.114.3:443  x2  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c03::5e:443  x2  org=Google LLC country= ptr=ya-in-x5e.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 140.82.112.26:443  x2  org=GitHub, Inc. country= ptr=lb-140-82-112-26-iad.github.co fcrdns=True
+  com.apple.WebKit.Networking  -> 140.82.112.25:443  x2  org=GitHub, Inc. country= ptr=lb-140-82-112-25-iad.github.co fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c00::5e:443  x2  org=Google LLC country= ptr=yr-in-f94.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c10::8a:443  x2  org=Google LLC country= ptr=ys-in-f138.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4829:7700:::443  x2  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 52.184.222.228:443  x2  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 172.96.121.178:443  x2  org=ZENLA-1 country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2603:1036:207:45a::2:443  x2  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 47.246.20.196:443  x2  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c08::13:443  x2  org=Google LLC country= ptr=yx-in-f19.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c0f::54:443  x2  org=Google LLC country= ptr=yo-in-f84.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 163.181.60.206:443  x2  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::11:443  x2  org=Google LLC country= ptr=yl-in-f17.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c00::54:443  x2  org=Google LLC country= ptr=yr-in-f84.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::11:443  x2  org=Google LLC country= ptr=ym-in-f17.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::8a:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c0f::5e:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c0c::54:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c06::5e:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::66:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c1b::11:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:4700::6812:115d:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c03::53:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c08::11:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 51.8.71.184:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 104.18.17.93:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.217.215.94:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 142.250.105.83:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 74.125.138.84:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 142.250.96.94:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 173.194.219.17:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 74.125.138.100:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.217.114.4:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.253.126.94:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.217.118.4:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 172.253.124.139:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 142.251.15.138:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 142.251.15.113:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c0c::11:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.114.5:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:50c0:8001::154:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.114.22:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 185.199.110.215:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c08::71:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.113.3:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:50c0:8002::215:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:50c0:8003::154:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::71:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.113.25:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.113.21:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:4700::6812:1a30:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:303:3c1c::2:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:3000:60::6:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.113.5:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::53:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.114.25:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.113.4:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 140.82.114.21:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2606:4700::6812:12cb:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:303:3c08::2:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:303:3c1b::2:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 3.166.181.91:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1037:1:130::81:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2600:1402:8000:102::17da:91a7:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 52.123.129.14:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:3000:60::4:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1061:1600:521::365:c0:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2600:9000:205a:7600:1d:d7f6:39d6:4401:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1036:303:3839::2:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c06::66:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2603:1061:14:47::1:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 2620:1ec:33::10:443  x1  org=? country=? ptr=? fcrdns=?
+  com.apple.WebKit.Networking  -> 163.181.60.202:443  x1  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 163.181.60.208:443  x1  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 163.181.60.204:443  x1  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c10::64:443  x1  org=Google LLC country= ptr=ys-in-f100.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c08::8b:443  x1  org=Google LLC country= ptr=yx-in-f139.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c00::71:443  x1  org=Google LLC country= ptr=yr-in-f113.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 64.233.176.157:443  x1  org=Google LLC country= ptr=yw-in-f157.1e100.net fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::61:443  x1  org=Google LLC country= ptr=ym-in-f97.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4802:38::87:443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2620:127:f00f:e:::443  x1  org=Shopify, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2620:127:f00e:ff01:::443  x1  org=Shopify, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 45.60.241.200:443  x1  org=Incapsula Inc country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2620:127:f00e:ff00:::443  x1  org=Shopify, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 23.227.38.33:443  x1  org=Shopify, Inc. country= ptr=checkout.shopify.com fcrdns=True
+  com.apple.WebKit.Networking  -> 2606:4700:20::681a:c:443  x1  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 35.186.251.138:443  x1  org=Google LLC country= ptr=138.251.186.35.bc.googleuserco fcrdns=True
+  com.apple.WebKit.Networking  -> 23.227.38.32:443  x1  org=Shopify, Inc. country= ptr=myshopify.com fcrdns=True
+  com.apple.WebKit.Networking  -> 23.227.39.20:443  x1  org=Shopify, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 23.227.38.74:443  x1  org=Shopify, Inc. country= ptr=shops.myshopify.com fcrdns=True
+  com.apple.WebKit.Networking  -> 2606:4700::6812:dcd:443  x1  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 34.149.34.106:443  x1  org=Google LLC country= ptr=106.34.149.34.bc.googleusercon fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c1b::5e:443  x1  org=Google LLC country= ptr=yt-in-f94.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 34.144.250.199:443  x1  org=Google LLC country= ptr=199.250.144.34.bc.googleuserco fcrdns=True
+  com.apple.WebKit.Networking  -> 173.194.219.94:443  x1  org=Google LLC country= ptr=ya-in-f94.1e100.net fcrdns=True
+  com.apple.WebKit.Networking  -> 34.73.251.59:443  x1  org=Google LLC country= ptr=59.251.73.34.bc.googleusercont fcrdns=True
+  com.apple.WebKit.Networking  -> 104.19.230.21:443  x1  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2600:1901:0:b257:::443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2600:1901:0:658b:::443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:482c:7700:::443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2606:4700::6812:ccd:443  x1  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::13:443  x1  org=Google LLC country= ptr=yl-in-f19.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 34.128.177.21:443  x1  org=Google LLC country= ptr=21.177.128.34.bc.googleusercon fcrdns=True
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c10::8b:443  x1  org=Google LLC country= ptr=ys-in-f139.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::5e:443  x1  org=Google LLC country= ptr=yl-in-f94.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 173.194.205.94:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c02::64:443  x1  org=Google LLC country= ptr=ym-in-f100.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4802:38::178:443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2603:1061:14:73::1:443  x1  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 98.98.65.55:443  x1  org=Zenlayer Inc country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2620:1ec:33:1::10:443  x1  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c2c::53:443  x1  org=Google LLC country= ptr=yl-in-f83.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c03::12:443  x1  org=Google LLC country= ptr=ya-in-x12.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4840:400:::443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2001:4860:4846:400:::443  x1  org=Google LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 163.181.60.207:443  x1  org=Alibaba Cloud LLC country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c08::12:443  x1  org=Google LLC country= ptr=yx-in-f18.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2607:f8b0:4002:c06::71:443  x1  org=Google LLC country= ptr=yv-in-x71.1e100.net fcrdns=False
+  com.apple.WebKit.Networking  -> 2603:1061:14:76::1:443  x1  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 20.80.37.232:443  x1  org=Microsoft Corporation country= ptr=none fcrdns=False
+  com.apple.WebKit.Networking  -> 2620:1ec:33:2::10:443  x1  org=Microsoft Corporation country= ptr=none fcrdns=False
+  curl                         -> 8.147.223.37:443  x213  org=Alibabacom Singapore E-Commerce Private  country=CN ptr=none fcrdns=False
+  itunescloudd                 -> 151.101.195.6:443  x3  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  itunescloudd                 -> 151.101.131.6:443  x3  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  itunescloudd                 -> 2a04:4e42:600::774:443  x2  org=FASTLY country=US ptr=none fcrdns=False
+  itunescloudd                 -> 2a04:4e42:400::774:443  x2  org=FASTLY country=US ptr=none fcrdns=False
+  itunescloudd                 -> 151.101.67.6:443  x2  org=Fastly, Inc. country= ptr=none fcrdns=False
+  itunescloudd                 -> 2a04:4e42:200::774:443  x2  org=FASTLY country=US ptr=none fcrdns=False
+  itunescloudd                 -> 2a04:4e42::774:443  x1  org=? country=? ptr=? fcrdns=?
+  itunescloudd                 -> 151.101.3.6:443  x1  org=? country=? ptr=? fcrdns=?
+  kimi                         -> 103.143.17.156:443  x13  org=IRT-HIDDOS-CN country=CN ptr=none fcrdns=False
+  kimi                         -> 2606:4700::6812:1c88:443  x7  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  kimi                         -> 2606:4700::6812:1d88:443  x4  org=Cloudflare, Inc. country= ptr=none fcrdns=False
+  kimi                         -> 2606:4700::6812:14f6:443  x2  org=? country=? ptr=? fcrdns=?
+  kimi                         -> 128.14.219.131:443  x1  org=? country=? ptr=? fcrdns=?
+  kimi                         -> 199.245.60.194:443  x1  org=? country=? ptr=? fcrdns=?
+  kimi                         -> 104.18.29.136:443  x1  org=? country=? ptr=? fcrdns=?
+  kimi                         -> 104.18.28.136:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 2620:149:a41:40d::7:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::a:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::c:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360:4::e:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:40d::9:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::6:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:40d::6:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:40d::8:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::5:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::9:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::4:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.186.39:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.186.37:443  x2  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 2620:149:a41:411::7:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:40d::b:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::4:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:40d::5:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::7:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::e:443  x2  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 2620:149:a41:410::f:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::8:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::6:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::9:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::b:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::7:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.186.47:443  x2  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  mDNSResponder                -> 2620:149:1360::5:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.186.70:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.105:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.40:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.69:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.71:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.107:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.134.12:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.45:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 2620:149:1360::4:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.136.167:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.68:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.101:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.136.166:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.136.165:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.136.171:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.44:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.36:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.75:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.74:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 2620:149:a41:410::9:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::a:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:1360::b:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.186.102:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  mDNSResponder                -> 17.248.186.43:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 17.248.136.170:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  mDNSResponder                -> 17.248.136.168:443  x1  org=? country=? ptr=? fcrdns=?
+  mDNSResponder                -> 17.248.186.42:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  mDNSResponder                -> 17.248.186.104:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  mDNSResponder                -> 2620:149:a41:410::a:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::b:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::8:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  mDNSResponder                -> 2620:149:a41:411::5:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  managedappdistributionagent  -> 151.101.3.6:443  x2  org=Fastly, Inc. country= ptr=none fcrdns=False
+  managedappdistributionagent  -> 151.101.131.6:443  x2  org=? country=? ptr=? fcrdns=?
+  managedappdistributionagent  -> 151.101.195.6:443  x2  org=? country=? ptr=? fcrdns=?
+  managedappdistributionagent  -> 151.101.67.6:443  x2  org=Fastly, Inc. country= ptr=none fcrdns=False
+  managedappdistributionagent  -> 2a04:4e42:400::774:443  x2  org=? country=? ptr=? fcrdns=?
+  managedappdistributionagent  -> 2a04:4e42:600::774:443  x2  org=? country=? ptr=? fcrdns=?
+  managedappdistributionagent  -> 2a04:4e42::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributionagent  -> 2a04:4e42:200::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 151.101.131.6:443  x2  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  managedappdistributiond      -> 151.101.195.6:443  x2  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  managedappdistributiond      -> 2a04:4e42:600::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 2a04:4e42:400::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 2a04:4e42::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 151.101.67.6:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 2a04:4e42:200::774:443  x1  org=? country=? ptr=? fcrdns=?
+  managedappdistributiond      -> 151.101.3.6:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:1360:101::17:443  x5  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.43:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360:101::12:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360:101::4:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360:101::5:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360:101::d:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.9:443  x4  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.16:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:480::2:1:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.24:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:480::2:2:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.65:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.68:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:480::2:3:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.66:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:480::2:4:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.64:443  x3  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.40:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:410::b:443  x2  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:480::2:5:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.102:443  x2  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.45:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.200.51:443  x2  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.37:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360::4:443  x2  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.200.67:443  x2  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.38:443  x2  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  networkserviceproxy          -> 17.253.150.10:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.253.145.10:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:411::a:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:411::4:443  x2  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:410::a:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:40d::5:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:1360::7:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:40d::6:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:411::5:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.106:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.73:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.136.170:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.70:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.136.164:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.105:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.103:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.71:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.47:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:1360::b:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.101:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.100:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.44:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.186.72:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:40d::9:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:1360:4::e:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 17.248.136.171:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:1360::8:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:af6::10:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:af1::10:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:1360::9:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:411::6:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:411::8:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:411::b:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:410::5:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.136.168:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.75:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.46:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.136.169:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:40d::8:443  x1  org=? country=? ptr=? fcrdns=?
+  networkserviceproxy          -> 2620:149:a41:410::e:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.136.165:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.36:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 2620:149:a41:411::7:443  x1  org=Apple Inc. country= ptr=none fcrdns=False
+  networkserviceproxy          -> 17.248.186.104:443  x1  org=global country=? ptr=;; connection timed out; no se fcrdns=False
+  passd                        -> 2620:149:a16:f000::138:443  x1  org=? country=? ptr=? fcrdns=?
+  passd                        -> 2620:149:a16:f000::132:443  x1  org=? country=? ptr=? fcrdns=?
+  passd                        -> 17.253.7.139:443  x1  org=? country=? ptr=? fcrdns=?
+  passd                        -> 17.253.7.143:443  x1  org=? country=? ptr=? fcrdns=?
+  ssh                          -> 140.82.114.4:22  x2  org=? country=? ptr=? fcrdns=?
+  ssh                          -> 140.82.114.3:22  x2  org=GitHub, Inc. country= ptr=lb-140-82-114-3-iad.github.com fcrdns=True
+  ssh                          -> 140.82.112.4:22  x2  org=GitHub, Inc. country= ptr=lb-140-82-112-4-iad.github.com fcrdns=True
+  ssh                          -> 140.82.113.3:22  x1  org=? country=? ptr=? fcrdns=?
+  swtransparencyd              -> 172.64.69.64:443  x1  org=? country=? ptr=? fcrdns=?
+  swtransparencyd              -> 162.159.194.64:443  x1  org=? country=? ptr=? fcrdns=?
+  swtransparencyd              -> 172.64.68.64:443  x1  org=? country=? ptr=? fcrdns=?
+  swtransparencyd              -> 162.159.196.64:443  x1  org=? country=? ptr=? fcrdns=?
+  timed                        -> 2620:149:a18:3000::31:123  x2  org=Apple Inc. country= ptr=usmia1-ntp-001.aaplimg.com fcrdns=False
+  timed                        -> 2620:149:a16:4000::31:123  x2  org=Apple Inc. country= ptr=usatl4-ntp-002.aaplimg.com fcrdns=False
+  timed                        -> 2620:149:a10:4000::31:123  x1  org=? country=? ptr=? fcrdns=?
+  timed                        -> 2620:149:a18:4000::31:123  x1  org=? country=? ptr=? fcrdns=?
+  timed                        -> 17.253.20.45:123  x1  org=? country=? ptr=? fcrdns=?
+  timed                        -> 17.253.12.37:123  x1  org=? country=? ptr=? fcrdns=?
+  timed                        -> 17.253.6.45:123  x1  org=Apple Inc. country= ptr=usatl4-ntp-002.aaplimg.com fcrdns=True
+
+## B. ROOT_PROCESS_DETECTED (name, exe, count, cmdline)
+                                 /System/Library/                                   x5382  /System/Library/CoreServices/ManagedClient.app/Contents/MacO
+  sleep                          sleep                                              x4742  sleep 5
+  blueto                         /usr/sbin/blueto                                   x2123  /usr/sbin/bluetoothd
+  Air                            /usr/libexec/Air                                   x2121  /usr/libexec/AirPlayXPCHelper
+  mdm                            /usr/libexec/mdm                                   x1859  /usr/libexec/mdmclient daemon
+  cor                            /usr/libexec/cor                                   x120  /usr/libexec/coreduetd
+  bash                           /bin/bash                                          x46  /bin/bash /usr/local/bin/evw-studentd-guard.sh
+  login                          login                                              x24  login -pf evw
+  system                         /usr/sbin/system                                   x19  /usr/sbin/systemstats --daemon
+  sudo                           sudo                                               x17  sudo bash /Users/evw/dev/security/scripts/tm-restore.sh --al
+  con                            /usr/libexec/con                                   x15  /usr/libexec/configd
+  sys                            /usr/libexec/sys                                   x15  /usr/libexec/syspolicyd
+  wif                            /usr/libexec/wif                                   x15  /usr/libexec/wifianalyticsd
+  Develop                        /Library/Develop                                   x14  /Library/Developer/CommandLineTools/Library/Frameworks/Pytho
+  S                              /Library/Apple/S                                   x14  /Library/Apple/System/Library/CoreServices/XProtect.app/Cont
+  rsync                          rsync                                              x14  rsync --server -g -l -o -p -D -r -t -W --dirs . /Volumes/pas
+  aud                            /usr/libexec/aud                                   x10  /usr/libexec/audioanalyticsd
+  sec                            /usr/libexec/sec                                   x10  /usr/libexec/secinitd
+  fin                            /usr/libexec/fin                                   x10  /usr/libexec/findmydeviced
+  cfpref                         /usr/sbin/cfpref                                   x10  /usr/sbin/cfprefsd daemon
+  mob                            /usr/libexec/mob                                   x10  /usr/libexec/mobileassetd
+  log                            /usr/libexec/log                                   x10  /usr/libexec/logd
+  ker                            /usr/libexec/ker                                   x10  /usr/libexec/kernelmanager_helper
+  bash                           bash                                               x8  bash /Users/evw/dev/security/scripts/tm-restore.sh --all-sna
+  caffeinate                     caffeinate                                         x7  caffeinate -dims
+  his                            /usr/libexec/his                                   x6  /usr/libexec/historicalaudiod
+  Per                            /usr/libexec/Per                                   x6  /usr/libexec/PerfPowerServices
+  auditd                         auditd                                             x5  auditd -l
+  ass                            /usr/libexec/ass                                   x5  /usr/libexec/assetsubscriptiond
+  tri                            /usr/libexec/tri                                   x5  /usr/libexec/triald_system
+  mDNSRe                         /usr/sbin/mDNSRe                                   x5  /usr/sbin/mDNSResponderHelper
+  dir                            /usr/libexec/dir                                   x5  /usr/libexec/dirhelper
+  sym                            /usr/libexec/sym                                   x5  /usr/libexec/symptomsd-diag
+  SystemE                        /Library/SystemE                                   x5  /Library/SystemExtensions/84E5FFFD-62E7-49A6-B766-2D5BBDC028
+  Pow                            /usr/libexec/Pow                                   x5  /usr/libexec/PowerUIAgent
+  neh                            /usr/libexec/neh                                   x5  /usr/libexec/nehelper
+  bio                            /usr/libexec/bio                                   x5  /usr/libexec/biometrickitd --launchd
+  Wirele                         /usr/sbin/Wirele                                   x5  /usr/sbin/WirelessRadioManagerd
+  cen                            /usr/libexec/cen                                   x5  /usr/libexec/centaurid
+  rtc                            /usr/libexec/rtc                                   x5  /usr/libexec/rtcreportingd
+  Applica                        /Library/Applica                                   x5  /Library/Application Support/Objective Development/Little Sn
+  osp                            /usr/libexec/osp                                   x5  /usr/libexec/ospredictiond
+  sea                            /usr/libexec/sea                                   x5  /usr/libexec/searchpartyd
+  ane                            /usr/libexec/ane                                   x5  /usr/libexec/aned
+  mma                            /usr/libexec/mma                                   x5  /usr/libexec/mmaintenanced
+  san                            /usr/libexec/san                                   x5  /usr/libexec/sandboxd
+  ASP                            /usr/libexec/ASP                                   x5  /usr/libexec/ASPCarryLog
+  use                            /usr/libexec/use                                   x5  /usr/libexec/usermanagerd -t 15
+  bet                            /usr/libexec/bet                                   x5  /usr/libexec/betaenrollmentd
+  smd                            /usr/libexec/smd                                   x5  /usr/libexec/smd
+  gri                            /usr/libexec/gri                                   x5  /usr/libexec/griddatad
+  sep                            /usr/libexec/sep                                   x5  /usr/libexec/seputil --daemonize-reseed
+  tru                            /usr/libexec/tru                                   x5  /usr/libexec/trustdFileHelper
+  gam                            /usr/libexec/gam                                   x5  /usr/libexec/gamepolicyd
+  fileco                         /usr/sbin/fileco                                   x5  /usr/sbin/filecoordinationd
+  automountd                     automountd                                         x5  automountd
+  log                            /usr/bin/log                                       x5  /usr/bin/log stream --predicate subsystem == "com.apple.laun
+  praudi                         /usr/sbin/praudi                                   x5  /usr/sbin/praudit /dev/auditpipe
+  grep                           grep                                               x5  grep -F --line-buffered disabled.501.plist
+  fs_usag                        /usr/bin/fs_usag                                   x5  /usr/bin/fs_usage -w -f filesys
+  onl                            /usr/libexec/onl                                   x5  /usr/libexec/online-auth-agent
+  cou                            /usr/libexec/cou                                   x5  /usr/libexec/countryd
+  Use                            /usr/libexec/Use                                   x5  /usr/libexec/UserEventAgent (System)
+  fsk                            /usr/libexec/fsk                                   x5  /usr/libexec/fskitd
+  login                          /usr/bin/login                                     x5  /usr/bin/login -fpl evw /Applications/iTerm.app/Contents/Mac
+  IOM                            /usr/libexec/IOM                                   x5  /usr/libexec/IOMFB_bics_daemon
+  rem                            /usr/libexec/rem                                   x5  /usr/libexec/remoted
+  wat                            /usr/libexec/wat                                   x5  /usr/libexec/watchdogd
+  dis                            /usr/libexec/dis                                   x5  /usr/libexec/diskarbitrationd
+  syslog                         /usr/sbin/syslog                                   x5  /usr/sbin/syslogd
+  the                            /usr/libexec/the                                   x5  /usr/libexec/thermalmonitord
+  xpr                            /usr/libexec/xpr                                   x5  /usr/libexec/xprotectd
+  ope                            /usr/libexec/ope                                   x5  /usr/libexec/opendirectoryd
+  securi                         /usr/sbin/securi                                   x5  /usr/sbin/securityd -i
+  nes                            /usr/libexec/nes                                   x5  /usr/libexec/nesessionmanager
+  autofsd                        autofsd                                            x5  autofsd
+  das                            /usr/libexec/das                                   x5  /usr/libexec/dasd
+  Kernel                         /usr/sbin/Kernel                                   x5  /usr/sbin/KernelEventAgent
+  <defunct>                      <defunct>                                          x5  <defunct>
+  notify                         /usr/sbin/notify                                   x5  /usr/sbin/notifyd
+  tai                            /usr/libexec/tai                                   x5  /usr/libexec/tailspind
+  run                            /usr/libexec/run                                   x5  /usr/libexec/runningboardd
+  endpointsecurity               endpointsecurity                                   x5  endpointsecurityd
+  apf                            /usr/libexec/apf                                   x5  /usr/libexec/apfsd
+  spindu                         /usr/sbin/spindu                                   x5  /usr/sbin/spindump
+  air                            /usr/libexec/air                                   x5  /usr/libexec/airportd
+  eli                            /usr/libexec/eli                                   x5  /usr/libexec/eligibilityd
+  App                            /usr/libexec/App                                   x5  /usr/libexec/ApplicationFirewall/socketfilterfw
+  col                            /usr/libexec/col                                   x5  /usr/libexec/colorsyncd
+  dia                            /usr/libexec/dia                                   x5  /usr/libexec/diagnosticd
+  amf                            /usr/libexec/amf                                   x5  /usr/libexec/amfid
+  key                            /usr/libexec/key                                   x5  /usr/libexec/keybagd -t 15
+  distno                         /usr/sbin/distno                                   x5  /usr/sbin/distnoted agent
+  sto                            /usr/libexec/sto                                   x5  /usr/libexec/storagekitd
+  rpc                            /usr/libexec/rpc                                   x5  /usr/libexec/rpcsvchost -launchd netlogon.bundle
+  dpr                            /usr/libexec/dpr                                   x5  /usr/libexec/dprivacyd
+  pow                            /usr/libexec/pow                                   x5  /usr/libexec/powerexperienced
+  rep                            /usr/libexec/rep                                   x5  /usr/libexec/replayd
+  aslmanager                     aslmanager                                         x5  aslmanager
+  mic                            /usr/libexec/mic                                   x5  /usr/libexec/microstackshot
+  tzd                            /usr/libexec/tzd                                   x5  /usr/libexec/tzd
+  tee                            tee                                                x5  tee -a /Users/evw/dev/fix/netdiag/logs/deploy7.log
+  nea                            /usr/libexec/nea                                   x4  /usr/libexec/nearbyd
+  ditto                          ditto                                              x2  ditto --rsrc /Volumes/.timemachine/317DF289-05E6-40C6-B712-4
+  (bluetoothd)                   (bluetoothd)                                       x1  (bluetoothd)
+  sig                            /usr/libexec/sig                                   x1  /usr/libexec/signpost_reporter
+  Applicat                       /System/Applicat                                   x1  /System/Applications/System Settings.app/Contents/Resources/
+  stu                            /usr/libexec/stu                                   x1  /usr/libexec/studentd
+  cupsd                          /usr/sbin/cupsd                                    x1  /usr/sbin/cupsd -l
+  (Python)                       (Python)                                           x1  (Python)
+  mount                          /sbin/mount                                        x1  /sbin/mount -t apfs -k -o nodev,noowners,nosuid /dev/disk9s1
+  mount_apfs                     /sbin/mount_apfs                                   x1  /sbin/mount_apfs -o nodev -o noowners -o nosuid -o nofollow 
+
+## C. SUDO/AUTH EVENTS
+
+## D. WATCHED FILE CHANGES
+  FILE_CHANGED    /etc/resolv.conf                                                       x37
+  BASELINE_BUILT  ?                                                                      x5
+  FILE_CHANGED    /etc/hosts                                                             x1
+  FILE_CHANGED    /private/etc/hosts                                                     x1
+  FILE_CHANGED    /etc/pf.conf                                                           x1
+
+## E. CANARY TRIPWIRES (expect NONE)
+  (none)
+
+## F. USB/HARDWARE EVENTS
+  (none)
+
+## G. SELF-INTEGRITY (DAEMON_SCRIPT_TAMPERED = alarm)
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "SELF_HASH_INITIALIZED", "script_path": "/usr/local/lib/mac-sentinel/mac-sentinel.py", "hash": "f429caa4994eda1fa900617311fc788a96410a2deb60
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+   {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+  Tuesday, September 01, 2026 02:48:4 {"event": "SELF_HASH_INITIALIZED", "script_path": "/usr/local/lib/mac-sentinel/mac-sentinel.py", "hash": "fad26f8e87e1bdf701025978b34135325bf4506dec92
+  Tuesday, September 01, 2026 02:48:4 {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+  Tuesday, September 01, 2026 03:18:4 {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+  Tuesday, September 01, 2026 03:48:4 {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+  Tuesday, September 01, 2026 03:55:0 {"event": "SELF_HASH_INITIALIZED", "script_path": "/usr/local/lib/mac-sentinel/mac-sentinel.py", "hash": "8956bb8f6e75b832f01cd7d6eb0fd26eb706d7263171
+  Tuesday, September 01, 2026 03:55:0 {"event": "OSSEC_NOT_INSTALLED", "note": "OSSEC/Wazuh is not installed \u2014 install the Wazuh agent from https://packages.wazuh.com/4.x/macos/ (hard
+
+## H. CORRELATED ANOMALIES (expect none)
+  (none)
+
+## I. CONN-GUARD ACTIONS: {'GUARD_START': 2, 'ALERT-DNS-HIJACK-SUSPECT': 12, 'ALERT-ONLY': 60}
+  {"action_id": "auto-1788286953-2", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.113.3"], "public_answers": ["140.82.114.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig g
+  {"action_id": "auto-1788287259-3", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.3"], "public_answers": ["140.82.113.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig g
+  {"action_id": "auto-1788287872-4", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.113.3"], "public_answers": ["140.82.114.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig g
+  {"action_id": "auto-1788290395-25", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.112.4"], "public_answers": ["140.82.114.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788290701-30", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.112.4"], "public_answers": ["140.82.114.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788291008-36", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.4"], "public_answers": ["140.82.114.3"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788291926-46", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.4"], "public_answers": ["140.82.112.3"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788292233-47", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.4"], "public_answers": ["140.82.113.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788293766-48", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.3"], "public_answers": ["140.82.113.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788294072-49", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.4"], "public_answers": ["140.82.113.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788294685-52", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.112.3"], "public_answers": ["140.82.114.4"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+  {"action_id": "auto-1788296218-67", "action": "ALERT-DNS-HIJACK-SUSPECT", "domain": "github.com", "sys_answers": ["140.82.114.3"], "public_answers": ["140.82.113.3"], "reasons": ["D2-dns-disjoint"], "auto_block": false, "note": "verify manually: dig 
+
+## J. daemon.log (last 8 lines)

@@ -342,9 +342,25 @@ def dns_crosscheck():
                 if line and line[0].isdigit():
                     pub.add(line.strip())
         if sys_ans and pub and sys_ans.isdisjoint(pub):
+            # FP guard (2026-09-01 log review): CDNs rotating single A records
+            # (github.com) legitimately return different IPs per resolver.
+            # Alert only when the answer sets belong to DIFFERENT orgs (RDAP).
+            def _orgs(ips):
+                out = set()
+                for ip in ips:
+                    i = enrich_ip(ip)
+                    out.add(i.get("org") or i.get("net_name") or "?")
+                return out
+            sys_orgs, pub_orgs = _orgs(sys_ans), _orgs(pub)
+            if "?" not in sys_orgs and sys_orgs == pub_orgs:
+                log_action({"action_id": next_aid(), "action": "DNS-DISJOINT-SUPPRESSED",
+                            "domain": d, "reasons": ["same-org-cdn-rotation"],
+                            "org": sorted(sys_orgs)})
+                continue
             log_action({"action_id": next_aid(), "action": "ALERT-DNS-HIJACK-SUSPECT",
                         "domain": d, "sys_answers": sorted(sys_ans),
                         "public_answers": sorted(pub),
+                        "sys_orgs": sorted(sys_orgs), "pub_orgs": sorted(pub_orgs),
                         "reasons": ["D2-dns-disjoint"], "auto_block": False,
                         "note": "verify manually: dig {} vs dig @1.1.1.1 {}".format(d, d)})
             subprocess.run(["osascript", "-e",

@@ -311,3 +311,14 @@ All six requested changes live (verified end-to-end):
    written by mac-sentinel _trigger_alert, rotated at 2MB, 0644)
 6. mac-sentinel restarted (kickstart -k); live alerts confirmed flowing (#1 #2
    real, #3 synthetic pipeline test). config-sentinel re-baselined (new plist).
+
+## 2026-09-01 16:15 — full sentinel log review: ALL LEGIT, no hacker/malware
+Reviewed every sentinel log (connections, root procs, sudo/auth, file changes,
+canary, USB, self-integrity, anomalies, conn-guard, daemon log) — full report:
+netdiag/logs/sentinel-analysis.txt. Every connection resolved to expected orgs
+(browsers→CDNs incl. Alibaba=Kimi, curl×213=our moonshot monitor, ssh=git pushes,
+Apple daemons→Apple/Fastly). Root procs: only /System,/usr/{libexec,sbin},LS,our
+tooling. Zero sudo/auth events, canary clean, no USB, no tamper, no anomalies.
+One fix from review: D2 DNS check false-positived on github.com A-record
+rotation (12 alerts) — now suppressed when sys/public answer sets share the
+same RDAP org; alerts only on genuinely different owners. Deployed + restarted.
