@@ -274,3 +274,17 @@ backups; per-snapshot dest TM-Restored/<date>/). Mounting non-auto-mounted
 snapshots is TCC-restricted (EPERM 77 from non-FDA contexts — works from a
 Full-Disk-Access Terminal). Per-folder move, engine ladder, disk guards,
 missing-file diagnostics all preserved from v3.
+
+## 2026-09-01 15:26 — tm-restore v4.1: field-tested fixes from first real run
+User's FDA-terminal run proved the pipeline end-to-end (Shared restored,
+copy-back to passport1 OK). Fixes from that run:
+- tshoot() now writes to STDERR — previously a self-mount [TSHOOT] line was
+  captured by root=$(snapshot_root ...) corrupting the root path for all 17
+  non-auto-mounted snapshots
+- --all / --all-snapshots now default ALL_ROOT to the backed-up VOLUME ROOT
+  (was Users/, which legitimately contains only ew + Shared = "2 folders");
+  volatile dirs skipped (.vol mnt cores sw pkg MobileSoftwareUpdate .Trashes
+  .TemporaryItems .fseventsd .Spotlight-V100 .DocumentRevisions-V100 dev net home)
+- user interrupt (rsync rc=20/^C) now ABORTS cleanly with a resume hint instead
+  of falling back to ditto and restarting a 60GB copy from scratch
+- validated: syntax, tshoot-capture purity, skip-list filter

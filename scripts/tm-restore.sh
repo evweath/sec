@@ -20,7 +20,8 @@
 # MODES:
 #   sudo bash tm-restore.sh                          # list backup info + snapshots
 #   sudo bash tm-restore.sh "<folder>" [more...]     # from newest snapshot
-#   sudo bash tm-restore.sh --all                    # all Users subfolders, newest snapshot
+#   sudo bash tm-restore.sh --all                    # EVERY folder on the backed-up
+#                                                    # volume (volatile dirs skipped)
 #   sudo bash tm-restore.sh --list-snapshots         # show ALL snapshots on the disk
 #   sudo bash tm-restore.sh --snapshot 2026-05-02-111543 --all
 #   sudo bash tm-restore.sh --all-snapshots          # EVERY snapshot, oldest first
@@ -28,7 +29,8 @@
 # --all-snapshots mode.
 #
 # ENV:  TMVOL=/Volumes/passport1  KEEP=1  STAGE=<dir>
-#   ALL_ROOT (default "<backup>/Users" for --all / --all-snapshots)
+#   ALL_ROOT (default: the backed-up volume root — set to "<root>/Users"
+#           to restore only user folders)
 #
 # PREREQUISITES: Terminal/iTerm WITH Full Disk Access + sudo. Mounting
 # non-auto-mounted snapshots is TCC-restricted — the script reports EPERM
@@ -53,7 +55,10 @@ LOG=/dev/null
 
 say()  { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 log()  { say "$*" | tee -a "$LOG"; }
-tshoot(){ say "[TSHOOT] $*" | tee -a "$LOG"; }
+# tshoot writes to STDERR (never stdout) so command substitutions like
+# $(snapshot_root) don't capture the text into the result variable;
+# also appended to the log file directly.
+tshoot(){ say "[TSHOOT] $*" >&2; [ -w "$LOG" ] && printf '[%s] [TSHOOT] %s\n' "$(date '+%F %T')" "$*" >> "$LOG" 2>/dev/null; return 0; }
 
 [ "$(id -u)" -ne 0 ] && { echo "ERROR: run with sudo"; exit 1; }
 
@@ -118,6 +123,11 @@ copy_tree() { # engine ladder: rsync -> ditto -> cp
     local rc=$?
     [ $rc -eq 0 ] && return 0
     { [ $rc -eq 23 ] || [ $rc -eq 24 ]; } && { tshoot "rsync partial ($rc) on $1 — continuing"; return 0; }
+    if [ $rc -eq 20 ] || [ $rc -eq 130 ]; then
+        say "INTERRUPTED by user (rc=$rc) — stopping cleanly (no engine fallback)."
+        say "Resume later with:  STAGE=$STAGE sudo bash $0 --all-snapshots"
+        exit 130
+    fi
     tshoot "rsync failed (rc=$rc) on $1 — falling back to ditto"
     ditto --rsrc "$1" "$2" >> "$LOG" 2>&1 && return 0
     tshoot "ditto failed on $1 — falling back to cp -Rp"
@@ -213,11 +223,18 @@ process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
 
     local WORK=()
     if [ "$mode" = "all" ]; then
-        local ALL_ROOT="${ALL_ROOT:-$root/Users}"
-        while IFS= read -r x; do WORK+=("$x"); done < <(
+        local ALL_ROOT="${ALL_ROOT:-$root}"
+        # volatile/system dirs that are pointless or unsafe to restore
+        local SKIP_DIRS=" .vol mnt cores sw pkg MobileSoftwareUpdate .TemporaryItems .Trashes .fseventsd .Spotlight-V100 .DocumentRevisions-V100 dev net home "
+        local b
+        while IFS= read -r x; do
+            b=$(basename "$x")
+            case "$SKIP_DIRS" in *" $b "*) tshoot "skip volatile dir: $x"; continue;; esac
+            WORK+=("$x")
+        done < <(
             find "$ALL_ROOT" -mindepth 1 -maxdepth 1 -type d -exec stat -f '%m %N' {} + 2>/dev/null \
             | sort -n | cut -d' ' -f2-)
-        log "found ${#WORK[@]} folders under $ALL_ROOT (oldest first)"
+        log "found ${#WORK[@]} folders under $ALL_ROOT (oldest first, volatile dirs skipped)"
     else
         WORK=("$@")
     fi
