@@ -1,66 +1,55 @@
 #!/bin/bash
-# tm-restore.sh — restore folders OUT of a Time Machine backup with FULL access,
-# WITHOUT filling the Mac's internal disk, WITH an automatic troubleshooting
-# ladder for the tightly-structured TM destination.
+# tm-restore.sh v4 — restore folders OUT of Time Machine backups with FULL
+# access, WITHOUT filling the Mac's disk, WITH full access to ALL snapshots on
+# the TM disk (not just the few the system auto-mounts).
 #
-# Per folder, strictly one at a time:
-#   1. copy from the (read-only) TM backup -> Desktop staging
-#   2. fix locks (uchg/schg), strip ACLs, chown to you, grant u+rwX
-#   3. copy back onto the TM DISK at <TMVOL>/TM-Restored/<ts>/ (OUTSIDE the
-#      protected backup bundle)
-#   4. verify file counts, then DELETE the staging copy of THAT folder before
-#      starting the next one — staging never accumulates (KEEP=1 to retain)
+# WHY v4: Finder shows ~20 TM backup folders but Terminal sees only 2-3 —
+# those are APFS SNAPSHOTS on the TM volume; macOS auto-mounts only a few under
+# /Volumes/.timemachine. This script enumerates ALL snapshots via
+# `diskutil apfs listSnapshots` and mounts the rest itself (read-only).
 #
-# TROUBLESHOOTING LADDER (every remedy is logged as [TSHOOT]):
-#   S1 backup root missing   -> scan /Volumes/.timemachine for ANY snapshots,
-#                               print what IS available, precise guidance
-#   S2 backup unreadable     -> sample-read probe; on EPERM print exact FDA
-#                               (Full Disk Access) instructions for the terminal
-#   S3 dest not writable     -> auto `mount -uw <TMVOL>` then re-probe
-#   S4 copy engine failure   -> rsync -> ditto --rsrc -> cp -Rp (per folder)
-#   S5 verify mismatch       -> second rsync pass; still bad -> write the
-#                               missing-files list into the dest for diagnosis,
-#                               staging KEPT for inspection
-#   S6 staging disk pressure -> du-based guard: folder skipped (logged) if it
-#                               would exceed free space +10% headroom
-#   S7 dest disk pressure    -> du-of-staging vs free(dest) guard before copy-back
-# Log + manifest + diagnostics live in the TM-disk destination (tiny files),
-# so the Desktop staging dir is REMOVED when the run finishes clean.
-#
-# Fully offline; hours-safe; resumable (re-run with same STAGE dir — .done
-# markers in the DEST skip finished folders; partial files resume via rsync).
+# Per folder, strictly one at a time (backup -> Desktop staging -> permission
+# fix -> verified copy-back to the TM disk -> staging deleted), so staging
+# never accumulates. Automatic troubleshooting ladder, no human input needed
+# (see [TSHOOT] log lines): snapshot failover, read probes with retries,
+# mount -uw remedies, rsync -> ditto -> cp engine fallback, second-pass
+# verify with MISSING-<folder>.txt diagnostics, disk guards on BOTH staging
+# and destination. Log/manifest/.done markers live in the TM-disk dest, so the
+# Desktop staging dir is REMOVED when the run finishes clean.
 #
 # MODES:
-#   sudo bash tm-restore.sh "<folder-in-backup>" [more...]   # explicit folders
-#   sudo bash tm-restore.sh --all        # EVERY subfolder of the backup Users dir
-#   ALL_ROOT=".../Macintosh HD - Data" sudo bash tm-restore.sh --all
-#                                        # truly EVERYTHING (system included)
-#   sudo bash tm-restore.sh              # list backup root + detected volume
-# In --all mode folders are processed OLDEST (mtime) FIRST -> newest last.
+#   sudo bash tm-restore.sh                          # list backup info + snapshots
+#   sudo bash tm-restore.sh "<folder>" [more...]     # from newest snapshot
+#   sudo bash tm-restore.sh --all                    # all Users subfolders, newest snapshot
+#   sudo bash tm-restore.sh --list-snapshots         # show ALL snapshots on the disk
+#   sudo bash tm-restore.sh --snapshot 2026-05-02-111543 --all
+#   sudo bash tm-restore.sh --all-snapshots          # EVERY snapshot, oldest first
+# Folders always processed OLDEST-mtime-first; snapshots oldest-first in
+# --all-snapshots mode.
 #
 # ENV:  TMVOL=/Volumes/passport1  KEEP=1  STAGE=<dir>
+#   ALL_ROOT (default "<backup>/Users" for --all / --all-snapshots)
 #
-# PREREQUISITES: Terminal/iTerm WITH Full Disk Access (System Settings >
-# Privacy & Security > Full Disk Access); sudo.
+# PREREQUISITES: Terminal/iTerm WITH Full Disk Access + sudo. Mounting
+# non-auto-mounted snapshots is TCC-restricted — the script reports EPERM
+# precisely if the context lacks FDA.
 #
-# Default backup root (this Mac, 2026-05-02 snapshot):
-TM_BACKUP_ROOT="/Volumes/.timemachine/317DF289-05E6-40C6-B712-4F6D8138FA50/2026-05-02-111543.backup/2026-05-02-111543.backup/Macintosh HD - Data"
+# Default backup root (this Mac): newest auto-mounted snapshot, else newest
+# snapshot on the TM volume (auto-mounted or self-mounted).
+TM_BACKUP_DEFAULT="/Volumes/.timemachine/317DF289-05E6-40C6-B712-4F6D8138FA50/2026-05-02-111543.backup/2026-05-02-111543.backup/Macintosh HD - Data"
 
 set -uo pipefail
 
-TS=$(date +%Y%m%d-%H%M%S)
 USER_NAME="${SUDO_USER:-evw}"
 USER_HOME=$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
 [ -z "$USER_HOME" ] && USER_HOME="/Users/$USER_NAME"
-RESUMING=0
-if [ -n "${STAGE:-}" ]; then
-    RESUMING=1
-    TS=$(basename "$STAGE" | sed 's/^TM-Restore-//')
-fi
-STAGE="${STAGE:-$USER_HOME/Desktop/TM-Restore-$TS}"
 KEEP="${KEEP:-0}"
+TS=$(date +%Y%m%d-%H%M%S)
+STAGE="${STAGE:-$USER_HOME/Desktop/TM-Restore-$TS}"
+MNT_BASE=/private/var/tmp/tm-restore-mnt
 FAILED=()
-LOG=/dev/null   # real log path set after DEST_ROOT exists; early msgs -> stdout
+UMOUNTS=()
+LOG=/dev/null
 
 say()  { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
 log()  { say "$*" | tee -a "$LOG"; }
@@ -68,108 +57,67 @@ tshoot(){ say "[TSHOOT] $*" | tee -a "$LOG"; }
 
 [ "$(id -u)" -ne 0 ] && { echo "ERROR: run with sudo"; exit 1; }
 
-# ── STEP 1: backup root exists? else AUTO-FAILOVER to newest available ───────
-if [ ! -d "$TM_BACKUP_ROOT" ]; then
-    tshoot "default snapshot unavailable — auto-scanning /Volumes/.timemachine"
-    CAND=$(find /Volumes/.timemachine -maxdepth 4 -type d -name "* - Data" 2>/dev/null | sort | tail -1)
-    if [ -n "$CAND" ]; then
-        TM_BACKUP_ROOT="$CAND"
-        tshoot "failover: using $TM_BACKUP_ROOT"
-    else
-        say "ERROR: no TM backup found anywhere (drive attached? check /Volumes/)"
-        exit 1
-    fi
-fi
-
-# ── autodetect the LIVE Time Machine volume (writable, outside snapshots) ────
+# ── resolve TM volume + device (mount table; df lies about .timemachine) ─────
 TMVOL="${TMVOL:-}"
-if [ -z "$TMVOL" ]; then
-    uuid=$(echo "$TM_BACKUP_ROOT" | cut -d/ -f4)
-    mntline=$(mount | grep -F " on /Volumes/.timemachine/" | grep -F "$uuid" | head -1)
-    if echo "$mntline" | grep -q '@'; then
-        dev=$(echo "$mntline" | sed -E 's|^[^@]*@([^ ]+) on .*|\1|')
-    else
-        dev=$(echo "$mntline" | sed -E 's|^([^ ]+) on .*|\1|')
-    fi
-    base=$(echo "$dev" | sed -E 's/(s[0-9]+)s[0-9]+$/\1/')
-    TMVOL=$(mount | grep "^$base on /Volumes/" | grep -v '\.timemachine' \
+mntline=$(mount | grep -F " on /Volumes/.timemachine/" | head -1)
+if echo "$mntline" | grep -q '@'; then
+    TMDEV=$(echo "$mntline" | sed -E 's|^[^@]*@([^ ]+) on .*|\1|')
+else
+    TMDEV=$(echo "$mntline" | sed -E 's|^([^ ]+) on .*|\1|')
+fi
+TMUUID=$(echo "$mntline" | sed -E 's|.* on /Volumes/.timemachine/([^/]+)/.*|\1|')
+[ -z "$TMDEV" ] && TMDEV=$(mount | grep -F ".backup" | grep -oE '/dev/disk[0-9]+s[0-9]+' | head -1)
+[ -z "$TMVOL" ] && [ -n "$TMDEV" ] && \
+    TMVOL=$(mount | grep "^$TMDEV on /Volumes/" | grep -v '\.timemachine' \
             | head -1 | sed -E 's|^[^ ]+ on (/Volumes/.*) \(.*|\1|')
-fi
-[ -z "$TMVOL" ] && { say "ERROR: cannot autodetect live TM volume. Pass TMVOL=/Volumes/<name>"; exit 1; }
+[ -z "${TMVOL:-}" ] && { say "ERROR: cannot find live TM volume. Pass TMVOL=/Volumes/<name>"; exit 1; }
+[ -z "$TMDEV" ] && { say "ERROR: cannot find TM device"; exit 1; }
+say "TM device: $TMDEV   live volume: $TMVOL"
 
-# ── STEP 2: backup READABLE? (auto-retry, then exact FDA guidance) ───────────
-probe=""; attempt=0
-while [ $attempt -lt 3 ]; do
-    probe=$(find "$TM_BACKUP_ROOT" -type f 2>/dev/null | head -1)
-    [ -n "$probe" ] && head -c 1 "$probe" >/dev/null 2>&1 && break
-    attempt=$((attempt+1))
-    tshoot "read probe failed (attempt $attempt/3) — retrying in 10s (drive settling?)"
-    sleep 10
-done
-if [ -z "$probe" ] || ! head -c 1 "$probe" >/dev/null 2>&1; then
-    say "ERROR: cannot read files inside the backup (probe: ${probe:-none})"
-    say "[TSHOOT] this is macOS privacy protection (TCC), not permissions."
-    say "[TSHOOT] grant FULL DISK ACCESS to the app running this script:"
-    say "[TSHOOT]   System Settings > Privacy & Security > Full Disk Access > + Terminal (or iTerm)"
-    say "[TSHOOT] then start a NEW terminal window and re-run."
-    exit 1
-fi
-say "ok: backup readable (probe ok)"
+list_snapshots() {  # oldest first
+    diskutil apfs listSnapshots "$TMDEV" 2>/dev/null \
+      | awk -F: '/Name:.*com\.apple\.TimeMachine/{gsub(/^[ \t]+/,"",$2); print $2}' | sort
+}
+snap_date() { echo "$1" | sed 's/com\.apple\.TimeMachine\.\(.*\)\.backup/\1/'; }
 
-# ── no-arg mode: show what can be restored ───────────────────────────────────
-if [ $# -eq 0 ]; then
-    echo "Backup root: $TM_BACKUP_ROOT"
-    echo "Live TM volume (restore target): $TMVOL"
-    echo; echo "Top level of backup:"; ls -la "$TM_BACKUP_ROOT" 2>&1 | head -30
-    echo; echo "Users:"; ls -la "$TM_BACKUP_ROOT/Users" 2>&1
-    echo; echo "Examples:"
-    echo "  sudo bash $0 \"$TM_BACKUP_ROOT/Users/evw/Documents\""
-    echo "  sudo bash $0 --all"
-    exit 0
-fi
-
-# ── STEP 3: staging + destination writable? (auto mount -uw remedy) ──────────
-mkdir -p "$STAGE" || { say "ERROR: cannot create $STAGE"; exit 1; }
-DEST_ROOT="$TMVOL/TM-Restored/$TS"
-if ! mkdir -p "$DEST_ROOT" 2>/dev/null; then
-    tshoot "dest not writable — trying: mount -uw $TMVOL"
-    mount -uw "$TMVOL" 2>/dev/null
-    if ! mkdir -p "$DEST_ROOT" 2>/dev/null; then
-        say "ERROR: still cannot write $DEST_ROOT after mount -uw"
-        say "[TSHOOT] run this from a Full-Disk-Access Terminal (removable volumes are TCC-protected too)"
-        exit 1
+# ── resolve a readable root ("* - Data") for a snapshot; mount if needed ─────
+snapshot_root() {  # $1=snapname -> echoes root dir, rc 0; rc 1 on failure
+    local snap="$1" d mnt root
+    d=$(snap_date "$snap")
+    # (a) already auto-mounted?
+    for u in /Volumes/.timemachine/*/; do
+        if [ -d "$u$d.backup" ]; then
+            root=$(find "$u$d.backup" -maxdepth 2 -type d -name '* - Data' 2>/dev/null | head -1)
+            [ -n "$root" ] && { echo "$root"; return 0; }
+        fi
+    done
+    # (b) mount it ourselves, read-only
+    mnt="$MNT_BASE/$d"
+    mkdir -p "$mnt"
+    if mount -t apfs -o -s="$snap" "$TMDEV" "$mnt" 2>>"$LOG"; then
+        UMOUNTS+=("$mnt")
+        root=$(find "$mnt" -maxdepth 1 -type d -name '* - Data' 2>/dev/null | head -1)
+        [ -z "$root" ] && root="$mnt"
+        tshoot "self-mounted snapshot $d at $mnt"
+        echo "$root"; return 0
     fi
-    tshoot "mount -uw worked — dest writable now"
-fi
-
-LOG="$DEST_ROOT/restore.log"; touch "$LOG" || { say "ERROR: cannot write log in $DEST_ROOT"; exit 1; }
-
-log "=== tm-restore started (resume=$RESUMING keep=$KEEP) ==="
-log "stage: $STAGE (deleted per-folder after verified copy-back)"
-log "dest:  $DEST_ROOT"
-
-caffeinate -dims & CAFF=$!
-trap 'kill $CAFF 2>/dev/null' EXIT
+    tshoot "mount FAILED for $d — if EPERM: this terminal needs Full Disk Access"
+    return 1
+}
 
 fix_perms() {
-    chflags -R nouchg "$1" 2>/dev/null
-    chflags -R noschg "$1" 2>/dev/null
+    chflags -R nouchg "$1" 2>/dev/null; chflags -R noschg "$1" 2>/dev/null
     chmod -R -N "$1" 2>/dev/null
     chown -R "$USER_NAME":staff "$1" 2>/dev/null
     chmod -R u+rwX "$1" 2>/dev/null
 }
-
 count_files() { find "$1" -type f 2>/dev/null | wc -l | tr -d ' '; }
 
-# ── copy engine ladder: rsync -> ditto -> cp ─────────────────────────────────
-copy_tree() { # $1=src $2=dst  -> rc 0 ok
+copy_tree() { # engine ladder: rsync -> ditto -> cp
     rsync -a --stats "$1/" "$2/" >> "$LOG" 2>&1
-    rc=$?
-    if [ $rc -eq 23 ] || [ $rc -eq 24 ]; then
-        tshoot "rsync partial ($rc) on $1 — some files unreadable, continuing with what copied"
-        return 0
-    fi
-    if [ $rc -eq 0 ]; then return 0; fi
+    local rc=$?
+    [ $rc -eq 0 ] && return 0
+    { [ $rc -eq 23 ] || [ $rc -eq 24 ]; } && { tshoot "rsync partial ($rc) on $1 — continuing"; return 0; }
     tshoot "rsync failed (rc=$rc) on $1 — falling back to ditto"
     ditto --rsrc "$1" "$2" >> "$LOG" 2>&1 && return 0
     tshoot "ditto failed on $1 — falling back to cp -Rp"
@@ -177,106 +125,159 @@ copy_tree() { # $1=src $2=dst  -> rc 0 ok
     return 1
 }
 
-# ── build the work list ──────────────────────────────────────────────────────
-if [ "${1:-}" = "--all" ]; then
-    ALL_ROOT="${ALL_ROOT:-$TM_BACKUP_ROOT/Users}"
-    log "ALL MODE: every subfolder of $ALL_ROOT (oldest mtime first)"
-    WORK=()
-    while IFS= read -r d; do WORK+=("$d"); done < <(
-        find "$ALL_ROOT" -mindepth 1 -maxdepth 1 -type d -exec stat -f '%m %N' {} + 2>/dev/null \
-        | sort -n | cut -d' ' -f2-)
-    log "found ${#WORK[@]} folders"
-else
-    WORK=("$@")
-fi
-printf '%s\n' "${WORK[@]}" > "$DEST_ROOT/MANIFEST.txt"
+# ── per-folder pipeline (backup -> staging -> fix -> copy-back -> delete) ────
+process_folder() {  # $1=SRC  $2=DEST_ROOT  $3=idx  $4=total
+    local SRC="$1" DEST_ROOT="$2" i="$3" total="$4"
+    local name; name=$(basename "$SRC")
+    local marker="$DEST_ROOT/.done-$(echo "$SRC" | shasum | cut -c1-12)"
+    [ -f "$marker" ] && { log "[$i/$total] SKIP (done): $SRC"; return 0; }
+    [ ! -e "$SRC" ] && { log "[$i/$total] SKIP missing: $SRC"; FAILED+=("$SRC (missing)"); return 1; }
 
-total=${#WORK[@]}; i=0; done_cnt=0; copied=0
-for SRC in "${WORK[@]}"; do
-    i=$((i+1))
-    name=$(basename "$SRC")
-    marker="$DEST_ROOT/.done-$(echo "$SRC" | shasum | cut -c1-12)"
-    if [ -f "$marker" ]; then
-        log "[$i/$total] SKIP (done): $SRC"; done_cnt=$((done_cnt+1)); continue
-    fi
-    if [ ! -e "$SRC" ]; then
-        log "[$i/$total] SKIP missing: $SRC"; FAILED+=("$SRC (missing)"); continue
-    fi
-
-    # S6: staging disk guard
+    local need_kb free_kb dst_stage s_cnt d_cnt stage_kb dfree_kb
     need_kb=$(du -sk "$SRC" 2>/dev/null | awk '{print $1}')
     free_kb=$(df -k "$STAGE" | tail -1 | awk '{print $4}')
     if [ -n "$need_kb" ] && [ "$need_kb" -gt 0 ] && [ $((need_kb + need_kb/10)) -ge "$free_kb" ]; then
-        log "[$i/$total] SKIP too-large: $SRC needs ~$((need_kb/1024))MB, only $((free_kb/1024))MB free on staging disk"
-        FAILED+=("$SRC (insufficient staging space)"); continue
+        log "[$i/$total] SKIP too-large: $SRC (~$((need_kb/1024))MB needed, $((free_kb/1024))MB free)"
+        FAILED+=("$SRC (staging space)"); return 1
     fi
 
     dst_stage="$STAGE/$name"
-    log "[$i/$total] COPY $SRC -> $dst_stage (~$(( ${need_kb:-0}/1024 ))MB)"
+    log "[$i/$total] COPY $SRC (~$(( ${need_kb:-0}/1024 ))MB)"
     if ! copy_tree "$SRC" "$dst_stage"; then
-        log "[$i/$total] FAIL all copy engines: $SRC"; FAILED+=("$SRC (copy engines)"); continue
+        log "[$i/$total] FAIL all copy engines: $SRC"; FAILED+=("$SRC (engines)"); return 1
     fi
-
     s_cnt=$(count_files "$SRC"); d_cnt=$(count_files "$dst_stage")
-    # S5: one automatic second pass on mismatch (rsync resumes)
     if [ "$d_cnt" -ne "$s_cnt" ]; then
         tshoot "count mismatch (src=$s_cnt got=$d_cnt) — second rsync pass"
         rsync -a "$SRC/" "$dst_stage/" >> "$LOG" 2>&1
         d_cnt=$(count_files "$dst_stage")
     fi
     if [ "$d_cnt" -ne "$s_cnt" ]; then
-        tshoot "still mismatched after retry (src=$s_cnt got=$d_cnt) — writing missing-files list"
-        find "$SRC" -type f 2>/dev/null | sed "s|^$SRC/||" | sort > "$DEST_ROOT/.src-list-$$"
-        (cd "$dst_stage" && find . -type f | sed 's|^\./||' | sort) > "$DEST_ROOT/.dst-list-$$"
-        comm -23 "$DEST_ROOT/.src-list-$$" "$DEST_ROOT/.dst-list-$$" > "$DEST_ROOT/MISSING-$name.txt"
-        rm -f "$DEST_ROOT/.src-list-$$" "$DEST_ROOT/.dst-list-$$"
-        tshoot "missing files listed in $DEST_ROOT/MISSING-$name.txt"
+        find "$SRC" -type f 2>/dev/null | sed "s|^$SRC/||" | sort > "$DEST_ROOT/.sl"
+        (cd "$dst_stage" && find . -type f | sed 's|^\./||' | sort) > "$DEST_ROOT/.dl"
+        comm -23 "$DEST_ROOT/.sl" "$DEST_ROOT/.dl" > "$DEST_ROOT/MISSING-$name.txt"
+        rm -f "$DEST_ROOT/.sl" "$DEST_ROOT/.dl"
+        tshoot "still mismatched — see $DEST_ROOT/MISSING-$name.txt; staging kept"
     fi
-    log "[$i/$total] stage verify: src=$s_cnt files copied=$d_cnt files"
     fix_perms "$dst_stage"
 
-    # S7: destination disk guard
     stage_kb=$(du -sk "$dst_stage" 2>/dev/null | awk '{print $1}')
     dfree_kb=$(df -k "$DEST_ROOT" | tail -1 | awk '{print $4}')
     if [ -n "$stage_kb" ] && [ "$stage_kb" -gt 0 ] && [ $((stage_kb + stage_kb/10)) -ge "$dfree_kb" ]; then
-        log "[$i/$total] FAIL: dest full — $name needs ~$((stage_kb/1024))MB, $((dfree_kb/1024))MB free on $TMVOL"
-        FAILED+=("$SRC (dest full)"); continue
+        log "[$i/$total] FAIL: dest full for $name"; FAILED+=("$SRC (dest full)"); return 1
     fi
 
     log "[$i/$total] COPY-BACK -> $DEST_ROOT/$name"
-    if rsync -a "$dst_stage/" "$DEST_ROOT/$name/" >> "$LOG" 2>&1; then
-        fix_perms "$DEST_ROOT/$name"
-        if [ "$KEEP" != "1" ]; then
-            if [ "$d_cnt" -eq "$s_cnt" ]; then
-                rm -rf "$dst_stage" && log "[$i/$total] staging removed (verified $d_cnt files)"
-            else
-                log "[$i/$total] WARN: mismatch — KEEPING staging for inspection: $dst_stage"
-            fi
-        fi
-        touch "$marker"; copied=$((copied+1))
-    else
-        tshoot "copy-back failed for $name — trying mount -uw $TMVOL and retrying once"
+    if ! rsync -a "$dst_stage/" "$DEST_ROOT/$name/" >> "$LOG" 2>&1; then
+        tshoot "copy-back failed — mount -uw $TMVOL and retry"
         mount -uw "$TMVOL" 2>/dev/null
-        if rsync -a "$dst_stage/" "$DEST_ROOT/$name/" >> "$LOG" 2>&1; then
-            tshoot "copy-back retry succeeded"
-            fix_perms "$DEST_ROOT/$name"; touch "$marker"; copied=$((copied+1))
-        else
-            log "[$i/$total] FAIL copy-back $name (after mount -uw retry)"
-            FAILED+=("$SRC (copy-back)"); continue
-        fi
+        rsync -a "$dst_stage/" "$DEST_ROOT/$name/" >> "$LOG" 2>&1 || {
+            log "[$i/$total] FAIL copy-back $name"; FAILED+=("$SRC (copy-back)"); return 1; }
     fi
-done
+    fix_perms "$DEST_ROOT/$name"
+    if [ "$KEEP" != "1" ] && [ "$d_cnt" -eq "$s_cnt" ]; then
+        rm -rf "$dst_stage" && log "[$i/$total] staging removed (verified $d_cnt files)"
+    elif [ "$KEEP" != "1" ]; then
+        log "[$i/$total] WARN: mismatch — staging kept: $dst_stage"
+    fi
+    touch "$marker"
+    return 0
+}
 
-chown -R "$USER_NAME":staff "$TMVOL/TM-Restored" 2>/dev/null
-chmod -R u+rwX "$TMVOL/TM-Restored" 2>/dev/null
+# ── process one snapshot: resolve root, build folder list, run pipeline ──────
+process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
+    local snap="$1" mode="$2"; shift 2
+    local d root DEST_ROOT
+    d=$(snap_date "$snap")
+    root=$(snapshot_root "$snap") || { FAILED+=("snapshot $d (unreadable/unmountable)"); return 1; }
+    # readable probe with retries
+    local probe="" attempt=0
+    while [ $attempt -lt 3 ]; do
+        probe=$(find "$root" -type f 2>/dev/null | head -1)
+        [ -n "$probe" ] && head -c 1 "$probe" >/dev/null 2>&1 && break
+        attempt=$((attempt+1)); tshoot "read probe failed ($attempt/3) on $d — retry in 10s"; sleep 10
+    done
+    if [ -z "$probe" ] || ! head -c 1 "$probe" >/dev/null 2>&1; then
+        tshoot "snapshot $d unreadable — Full Disk Access required (System Settings > Privacy & Security)"
+        FAILED+=("snapshot $d (TCC)"); return 1
+    fi
 
-rmdir "$STAGE" 2>/dev/null && log "staging dir removed (empty)" || true
+    DEST_ROOT="$TMVOL/TM-Restored/$d"
+    if ! mkdir -p "$DEST_ROOT" 2>/dev/null; then
+        tshoot "dest not writable — mount -uw $TMVOL"
+        mount -uw "$TMVOL" 2>/dev/null
+        mkdir -p "$DEST_ROOT" 2>/dev/null || { FAILED+=("snapshot $d (dest unwritable)"); return 1; }
+    fi
+    LOG="$DEST_ROOT/restore.log"
+    log "=== snapshot $d  root=$root ==="
 
-log "=== DONE: $copied copied, $done_cnt skipped-done, ${#FAILED[@]} failed of $total ==="
-if [ ${#FAILED[@]} -gt 0 ]; then
-    log "FAILURES: ${FAILED[*]}"
-    echo "Some folders failed — see $LOG"
-    exit 1
-fi
-echo "OK: restored folders at $DEST_ROOT (full access, permissions fixed)"
-[ "$KEEP" != "1" ] && echo "OK: no restore files left on the Desktop"
+    local WORK=()
+    if [ "$mode" = "all" ]; then
+        local ALL_ROOT="${ALL_ROOT:-$root/Users}"
+        while IFS= read -r x; do WORK+=("$x"); done < <(
+            find "$ALL_ROOT" -mindepth 1 -maxdepth 1 -type d -exec stat -f '%m %N' {} + 2>/dev/null \
+            | sort -n | cut -d' ' -f2-)
+        log "found ${#WORK[@]} folders under $ALL_ROOT (oldest first)"
+    else
+        WORK=("$@")
+    fi
+    printf '%s\n' "${WORK[@]}" > "$DEST_ROOT/MANIFEST.txt"
+
+    local total=${#WORK[@]} i=0
+    for SRC in "${WORK[@]}"; do
+        i=$((i+1))
+        process_folder "$SRC" "$DEST_ROOT" "$i" "$total"
+    done
+    chown -R "$USER_NAME":staff "$DEST_ROOT" 2>/dev/null
+    chmod -R u+rwX "$DEST_ROOT" 2>/dev/null
+    log "=== snapshot $d done ==="
+}
+
+# ══ main ═════════════════════════════════════════════════════════════════════
+mkdir -p "$STAGE" "$MNT_BASE"
+caffeinate -dims & CAFF=$!
+trap 'kill $CAFF 2>/dev/null; for m in "${UMOUNTS[@]:-}"; do [ -n "$m" ] && umount "$m" 2>/dev/null; done' EXIT
+
+MODE="${1:-}"
+case "$MODE" in
+  --list-snapshots)
+    echo "Snapshots on $TMDEV ($TMVOL):"
+    list_snapshots | while read -r s; do
+        d=$(snap_date "$s")
+        am=""; for u in /Volumes/.timemachine/*/; do [ -d "$u$d.backup" ] && am=" (auto-mounted)"; done
+        echo "  $d$am"
+    done
+    exit 0
+    ;;
+  "")
+    echo "Live TM volume: $TMVOL  device: $TMDEV"
+    echo "Snapshots available: $(list_snapshots | wc -l | tr -d ' ')  (newest: $(list_snapshots | tail -1))"
+    echo "Run with --all, --all-snapshots, --snapshot <date>, or explicit folder paths."
+    exit 0
+    ;;
+  --all-snapshots)
+    for snap in $(list_snapshots); do
+        process_snapshot "$snap" all
+    done
+    ;;
+  --snapshot)
+    SNAP_IN="${2:?--snapshot needs a date e.g. 2026-05-02-111543}"
+    SNAP="com.apple.TimeMachine.$SNAP_IN.backup"
+    shift 2
+    if [ "${1:-}" = "--all" ]; then process_snapshot "$SNAP" all
+    elif [ $# -gt 0 ]; then  process_snapshot "$SNAP" explicit "$@"
+    else process_snapshot "$SNAP" all; fi
+    ;;
+  --all)
+    NEWEST=$(list_snapshots | tail -1)
+    process_snapshot "$NEWEST" all
+    ;;
+  *)
+    NEWEST=$(list_snapshots | tail -1)
+    process_snapshot "$NEWEST" explicit "$@"
+    ;;
+esac
+
+rmdir "$STAGE" 2>/dev/null && say "staging dir removed (empty)" || true
+say "=== RUN DONE: failures: ${#FAILED[@]} ${FAILED[*]:-} ==="
+[ ${#FAILED[@]} -gt 0 ] && exit 1 || exit 0

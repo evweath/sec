@@ -261,3 +261,16 @@ Every sentinel log entry now carries ts_human ("Tuesday, September 01, 2026
 machine ISO ts (kept for the event correlator), and every alert message
 (notification + tty) leads with the human timestamp. Verified live after
 kickstart. (Note: tz label prints as CST — cosmetic macOS tzname quirk.)
+
+## 2026-09-01 15:05 — tm-restore v4: ALL 20 TM snapshots accessible
+Root cause of "2 folders in Terminal vs 20 in Finder": the TM disk holds 20 APFS
+snapshots (verified: diskutil apfs listSnapshots /dev/disk9s3 = 20 found) but
+macOS auto-mounts only ~3 under /Volumes/.timemachine; Finder displays all
+snapshots as folders. v4 enumerates ALL snapshots and mounts the rest itself
+(read-only, mount -t apfs -o -s=<name>), with fallback to existing auto-mounts
+("Resource busy" = already mounted — use that path). New modes:
+--list-snapshots, --snapshot <date>, --all-snapshots (oldest first across ALL
+backups; per-snapshot dest TM-Restored/<date>/). Mounting non-auto-mounted
+snapshots is TCC-restricted (EPERM 77 from non-FDA contexts — works from a
+Full-Disk-Access Terminal). Per-folder move, engine ladder, disk guards,
+missing-file diagnostics all preserved from v3.
