@@ -147,6 +147,7 @@ add "$S" "evw-replayd-guard.sh"                        "[SVC,DAEMON,SUDO]" "Kill
 add "$S" "evw-audit-monitor.py"                        "[SVC,DAEMON,SUDO]" "Real-time alerts on suspicious exec args / URL opens (unified log + BSM)"
 add "$S" "evw-dns-guard.sh"                            "[SVC,SUDO]" "Re-pin DNS servers on all network services when drift detected"
 add "$S" "evw-dns-guard-setup.sh"                      "[SVC,SUDO]" "Install DNS-pinning guard as a root LaunchDaemon (every 5 min)"
+add "$S" "evw-studentd-guard.sh"                       "[SVC,DAEMON,SUDO]" "Kill studentd every 5 min (airportd EXCLUDED — killing it drops Wi-Fi)"
 # DISABLED 2026-09-01: comms-guard caused recurring ~100s Wi-Fi outages — killing
 # bluetoothd flaps the shared Wi-Fi/BT radio. Evidence: /Users/evw/dev/fix/netdiag/STATE.md
 # add "$S" "evw-comms-guard.sh"                        "[SVC,DAEMON,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"
