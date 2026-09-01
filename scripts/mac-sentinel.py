@@ -361,6 +361,22 @@ def _trigger_alert(data: dict, severity: str = "WARNING") -> None:
     message = human_ts() + "\n" + "\n".join(lines)
     _send_notification(title, message, severity)
 
+    # 2026-09-01: single-line alert feed for the boot-time alert terminal
+    # (evw-sentinel-alert-display.sh reads this and numbers entries from 1
+    # each boot). World-readable: the display runs as the console user while
+    # the sentinel runs as root.
+    try:
+        feed = "/Users/evw/Library/Logs/mac-sentinel-alert-feed.log"
+        os.makedirs(os.path.dirname(feed), exist_ok=True)
+        if os.path.exists(feed) and os.path.getsize(feed) > 2 * 1024 * 1024:
+            os.replace(feed, feed + ".1")
+        with open(feed, "a") as f:
+            f.write(json.dumps({"ts_human": human_ts(), "severity": severity,
+                                "data": data}, default=str) + "\n")
+        os.chmod(feed, 0o644)
+    except Exception:
+        pass
+
 
 def _send_notification(title: str, message: str, severity: str) -> None:
     """Send macOS notification via osascript (drops to the console user)."""

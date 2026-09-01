@@ -298,3 +298,16 @@ denies, durable tracker denies), restores ONLY on change (no pointless reloads).
 Per applied change: pre-patch model backup (last 30 kept), undo JSON, and
 [AUTO-EVW-LS] line in AUTO-ACTIONS.md. First cycle already removed 2
 regenerated risk rules. Persistent across reboots (LaunchDaemon).
+
+## 2026-09-01 15:56 — sentinel alert terminal (boot-spawned, numbered, logged)
+All six requested changes live (verified end-to-end):
+1. sentinel starts each boot (pre-existing LaunchDaemon, unchanged)
+2. NEW com.evw.sentinel-alert-term LaunchAgent opens a Terminal at every login
+   running /usr/local/bin/evw-sentinel-alert-display.sh
+3. display header prints full log paths at top of the terminal
+4. entries numbered from #1 each boot (counter resets per display session)
+5. everything displayed mirrors to /Users/evw/Library/Logs/mac-sentinel-alert-display.log
+   (source feed: .../mac-sentinel-alert-feed.log, single-line JSON per alert,
+   written by mac-sentinel _trigger_alert, rotated at 2MB, 0644)
+6. mac-sentinel restarted (kickstart -k); live alerts confirmed flowing (#1 #2
+   real, #3 synthetic pipeline test). config-sentinel re-baselined (new plist).

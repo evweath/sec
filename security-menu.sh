@@ -155,6 +155,7 @@ add "$S" "scripts/evw-auto-conn-guard.py"              "[SVC,DAEMON,SUDO]" "[AUT
 add "$S" "scripts/evw-auto-undo.sh"                    "[MOD,SUDO]"  "[AUTO-EVW] Undo any auto-guard action by id, or flush all auto blocks"
 add "$S" "scripts/ls-hygiene.py"                       "[MOD,SUDO]"  "[AUTO-EVW-LS] Audit+clean Little Snitch rules (tracker allows, OCSP/DHCP-killing denies) with backup+undo"
 add "$S" "scripts/evw-ls-hygiene-guard.sh"             "[SVC,DAEMON,SUDO]" "[AUTO-EVW-LS] LS rule hygiene every 5 min, persistent (backup+undo always)"
+add "$S" "scripts/evw-sentinel-alert-display.sh"       "[SVC]"       "Live sentinel alert terminal (auto-opens each boot; numbered entries + display log)"
 # DISABLED 2026-09-01: comms-guard caused recurring ~100s Wi-Fi outages — killing
 # bluetoothd flaps the shared Wi-Fi/BT radio. Evidence: /Users/evw/dev/fix/netdiag/STATE.md
 # add "$S" "evw-comms-guard.sh"                        "[SVC,DAEMON,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"
