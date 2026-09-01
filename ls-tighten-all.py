@@ -17,6 +17,25 @@ Python 3.9 compatible. Read-only except for the output/report files.
 """
 import json, os, sys, datetime
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 REPORT_LINES = []
 
 def report(msg):
@@ -87,6 +106,25 @@ def remote_field(r):
     return None
 
 
+def load_model(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def save_model(model, dst):
+    with open(dst, "w") as f:
+        json.dump(model, f, indent=2, separators=(",", " : "))
+        f.write("\n")
+    return True
+
+
+def write_report(path, text):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(text)
+    return True
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__)
@@ -96,8 +134,9 @@ def main():
     if "--report" in sys.argv:
         report_file = sys.argv[sys.argv.index("--report") + 1]
 
-    with open(src) as f:
-        model = json.load(f)
+    model = guard_run("load-model", load_model, src)
+    if model is None or model is SKIP:
+        sys.exit(1)
     rules = model.get("rules", [])
     report(f"Input: {len(rules)} rules ({src})")
 
@@ -187,9 +226,8 @@ def main():
         report(f"ADD deny-any: {path}")
 
     model["rules"] = out
-    with open(dst, "w") as f:
-        json.dump(model, f, indent=2, separators=(",", " : "))
-        f.write("\n")
+    if not guard_run("save-model", save_model, model, dst):
+        sys.exit(1)
 
     summary = (f"Done. in={len(rules)} out={len(out)} | +{n_add} denies, "
                f"-{n_del_monitor} monitor-unused, -{n_del_stale} stale-binary, "
@@ -198,9 +236,8 @@ def main():
 
     text = "\n".join(REPORT_LINES) + "\n"
     if report_file:
-        os.makedirs(os.path.dirname(report_file), exist_ok=True)
-        with open(report_file, "w") as f:
-            f.write(text)
+        if not guard_run("write-report", write_report, report_file, text):
+            sys.exit(1)
     print(summary)
     print(f"Report: {report_file or '(none)'} — {len(REPORT_LINES)} lines")
 

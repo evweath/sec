@@ -48,6 +48,25 @@ import stat
 from pathlib import Path
 from datetime import datetime
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 # ─────────────────────────────────────────────────────────────────────────────
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -71,9 +90,10 @@ KODACHI_ISO_URL = (
     "https://sourceforge.net/projects/linuxkodachi/files/kodachi-desktop/"
     f"{KODACHI_ISO_FILENAME}/download"
 )
-# Known Kodachi 9.0.1 SHA256 — verify at https://www.kodachi.cloud
-# Set to None to skip checksum verification (NOT recommended)
-KODACHI_ISO_SHA256 = None  # Fill in after verifying from official site
+# Expected Kodachi 9.0.1 SHA256 — verify at https://www.kodachi.cloud
+# Fail-closed: if this is None AND env var KODACHI_ISO_SHA256 is unset, the ISO
+# download/VM phase ABORTS — an unverified ISO is never installed.
+KODACHI_ISO_SHA256 = None  # Fill in after verifying from official release notes
 
 DRY_RUN = "--dry-run" in sys.argv
 
@@ -379,9 +399,10 @@ def harden_network():
     step_done()
 
     step("Block all incoming connections (allow only established/signed)")
-    run(["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setblockall", "off"], sudo=True)
-    # Note: setblockall ON would block ALL including signed apps; too aggressive for usability.
-    # We rely on stealth mode + per-app control instead.
+    run(["/usr/libexec/ApplicationFirewall/socketfilterfw", "--setblockall", "on"], sudo=True)
+    # Note: setblockall ON blocks ALL inbound including signed apps — a usability
+    # tradeoff, but block-all is this toolkit's standard (mac_harden_rescan.sh,
+    # verify.sh expect it on).
     step_done()
 
     step("Disable captive portal assistant (prevents MITM on public wifi check-ins)")
@@ -396,17 +417,36 @@ def harden_network():
          "NoMulticastAdvertisements", "-bool", "true"], sudo=True)
     step_done()
 
+    # If this host already resolves via a local encrypted resolver (nameserver
+    # 127.0.0.1, as seccheck.sh expects), do NOT override it with public DNS.
+    local_resolver = False
+    if not DRY_RUN:
+        dns_dump = subprocess.run(["scutil", "--dns"], capture_output=True, text=True)
+        if dns_dump.stdout:
+            local_resolver = any(
+                "127.0.0.1" in line
+                for line in dns_dump.stdout.splitlines()
+                if line.strip().startswith("nameserver[")
+            )
+
     step("Set DNS to 1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9 on Wi-Fi")
-    run(["networksetup", "-setdnsservers", "Wi-Fi",
-         "1.1.1.1", "1.0.0.1", "8.8.8.8", "9.9.9.9"])
-    step_done()
+    if local_resolver:
+        step_skip()
+        info("Local encrypted resolver in use (nameserver 127.0.0.1) — leaving DNS unchanged")
+    else:
+        run(["networksetup", "-setdnsservers", "Wi-Fi",
+             "1.1.1.1", "1.0.0.1", "8.8.8.8", "9.9.9.9"])
+        step_done()
 
     step("Set DNS to 1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9 on Ethernet (if present)")
     eth_check = subprocess.run(
         ["networksetup", "-listallnetworkservices"],
         capture_output=True, text=True
     )
-    if eth_check.stdout and "Ethernet" in eth_check.stdout:
+    if local_resolver:
+        step_skip()
+        info("Local encrypted resolver in use (nameserver 127.0.0.1) — leaving DNS unchanged")
+    elif eth_check.stdout and "Ethernet" in eth_check.stdout:
         run(["networksetup", "-setdnsservers", "Ethernet",
              "1.1.1.1", "1.0.0.1", "8.8.8.8", "9.9.9.9"])
         step_done()
@@ -718,6 +758,19 @@ def _find_usb_isos() -> list[Path]:
 
 def download_kodachi_iso(dest_dir: Path) -> Path | None:
     """Download Kodachi ISO, accept local path, or copy from USB drive."""
+    # Fail-closed: refuse up front if no expected SHA256 is available.
+    # Override without editing this file via env var KODACHI_ISO_SHA256.
+    expected_sha = KODACHI_ISO_SHA256 or os.environ.get("KODACHI_ISO_SHA256")
+    if expected_sha:
+        expected_sha = expected_sha.strip().lower()
+    if not expected_sha:
+        err("No expected Kodachi ISO SHA256 available — refusing to fetch/install an unverified ISO")
+        err("A tampered ISO would root the 'secure' VM. Get the official SHA256 from the")
+        err("Kodachi release notes at https://www.kodachi.cloud, then either fill in")
+        err("KODACHI_ISO_SHA256 in this script or run with:")
+        err("  KODACHI_ISO_SHA256=<64-hex-hash> python3 macharden_tahoe26.py")
+        return None
+
     iso_path = dest_dir / KODACHI_ISO_FILENAME
 
     if iso_path.exists():
@@ -818,31 +871,22 @@ def download_kodachi_iso(dest_dir: Path) -> Path | None:
         else:
             info(f"[dry-run] Would copy {selected} → {iso_path}")
 
-        # Offer SHA256 verification
-        if KODACHI_ISO_SHA256 and not DRY_RUN:
+        # SHA256 verification (mandatory — hash presence enforced at entry)
+        if not DRY_RUN:
             step("Verifying SHA256 checksum")
             sha = hashlib.sha256()
             with open(iso_path, "rb") as f:
                 for chunk_data in iter(lambda: f.read(65536), b""):
                     sha.update(chunk_data)
             actual = sha.hexdigest()
-            if actual == KODACHI_ISO_SHA256:
+            if actual == expected_sha:
                 step_done()
             else:
                 err("CHECKSUM MISMATCH — DO NOT USE THIS ISO")
-                err(f"  Expected: {KODACHI_ISO_SHA256}")
+                err(f"  Expected: {expected_sha}")
                 err(f"  Got:      {actual}")
                 iso_path.unlink(missing_ok=True)
                 return None
-        elif not KODACHI_ISO_SHA256:
-            warn("KODACHI_ISO_SHA256 not set — verify checksum manually at https://www.kodachi.cloud")
-            warn("SHA256 of your copied file:")
-            if not DRY_RUN and iso_path.exists():
-                sha = hashlib.sha256()
-                with open(iso_path, "rb") as f:
-                    for chunk_data in iter(lambda: f.read(65536), b""):
-                        sha.update(chunk_data)
-                info(f"  {sha.hexdigest()}")
 
         return iso_path
 
@@ -865,24 +909,21 @@ def download_kodachi_iso(dest_dir: Path) -> Path | None:
         urllib.request.urlretrieve(KODACHI_ISO_URL, iso_path, reporthook=progress)
         print()
 
-        # Checksum verification
-        if KODACHI_ISO_SHA256:
-            step("Verifying SHA256 checksum")
-            sha = hashlib.sha256()
-            with open(iso_path, "rb") as f:
-                for chunk in iter(lambda: f.read(65536), b""):
-                    sha.update(chunk)
-            actual = sha.hexdigest()
-            if actual == KODACHI_ISO_SHA256:
-                step_done()
-            else:
-                err(f"CHECKSUM MISMATCH — DO NOT USE THIS ISO")
-                err(f"  Expected: {KODACHI_ISO_SHA256}")
-                err(f"  Got:      {actual}")
-                iso_path.unlink(missing_ok=True)
-                return None
+        # Checksum verification (mandatory — hash presence enforced at entry)
+        step("Verifying SHA256 checksum")
+        sha = hashlib.sha256()
+        with open(iso_path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                sha.update(chunk)
+        actual = sha.hexdigest()
+        if actual == expected_sha:
+            step_done()
         else:
-            warn("KODACHI_ISO_SHA256 not set — verify checksum manually at https://www.kodachi.cloud")
+            err(f"CHECKSUM MISMATCH — DO NOT USE THIS ISO")
+            err(f"  Expected: {expected_sha}")
+            err(f"  Got:      {actual}")
+            iso_path.unlink(missing_ok=True)
+            return None
 
         ok(f"ISO ready: {iso_path}")
         return iso_path
@@ -1798,7 +1839,7 @@ def main():
     setup_logging()
     banner()
 
-    if not DRY_RUN and not preflight_checks():
+    if not DRY_RUN and not guard_run("preflight", preflight_checks):
         if not confirm("Preflight checks had issues. Continue anyway?"):
             sys.exit(1)
 
@@ -1809,7 +1850,7 @@ def main():
             phase_arg = sys.argv[idx + 1]
             phase_map = {p[0]: p[2] for p in PHASES if p[2] is not None}
             if phase_arg in phase_map:
-                phase_map[phase_arg]()
+                guard_run("phase-%s" % phase_arg, phase_map[phase_arg])
                 return
 
     iso_path = None
@@ -1836,29 +1877,29 @@ def main():
             else:
                 warn("Log file not yet created")
         elif choice == "1":
-            harden_telemetry()
+            guard_run("harden_telemetry", harden_telemetry)
         elif choice == "2":
-            harden_network()
+            guard_run("harden_network", harden_network)
         elif choice == "3":
-            harden_system()
+            guard_run("harden_system", harden_system)
         elif choice == "4":
-            install_tools()
+            guard_run("install_tools", install_tools)
         elif choice == "5":
             WORK_DIR.mkdir(parents=True, exist_ok=True)
-            iso_path = download_kodachi_iso(WORK_DIR)
+            iso_path = guard_run("download_kodachi_iso", download_kodachi_iso, WORK_DIR)
             if iso_path:
-                create_utm_vm(iso_path)
+                guard_run("create_utm_vm", create_utm_vm, iso_path)
             else:
                 err("ISO not available — cannot create VM")
         elif choice == "6":
-            setup_golden_image_workflow()
+            guard_run("setup_golden_image_workflow", setup_golden_image_workflow)
         elif choice == "7":
-            generate_vm_hardening_script()
+            guard_run("generate_vm_hardening_script", generate_vm_hardening_script)
         elif choice == "A":
             WORK_DIR.mkdir(parents=True, exist_ok=True)
             if iso_path is None:
-                iso_path = download_kodachi_iso(WORK_DIR)
-            run_all(iso_path)
+                iso_path = guard_run("download_kodachi_iso", download_kodachi_iso, WORK_DIR)
+            guard_run("run_all", run_all, iso_path)
         else:
             warn("Invalid choice")
 

@@ -20,10 +20,15 @@ Key: 32 random bytes in macOS Keychain (no machine-serial mixing so files
      survive a machine wipe if the Keychain key is backed up offline).
      Service: claude-security-memory-v1  Account: claude-ai
 
+Threat-model note: the master key is retrievable by ANY process running as
+     this user (CLI-created Keychain items carry no ACL/TouchID gate, and the
+     raw key hex still transits `security add-generic-password -w` argv).
+     This protects against repo-only attackers — not user-context malware.
+
 Recovery after machine wipe:
   1. python3 security-memory-manager.py export-recovery-key   (run before wipe)
      → prints hex key; store on paper / encrypted USB
-  2. python3 security-memory-manager.py import-recovery-key <hex>
+  2. python3 security-memory-manager.py import-recovery-key   (prompts for the hex key)
      → re-installs the key in new machine's Keychain
 
 Long-term log entries form an HMAC chain: each entry embeds the HMAC of the
@@ -37,11 +42,35 @@ Commands:
   archive-scan <scan-dir-path>
   restore-scan <scan-DATE.enc> <dest-dir>
   export-recovery-key
-  import-recovery-key <hex>
+  import-recovery-key [hex]   (prompts via getpass when hex omitted — preferred)
 """
 
-import json, gzip, hashlib, hmac as hmaclib, base64, subprocess, os, sys, tarfile, io
+import json, gzip, hashlib, hmac as hmaclib, base64, subprocess, os, sys, tarfile, io, getpass
+import ctypes
 from datetime import datetime, timezone
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        _eg = _d / "lib" / "error_guard.py"
+        if _eg.exists():
+            # running as root: only trust a root-owned lib — a user-writable
+            # error_guard would be arbitrary code execution as root
+            if os.geteuid() != 0 or _eg.stat().st_uid == 0:
+                _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
 
 REPO_MEMORY_DIR  = os.path.join(os.path.dirname(__file__), 'memory')
 SHORT_TERM_FILE  = os.path.join(REPO_MEMORY_DIR, 'short_term.csmem')
@@ -76,25 +105,42 @@ def _derive_key() -> bytes:
     return hashlib.pbkdf2_hmac('sha256', base, b'csmem-v2', iterations=100_000)
 
 # ── Crypto ─────────────────────────────────────────────────────────────────
+# AES-256-CBC via CommonCrypto's CCCrypt (ctypes → libSystem) so key material
+# no longer transits process argv. Byte-compatible with the previous
+# `openssl enc -aes-256-cbc -K <hex> -iv <hex> -nosalt` (PKCS#7 padding) —
+# existing .csmem/.enc files remain readable.
+_CC = ctypes.CDLL('/usr/lib/libSystem.B.dylib')
+_CCCrypt = _CC.CCCrypt
+_CCCrypt.restype = ctypes.c_int32
+_CCCrypt.argtypes = [
+    ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32,   # op, alg, options
+    ctypes.c_char_p, ctypes.c_size_t, ctypes.c_char_p,   # key, keyLength, iv
+    ctypes.c_char_p, ctypes.c_size_t,                    # dataIn, dataInLength
+    ctypes.c_char_p, ctypes.c_size_t,                    # dataOut, dataOutAvailable
+    ctypes.POINTER(ctypes.c_size_t)]                     # dataOutMoved
+
+# kCCEncrypt=0, kCCDecrypt=1, kCCAlgorithmAES=0, kCCOptionPKCS7Padding=1
+def _cc_crypt(op: int, data: bytes, key: bytes, iv: bytes) -> bytes:
+    out = ctypes.create_string_buffer(len(data) + 16)
+    moved = ctypes.c_size_t(0)
+    status = _CCCrypt(op, 0, 1, key, len(key), iv, data, len(data),
+                      out, len(out), ctypes.byref(moved))
+    if status != 0:
+        raise RuntimeError(f'CCCrypt failed (status {status})')
+    return out.raw[:moved.value]
 
 def _encrypt(plaintext: bytes, key: bytes) -> str:
     iv = os.urandom(16)
-    r = subprocess.run(
-        ['openssl','enc','-aes-256-cbc','-K',key.hex(),'-iv',iv.hex(),'-nosalt'],
-        input=plaintext, capture_output=True)
-    if r.returncode != 0:
-        raise RuntimeError(f'Encryption failed: {r.stderr.decode()}')
-    return base64.b64encode(iv + r.stdout).decode()
+    ct = _cc_crypt(0, plaintext, key, iv)   # kCCEncrypt
+    return base64.b64encode(iv + ct).decode()
 
 def _decrypt(b64: str, key: bytes) -> bytes:
     raw = base64.b64decode(b64)
     iv, ct = raw[:16], raw[16:]
-    r = subprocess.run(
-        ['openssl','enc','-d','-aes-256-cbc','-K',key.hex(),'-iv',iv.hex(),'-nosalt'],
-        input=ct, capture_output=True)
-    if r.returncode != 0:
+    try:
+        return _cc_crypt(1, ct, key, iv)    # kCCDecrypt
+    except RuntimeError:
         raise RuntimeError('Decryption failed — wrong key or tampered file')
-    return r.stdout
 
 def _hmac(key: bytes, data: bytes) -> str:
     return hmaclib.new(key, data, hashlib.sha256).hexdigest()
@@ -230,7 +276,7 @@ def export_recovery_key():
     print('=== RECOVERY KEY (store offline — paper/encrypted USB only) ===')
     print(raw.hex())
     print('=== To restore on new machine: ===')
-    print(f'python3 security-memory-manager.py import-recovery-key {raw.hex()}')
+    print('python3 security-memory-manager.py import-recovery-key   # prompts for the key — keeps it out of shell history/ps')
 
 def import_recovery_key(hex_key: str):
     raw = bytes.fromhex(hex_key)
@@ -252,15 +298,25 @@ def import_recovery_key(hex_key: str):
 
 # ── CLI ────────────────────────────────────────────────────────────────────
 
-if __name__ == '__main__':
-    cmd = sys.argv[1] if len(sys.argv) > 1 else ''
-    if   cmd == 'read'               and sys.argv[2] == 'short': print(json.dumps(read_short(), indent=2))
-    elif cmd == 'read'               and sys.argv[2] == 'long':  print(json.dumps(read_long(), indent=2))
-    elif cmd == 'write-short':        write_short(json.loads(sys.argv[2]))
-    elif cmd == 'append-long':        append_long(json.loads(sys.argv[2]))
-    elif cmd == 'verify':             verify(sys.argv[2])
-    elif cmd == 'archive-scan':       archive_scan(sys.argv[2])
-    elif cmd == 'restore-scan':       restore_scan(sys.argv[2], sys.argv[3])
+def _dispatch(argv):
+    cmd = argv[1] if len(argv) > 1 else ''
+    if   cmd == 'read'               and len(argv) > 2 and argv[2] == 'short': print(json.dumps(read_short(), indent=2))
+    elif cmd == 'read'               and len(argv) > 2 and argv[2] == 'long':  print(json.dumps(read_long(), indent=2))
+    elif cmd == 'write-short'        and len(argv) > 2: write_short(json.loads(argv[2]))
+    elif cmd == 'append-long'        and len(argv) > 2: append_long(json.loads(argv[2]))
+    elif cmd == 'verify'             and len(argv) > 2: verify(argv[2])
+    elif cmd == 'archive-scan'       and len(argv) > 2: archive_scan(argv[2])
+    elif cmd == 'restore-scan'       and len(argv) > 3: restore_scan(argv[2], argv[3])
     elif cmd == 'export-recovery-key':export_recovery_key()
-    elif cmd == 'import-recovery-key':import_recovery_key(sys.argv[2])
+    elif cmd == 'import-recovery-key':
+        if len(argv) > 2:
+            print('WARNING: a key on argv leaks into shell history and `ps` — prefer the no-argument prompt.', file=sys.stderr)
+            import_recovery_key(argv[2])
+        else:
+            import_recovery_key(getpass.getpass('Recovery key (64 hex chars): '))
     else:                             print(__doc__)
+    return True
+
+if __name__ == '__main__':
+    if not guard_run("dispatch", _dispatch, sys.argv):
+        sys.exit(1)

@@ -4,6 +4,13 @@
 # Usage:  bash ~/dev/security/scan-hashes.sh [scan-dir]
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 SECURITY_DIR="$HOME/dev/security"
 DATE="$(date -u +%Y-%m-%d)"
 SCAN_DIR="${1:-$SECURITY_DIR/scan-${DATE}}"
@@ -34,9 +41,9 @@ h() {
   echo ""
 
   echo "# ── Core OS / launchd ────────────────────────────────────────"
-  h /sbin/launchd
-  h /usr/libexec/cfprefsd
-  h /usr/libexec/nsurlsessiond
+  guard_run "h" h /sbin/launchd
+  guard_run "h" h /usr/libexec/cfprefsd
+  guard_run "h" h /usr/libexec/nsurlsessiond
 
   echo ""
   echo "# ── System binaries ──────────────────────────────────────────"
@@ -62,7 +69,7 @@ h() {
     /usr/libexec/searchpartyuseragent \
     /usr/libexec/remotemanagementd \
     /System/Library/CoreServices/RemoteManagementAgent; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
   echo ""
@@ -139,23 +146,23 @@ h() {
   for f in \
     "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
     "/usr/bin/python3"; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
   echo ""
   echo "# ── Little Snitch binary ─────────────────────────────────────"
-  h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
+  guard_run "h" h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
 
   echo ""
   echo "# ── DuckDuckGo browser binary ────────────────────────────────"
-  h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
+  guard_run "h" h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
 
   echo ""
   echo "# ── LaunchAgent/Daemon plists ────────────────────────────────"
   for f in \
     "$HOME/Library/LaunchAgents/com.evw.donut-intel.plist" \
     "/Library/LaunchDaemons/com.evw.plist-monitor.plist"; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
 } > "$OUT"
@@ -173,8 +180,11 @@ if [ -n "$PREV_SCAN" ] && [ -f "$PREV_OUT" ]; then
   echo ""
   echo "Diffing vs $(basename "$(dirname "$PREV_OUT")")/$(basename "$PREV_OUT")..."
 
-  grep "^[a-f0-9]" "$PREV_OUT" | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/sh_prev.txt
-  grep "^[a-f0-9]" "$OUT"      | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > /tmp/sh_curr.txt
+  SH_PREV="$(mktemp /tmp/sh_prev.XXXXXXXX)"
+  SH_CURR="$(mktemp /tmp/sh_curr.XXXXXXXX)"
+
+  guard_run "delta-prev" grep "^[a-f0-9]" "$PREV_OUT" | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > "$SH_PREV" || true
+  guard_run "delta-curr" grep "^[a-f0-9]" "$OUT"      | awk '{h=$1; sub(/^[a-f0-9]+  /, ""); print h "\t" $0}' | sort -t$'\t' -k2 > "$SH_CURR" || true
 
   {
     echo "# File hash delta"
@@ -183,24 +193,24 @@ if [ -n "$PREV_SCAN" ] && [ -f "$PREV_OUT" ]; then
     echo ""
 
     echo "=== MODIFIED ==="
-    join -t$'\t' -j 2 /tmp/sh_prev.txt /tmp/sh_curr.txt \
+    join -t$'\t' -j 2 "$SH_PREV" "$SH_CURR" \
       | awk -F'\t' '$2 != $3 {print "MODIFIED", $1, "\n  prev:", $2, "\n  curr:", $3}' || true
 
     echo ""
     echo "=== NEW ==="
-    comm -13 <(cut -f2 /tmp/sh_prev.txt) <(cut -f2 /tmp/sh_curr.txt) \
+    comm -13 <(cut -f2 "$SH_PREV") <(cut -f2 "$SH_CURR") \
       | while read -r p; do echo "NEW      $p"; done || true
 
     echo ""
     echo "=== REMOVED ==="
-    comm -23 <(cut -f2 /tmp/sh_prev.txt) <(cut -f2 /tmp/sh_curr.txt) \
+    comm -23 <(cut -f2 "$SH_PREV") <(cut -f2 "$SH_CURR") \
       | while read -r p; do echo "REMOVED  $p"; done || true
   } > "$DELTA"
 
   MODIFIED=$(grep -c "^MODIFIED" "$DELTA" || true)
   ADDED=$(grep -c "^NEW" "$DELTA" || true)
   REMOVED=$(grep -c "^REMOVED" "$DELTA" || true)
-  rm -f /tmp/sh_prev.txt /tmp/sh_curr.txt
+  rm -f "$SH_PREV" "$SH_CURR"
 
   echo "Delta: modified=$MODIFIED new=$ADDED removed=$REMOVED → $DELTA"
   if [ "$MODIFIED" -gt 0 ]; then

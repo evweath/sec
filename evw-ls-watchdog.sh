@@ -18,6 +18,17 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# As root, only trust a root-owned lib: a user-writable ancestor dir (e.g.
+# Intel Homebrew's /usr/local) could plant one and have it sourced as root.
+_eg_ok() { [ -f "$1" ] && { [ "$EUID" -ne 0 ] || [ "$(stat -f %u "$1" 2>/dev/null)" = "0" ]; }; }
+while [ "$_eg_d" != "/" ] && ! _eg_ok "$_eg_d/lib/error-guard.sh"; do _eg_d="$(dirname "$_eg_d")"; done
+_eg_ok "$_eg_d/lib/error-guard.sh" && . "$_eg_d/lib/error-guard.sh"; unset _eg_d; unset -f _eg_ok
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+# EVW_GUARD_POLICY unset: launchd one-shot — a tripped breaker aborts (no TTY).
+
 LOG="/private/var/log/evw-ls-watchdog.log"
 LAST_IMPORT_FILE="/private/var/run/evw-ls-watchdog-last.ts"
 LSCLI="/Applications/Little Snitch.app/Contents/Components/littlesnitch"
@@ -27,7 +38,7 @@ log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$LOG"; }
 
 # Log rotation: keep last 2 MB
 if [[ -f "$LOG" ]] && (( $(wc -c < "$LOG") > 2097152 )); then
-    mv "$LOG" "${LOG}.1"
+    guard_run "log-rotate" mv "$LOG" "${LOG}.1"
 fi
 
 log "--- watchdog tick ---"
@@ -51,12 +62,15 @@ if [[ ! -x "$LSCLI" ]]; then
     exit 1
 fi
 
-TS=$(date +%s)
-EXPORT="/var/tmp/ls-watchdog-${TS}.json"
-MODIFIED="/var/tmp/ls-watchdog-mod-${TS}.json"
-REPORT="/var/tmp/ls-watchdog-report-${TS}.txt"
+# Private 700 work dir: predictable root tempfiles directly in world-writable
+# /var/tmp could be pre-created/symlinked by a local attacker (model tamper).
+WORK_DIR="$(mktemp -d /var/tmp/ls-watchdog.XXXXXXXX)" || { log "ERROR: mktemp failed"; exit 1; }
+trap 'rm -rf "$WORK_DIR"' EXIT
+EXPORT="$WORK_DIR/export.json"
+MODIFIED="$WORK_DIR/modified.json"
+REPORT="$WORK_DIR/report.txt"
 
-"$LSCLI" export-model "$EXPORT" 2>/dev/null || true
+guard_run "ls-export" "$LSCLI" export-model "$EXPORT" 2>/dev/null || true
 if [[ ! -f "$EXPORT" ]] || (( $(wc -c < "$EXPORT") < 1000 )); then
     log "ERROR: export failed or empty (Little Snitch not running?)"
     rm -f "$EXPORT"
@@ -65,7 +79,7 @@ fi
 log "exported $(wc -c < "$EXPORT") bytes"
 
 # Run analysis and patching; env vars pass file paths into the heredoc
-_LS_SRC="$EXPORT" _LS_DST="$MODIFIED" _LS_RPT="$REPORT" python3 << 'PYEOF'
+guard_run "ls-analyze" env _LS_SRC="$EXPORT" _LS_DST="$MODIFIED" _LS_RPT="$REPORT" python3 << 'PYEOF'
 import json, os, sys, re
 
 src         = os.environ["_LS_SRC"]
@@ -250,7 +264,7 @@ if [[ -f "$REPORT" ]]; then
 fi
 
 if [[ $PY_EXIT -eq 0 ]] && [[ -f "$MODIFIED" ]]; then
-    if "$LSCLI" restore-model "$MODIFIED" 2>/dev/null; then
+    if guard_run "ls-import" "$LSCLI" restore-model "$MODIFIED" 2>/dev/null; then
         log "IMPORT OK"
         date +%s > "$LAST_IMPORT_FILE"
     else

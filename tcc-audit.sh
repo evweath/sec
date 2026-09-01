@@ -7,6 +7,14 @@
 #
 # Usage: sudo bash ~/dev/security/tcc-audit.sh [scan-dir]
 set -euo pipefail
+umask 077   # root-written TCC-grant inventory must not land world-readable
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
 
 [ "$(id -u)" = "0" ] || { echo "Run with sudo: sudo bash $0"; exit 1; }
 
@@ -20,6 +28,7 @@ DATE="$(date -u +%Y-%m-%d)"
 SCAN_DIR="${1:-$SECURITY_DIR/scan-${DATE}}"
 OUT="$SCAN_DIR/tcc-audit.txt"
 mkdir -p "$SCAN_DIR"
+rm -f "$OUT"   # break any pre-planted symlink before the root tee write below
 
 SERVICES="'kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent','kTCCServicePostEvent','kTCCServiceCamera','kTCCServiceMicrophone'"
 SQL="SELECT service,client,client_type,auth_value,last_modified,indirect_object_identifier FROM access WHERE service IN ($SERVICES) ORDER BY service,auth_value DESC;"
@@ -42,13 +51,13 @@ decode_auth() {
   USER_TCC="$REAL_HOME/Library/Application Support/com.apple.TCC/TCC.db"
   echo "=== USER TCC.db ==="
   if [ -f "$USER_TCC" ]; then
-    sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
+    guard_run "tcc-user-db" sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       echo "  [$status] $service → $client"
     done || true
     echo ""
     echo "  Raw (for diffing):"
-    sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
+    guard_run "tcc-user-db" sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
   else
     echo "  Not found: $USER_TCC"
   fi
@@ -57,7 +66,7 @@ decode_auth() {
   echo "=== SYSTEM TCC.db ==="
   SYS_TCC="/Library/Application Support/com.apple.TCC/TCC.db"
   if [ -f "$SYS_TCC" ]; then
-    sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
+    guard_run "tcc-system-db" sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       flag=""
       [ "$status" = "ALLOWED" ] && flag=" ←── GRANTED"
@@ -65,7 +74,7 @@ decode_auth() {
     done || true
     echo ""
     echo "  Raw (for diffing):"
-    sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
+    guard_run "tcc-system-db" sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
   else
     echo "  Not found: $SYS_TCC"
   fi

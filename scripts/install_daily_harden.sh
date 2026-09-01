@@ -7,6 +7,13 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 if [[ $EUID -ne 0 ]]; then
     echo "[!] Must be run as root: sudo bash $0" >&2
     exit 1
@@ -28,7 +35,7 @@ echo ""
 # ── 1. Install the hardening script to a root-owned location ─────────────────
 install -d -m 755 -o root -g wheel /usr/local/bin
 if [ -f "$SCRIPT_SRC" ]; then
-    install -m 755 -o root -g wheel "$SCRIPT_SRC" "$SCRIPT_DEST"
+    guard_run "install-rescan-script" install -m 755 -o root -g wheel "$SCRIPT_SRC" "$SCRIPT_DEST" || true
     echo "[+] Installed mac_harden_rescan.sh → $SCRIPT_DEST (root:wheel)"
 else
     echo "[!] mac_harden_rescan.sh not found next to this installer."
@@ -37,12 +44,22 @@ else
 fi
 
 # ── 2. Create log directory ──────────────────────────────────────────────────
+# Keep the directory root:wheel — the root daemon's StandardOutPath lives
+# inside it. A user-owned dir would let the user replace the log with a
+# symlink, turning root's append-write into an arbitrary-file write. The log
+# files themselves are made world-readable so the user can still read them.
 mkdir -p "$LOG_DIR"
-chown "$REAL_USER" "$LOG_DIR" 2>/dev/null || true
-echo "[+] Log directory: $LOG_DIR"
+chown root:wheel "$LOG_DIR"
+# Remove any pre-existing symlinks from the old user-owned layout so the
+# touch/chmod below cannot be redirected to a file outside the log dir.
+if [[ -L "$LOG_DIR/daily_harden.log" ]]; then rm -f "$LOG_DIR/daily_harden.log"; fi
+if [[ -L "$LOG_DIR/daily_harden_err.log" ]]; then rm -f "$LOG_DIR/daily_harden_err.log"; fi
+touch "$LOG_DIR/daily_harden.log" "$LOG_DIR/daily_harden_err.log"
+chmod 644 "$LOG_DIR/daily_harden.log" "$LOG_DIR/daily_harden_err.log"
+echo "[+] Log directory: $LOG_DIR (root:wheel; logs 644 for user read access)"
 
 # ── 3. Write the plist ────────────────────────────────────────────────────────
-cat > "$PLIST_DEST" << PLIST_EOF
+guard_run "plist-write" cat > "$PLIST_DEST" << PLIST_EOF || true
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -82,8 +99,8 @@ cat > "$PLIST_DEST" << PLIST_EOF
 </plist>
 PLIST_EOF
 
-chmod 644 "$PLIST_DEST"
-chown root:wheel "$PLIST_DEST"
+guard_run "plist-chmod" chmod 644 "$PLIST_DEST" || true
+guard_run "plist-chown" chown root:wheel "$PLIST_DEST" || true
 echo "[+] Plist written → $PLIST_DEST (root:wheel 644)"
 
 # ── 4. (Re)load the job ───────────────────────────────────────────────────────
@@ -97,7 +114,7 @@ if [ -f "$OLD_AGENT" ]; then
 fi
 
 launchctl bootout system "$PLIST_DEST" 2>/dev/null || true
-launchctl bootstrap system "$PLIST_DEST"
+guard_run "launchd-bootstrap" launchctl bootstrap system "$PLIST_DEST" || true
 echo "[+] Job loaded into launchd (system domain)."
 
 # ── 5. Verify ────────────────────────────────────────────────────────────────

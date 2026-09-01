@@ -25,6 +25,13 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 LOG="$HOME/lock-remote-access-$(date +%Y%m%d-%H%M%S).log"
 touch "$LOG"; chmod 600 "$LOG"
 exec > >(tee -a "$LOG") 2>&1
@@ -35,7 +42,12 @@ ok()      { printf "%s[+]%s %s\n" "$GRN" "$NC" "$*"; }
 warn()    { printf "%s[!]%s %s\n" "$YLW" "$NC" "$*"; }
 err()     { printf "%s[x]%s %s\n" "$RED" "$NC" "$*"; }
 section() { printf "\n%s═══ %s ═══%s\n" "$BLU" "$*" "$NC"; }
-try()     { "$@" || warn "command exited non-zero (continuing): $*"; }
+try()     { local _c="$1"; [ "$_c" = "sudo" ] && _c="${2:-sudo}"; guard_run "try:${_c##*/}" "$@" || warn "command exited non-zero (continuing): $*"; }
+# Expected-failure tolerances (keep the guard's failure counter honest):
+#   lsof rc 1        = no matching lines — the lockdown goal state, not an error
+#   bootout rc 150   = SIP-protected unit refusing bootout — expected, see NOTES
+lsof_listen()   { sudo lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null; [ $? -le 1 ]; }
+bootout_label() { sudo launchctl bootout "system/$1" 2>/dev/null; local rc=$?; [ $rc -eq 0 ] || [ $rc -eq 150 ]; }
 
 [[ "$(uname)" == "Darwin" ]] || { err "macOS only"; exit 1; }
 [[ "$EUID" -ne 0 ]] || { err "Do NOT run as root — script will sudo where needed"; exit 1; }
@@ -122,7 +134,7 @@ log "Internet Sharing (NAT) state:"
 try sudo defaults read /Library/Preferences/SystemConfiguration/com.apple.nat NAT 2>/dev/null
 
 log "LaunchD labels (before):"
-for L in "${SYSTEM_LABELS[@]}"; do audit_label "$L"; done
+for L in "${SYSTEM_LABELS[@]}"; do guard_run "audit-label" audit_label "$L"; done
 
 # ────────────────────────────────────────────────────────────────────────────
 section "DISABLE: SSH (Remote Login)"
@@ -142,7 +154,7 @@ for L in "${SYSTEM_LABELS[@]}"; do
     log "disable system/$L"
     try sudo launchctl disable "system/$L"
     # Try to bootout if currently loaded (modern equivalent of unload -w)
-    sudo launchctl print "system/$L" >/dev/null 2>&1 && try sudo launchctl bootout "system/$L"
+    sudo launchctl print "system/$L" >/dev/null 2>&1 && try bootout_label "$L"
 done
 
 # Best-effort unload of known plists (will fail under SIP — that's OK, the
@@ -202,10 +214,10 @@ log "Internet Sharing NAT (should be Enabled=0):"
 try sudo defaults read /Library/Preferences/SystemConfiguration/com.apple.nat NAT 2>/dev/null
 
 log "LaunchD labels (after):"
-for L in "${SYSTEM_LABELS[@]}"; do audit_label "$L"; done
+for L in "${SYSTEM_LABELS[@]}"; do guard_run "audit-label" audit_label "$L"; done
 
 log "Open listening TCP ports (should be empty if you don't run servers):"
-try sudo lsof -nP -iTCP -sTCP:LISTEN
+try lsof_listen
 
 ok "Remote-access lockdown complete. Log: $LOG"
 warn ""

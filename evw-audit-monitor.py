@@ -18,6 +18,32 @@ import signal
 import threading
 from datetime import datetime
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        _lib = _d / "lib" / "error_guard.py"
+        if _lib.exists():
+            # As root, only trust a root-owned lib: a user-writable ancestor
+            # dir (e.g. Intel Homebrew's /usr/local) could plant one.
+            if os.geteuid() != 0 or _lib.stat().st_uid == 0:
+                _sys.path.insert(0, str(_d / "lib"))
+                break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
+# KeepAlive daemon: never let the guard exit the process — trip = log + skip
+os.environ.setdefault('EVW_GUARD_POLICY', 'continue')
+
 LOG_FILE   = '/private/var/log/evw-audit-monitor.log'
 ALERT_FILE = '/private/var/log/evw-audit-alerts.log'
 
@@ -74,10 +100,13 @@ def watch_unified_log(log_f, alert_f, stop_event):
         '--color', 'none',
     ]
     try:
-        proc = subprocess.Popen(
+        proc = guard_run(
+            'log-stream', subprocess.Popen,
             cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, bufsize=1,
         )
+        if proc is None or proc is SKIP:
+            return
         log_f.write(f'[{ts()}] [LOG-STREAM] started pid={proc.pid}\n')
         log_f.flush()
 
@@ -89,7 +118,8 @@ def watch_unified_log(log_f, alert_f, stop_event):
             line_lower = line.lower()
             for pattern in WATCH_PATTERNS:
                 if pattern.lower() in line_lower:
-                    alert(log_f, alert_f, 'unified-log', pattern, line)
+                    guard_run('log-alert', alert,
+                              log_f, alert_f, 'unified-log', pattern, line)
                     break
     except Exception as e:
         log_f.write(f'[{ts()}] [LOG-STREAM] error: {e}\n')
@@ -106,10 +136,13 @@ def watch_bsm(log_f, alert_f, stop_event):
 
     cmd = ['/usr/sbin/praudit', pipe]
     try:
-        proc = subprocess.Popen(
+        proc = guard_run(
+            'bsm-praudit', subprocess.Popen,
             cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
             text=True, bufsize=1,
         )
+        if proc is None or proc is SKIP:
+            return
 
         record:    list[str] = []
         exec_args: list[str] = []
@@ -142,8 +175,9 @@ def watch_bsm(log_f, alert_f, stop_event):
                         combined_lower = ' '.join(exec_args).lower()
                         for pattern in WATCH_PATTERNS:
                             if pattern.lower() in combined_lower:
-                                alert(log_f, alert_f, 'bsm',
-                                      pattern, '\n'.join(record[:100]))
+                                guard_run('bsm-alert', alert,
+                                          log_f, alert_f, 'bsm',
+                                          pattern, '\n'.join(record[:100]))
                                 break
                     record    = []
                     exec_args = []
@@ -163,6 +197,14 @@ def run():
 
     with open(LOG_FILE, 'a', buffering=1) as log_f, \
          open(ALERT_FILE, 'a', buffering=1) as alert_f:
+
+        # Logs contain URLs and credential-path context — force root-only,
+        # fixing perms even if the files pre-existed world-readable.
+        for _path in (LOG_FILE, ALERT_FILE):
+            try:
+                os.chmod(_path, 0o600)
+            except OSError as e:
+                log_f.write(f'[{ts()}] [START] WARN: chmod 600 {_path}: {e}\n')
 
         log_f.write(f'[{ts()}] [START] evw-audit-monitor pid={os.getpid()}\n')
 

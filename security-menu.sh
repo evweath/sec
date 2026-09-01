@@ -3,6 +3,17 @@
 # Each entry shows what the script does next to its name.
 # Tags: [RO]=read-only report  [MOD]=modifies system  [SUDO]=needs root
 #       [SVC]=installs/runs a daemon or long-running monitor  [ARGS]=asks for arguments
+#       [DAEMON]=runs forever in the foreground: the menu smoke-runs it for
+#       MENU_DAEMON_TIMEOUT seconds (default 60), stops it, and counts a
+#       full-window run as SUCCESS — install the matching *-setup.sh entry
+#       to run it permanently. Any other script is killed and reported failed
+#       after MENU_TIMEOUT seconds (default 900).
+#
+# Press "b" (or pass --bg / set MENU_DAEMON_BG=1) to flip [DAEMON] entries
+# into background mode: the daemon is detached with nohup (output to
+# logs/daemon-<name>-<timestamp>.log) and the batch continues immediately
+# with the next script. A daemon that is already running is not duplicated
+# (pgrep check); the batch summary lists everything left running.
 #
 # Interactive usage:
 #   1 4 7-9   toggle the checkbox next to those entries
@@ -12,37 +23,78 @@
 #   !1 3 8    run these scripts immediately without touching checkboxes
 #   l         relist the menu          q   quit
 #
+# Scripts tagged [SUDO] are elevated through sudo when the menu itself is not
+# running as root: sudo -v primes credentials (one password prompt, then the
+# normal sudo timestamp cache applies). If sudo authentication fails, that
+# script and all later SUDO-tagged scripts in the same batch are skipped.
+#
+# After every script run, a one-line outcome banner is shown — "OK" on
+# success, or "FAILED" with the last lines of that script's log section —
+# plus the batch log file's name and full path. On a terminal the banner
+# stays on screen for 5 seconds, then the batch continues automatically.
+#
+# The date column beside each entry is that script's last SUCCESSFUL run
+# (DD/MM/YYYY HH:MM; "never" when none is recorded). Stored in
+# logs/last-success.tsv and updated after every successful run.
+#
 # Non-interactive usage:
 #   security-menu.sh --list            print the menu and exit
 #   security-menu.sh --check           verify all referenced files exist and parse
 #   security-menu.sh --json            dump entries as JSON (used by security-menu-web.py)
-#   security-menu.sh --run 1,3,5-8 [--yes]   run entries non-interactively (--yes skips confirm)
+#   security-menu.sh --run 1,3,5-8 [--yes] [--bg]   run entries non-interactively
+#     (--yes skips the confirm prompt; --bg detaches [DAEMON] entries and continues)
 # Web UI: security-menu-web.py (browser checkbox interface to this menu)
 # Logs: logs/menu-YYYYMMDD-HHMMSS.log — one per batch; system-context header,
 #   per-script section (args, timing, exit code) and, on failure, a diagnostics
 #   block so a broken script can be debugged from the log alone.
 
 set -u
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 cd "$(dirname "$0")"
 mkdir -p logs
 ASSUME_YES=0
+DAEMON_BG="${MENU_DAEMON_BG:-0}"   # 1 = detach [DAEMON] entries with nohup and continue
+LAST_RUNS="logs/last-success.tsv"   # path<TAB>DD/MM/YYYY HH:MM of last successful run
 
 json_esc() { local s="$1"; s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; printf '%s' "$s"; }
+
+# Remember when a script last completed successfully (shown in the menu).
+record_success() {
+  local p="$1"
+  [[ -f "$LAST_RUNS" ]] && grep -vF "$p"$'\t' "$LAST_RUNS" > "$LAST_RUNS.tmp" 2>/dev/null
+  printf '%s\t%s\n' "$p" "$(date '+%d/%m/%Y %H:%M')" >> "$LAST_RUNS.tmp"
+  mv -f "$LAST_RUNS.tmp" "$LAST_RUNS"
+}
+last_run() {
+  [[ -f "$LAST_RUNS" ]] && awk -F '\t' -v p="$1" '$1==p {d=$2} END {print d}' "$LAST_RUNS"
+}
 
 do_json() {
   local i sep
   printf '[\n'
   for ((i=0; i<N; i++)); do
     sep=","; [[ "$i" -eq $((N-1)) ]] && sep=""
-    printf '  {"n":%d,"section":"%s","path":"%s","tags":"%s","desc":"%s"}%s\n' \
+    printf '  {"n":%d,"section":"%s","path":"%s","tags":"%s","lastrun":"%s","desc":"%s"}%s\n' \
       "$((i+1))" "$(json_esc "${SEC[$i]}")" "$(json_esc "${PTH[$i]}")" \
-      "$(json_esc "${TAG[$i]}")" "$(json_esc "${DSC[$i]}")" "$sep"
+      "$(json_esc "${TAG[$i]}")" "$(json_esc "$(last_run "${PTH[$i]}")")" \
+      "$(json_esc "${DSC[$i]}")" "$sep"
   done
   printf ']\n'
 }
 
-SEC=(); PTH=(); TAG=(); DSC=(); CHK=()
-add() { SEC+=("$1"); PTH+=("$2"); TAG+=("$3"); DSC+=("$4"); CHK+=(0); }
+SEC=(); PTH=(); TAG=(); DSC=(); PRE=(); CHK=()
+# add <section> <path> <tags> <desc> [preset-args]
+# preset-args: arguments always passed to the script (unless tagged [ARGS],
+# which prompts instead). Used for entries whose own confirm gate is already
+# covered by the menu's MODIFY/SVC confirmation (e.g. install-all.sh --yes).
+add() { SEC+=("$1"); PTH+=("$2"); TAG+=("$3"); DSC+=("$4"); PRE+=("${5:-}"); CHK+=(0); }
 N=0
 
 # ─── SCANS & AUDITS ──────────────────────────────────────────────────────────
@@ -90,20 +142,22 @@ add "$S" "imported/sec/setup.sh"                       "[MOD]"      "Fresh-insta
 
 # ─── MONITORING & GUARDS ─────────────────────────────────────────────────────
 S="MONITORING & GUARDS"
-add "$S" "evw-plist-monitor.sh"                        "[SVC,SUDO]" "Log every filesystem event touching disabled.501.plist, with snapshots"
-add "$S" "evw-replayd-guard.sh"                        "[SVC,SUDO]" "Kill replayd on sight after logging parent chain, lsof, TCC grants"
-add "$S" "evw-audit-monitor.py"                        "[SVC,SUDO]" "Real-time alerts on suspicious exec args / URL opens (unified log + BSM)"
+add "$S" "evw-plist-monitor.sh"                        "[SVC,DAEMON,SUDO]" "Log every filesystem event touching disabled.501.plist, with snapshots"
+add "$S" "evw-replayd-guard.sh"                        "[SVC,DAEMON,SUDO]" "Kill replayd on sight after logging parent chain, lsof, TCC grants"
+add "$S" "evw-audit-monitor.py"                        "[SVC,DAEMON,SUDO]" "Real-time alerts on suspicious exec args / URL opens (unified log + BSM)"
 add "$S" "evw-dns-guard.sh"                            "[SVC,SUDO]" "Re-pin DNS servers on all network services when drift detected"
 add "$S" "evw-dns-guard-setup.sh"                      "[SVC,SUDO]" "Install DNS-pinning guard as a root LaunchDaemon (every 5 min)"
-add "$S" "evw-comms-guard.sh"                          "[SVC,SUDO]" "Kill Bluetooth/AirPlay/Continuity/remote-desktop daemons every 25s"
-add "$S" "evw-comms-setup.sh"                          "[SVC,SUDO]" "Disable non-WiFi comm daemons and install the comms guard"
-add "$S" "install-all.sh"                              "[SVC,SUDO]" "One-pass installer deploying all guard daemons to /usr/local/bin"
+# DISABLED 2026-09-01: comms-guard caused recurring ~100s Wi-Fi outages — killing
+# bluetoothd flaps the shared Wi-Fi/BT radio. Evidence: /Users/evw/dev/fix/netdiag/STATE.md
+# add "$S" "evw-comms-guard.sh"                        "[SVC,DAEMON,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"
+# add "$S" "evw-comms-setup.sh"                        "[SVC,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"
+add "$S" "install-all.sh"                              "[SVC,SUDO]" "One-pass installer deploying all guard daemons to /usr/local/bin" "--yes"
 add "$S" "imported/scripts/binding-monitor.sh"         "[SVC,SUDO]" "Detect processes listening on 0.0.0.0, alert, optionally terminate"
 add "$S" "imported/scripts/config-sentinel.sh"         "[RO]"       "SHA-256 baseline monitor of credentials/config/persistence files, alerts"
-add "$S" "imported/scripts/file-sentinel.py"           "[SVC,SUDO]" "Real-time kqueue file-change monitor for sensitive directories"
+add "$S" "imported/scripts/file-sentinel.py"           "[SVC,DAEMON,SUDO]" "Real-time kqueue file-change monitor for sensitive directories"
 add "$S" "imported/scripts/mac-sentinel-install.sh"    "[SVC,SUDO]" "Lynis hardening + install mac-sentinel root monitor (corrected Lynis syntax; cleans old aliases)"
 add "$S" "imported/scripts/setup-audit.sh"             "[MOD,SUDO]" "Enable macOS BSM auditing with file-change tracking for this user"
-add "$S" "imported/sec/secdash.py"                     "[SVC]"      "Loopback-only security dashboard (HTTP + SQLite): posture, alerts, control"
+add "$S" "imported/sec/secdash.py"                     "[SVC,DAEMON]" "Loopback-only security dashboard (HTTP + SQLite): posture, alerts, control"
 
 # ─── NETWORK & PRIVACY ───────────────────────────────────────────────────────
 S="NETWORK & PRIVACY"
@@ -137,16 +191,22 @@ checked_count() {
 }
 
 print_menu() {
-  local cur="" i t cb
-  printf '\n%s== MASTER SECURITY MENU ==%s  (%d scripts, %s%d checked%s, folder: %s)\n' \
-    "$B" "$R" "$N" "$G" "$(checked_count)" "$R" "$PWD"
+  local cur="" i t cb lr
+  printf '\n%s== MASTER SECURITY MENU ==%s  (%d scripts, %s%d checked%s, folder: %s, daemons: %s)\n' \
+    "$B" "$R" "$N" "$G" "$(checked_count)" "$R" "$PWD" \
+    "$([[ "$DAEMON_BG" -eq 1 ]] && printf 'background' || printf 'smoke %ss' "${MENU_DAEMON_TIMEOUT:-60}")"
   for ((i=0; i<N; i++)); do
     if [[ "${SEC[$i]}" != "$cur" ]]; then cur="${SEC[$i]}"; printf '\n%s-- %s --%s\n' "$B" "$cur" "$R"; fi
     t="${TAG[$i]}"
     case "$t" in *MOD*|*SVC*) t="${Y}${t}${R}";; esac
     if [[ "${CHK[$i]}" -eq 1 ]]; then cb="${G}[x]${R}"; else cb="[ ]"; fi
-    printf '%s %3d) %-7s %-42s %s\n' "$cb" "$((i+1))" "$t" "${PTH[$i]}" "${D}${DSC[$i]}${R}"
+    lr="$(last_run "${PTH[$i]}")"
+    printf '%s %3d) %-7s %-42s %s%-16s%s %s\n' \
+      "$cb" "$((i+1))" "$t" "${PTH[$i]}" "$D" "${lr:-never}" "$R" "${D}${DSC[$i]}${R}"
   done
+  printf '\nDate column: last successful run (DD/MM/YYYY HH:MM; never = none recorded).'
+  printf '\n"b" daemon mode: %s (smoke-run vs background-and-continue).' \
+    "$([[ "$DAEMON_BG" -eq 1 ]] && printf 'background' || printf 'smoke')"
   printf '\nToggle checkboxes: numbers/ranges (e.g. "1 4 7-9"), "a" all, "c" clear.'
   printf '\nRun: "r" run checked, "!1 3 8" run now, "l" relist, "q" quit.\n'
 }
@@ -166,9 +226,34 @@ log_system_context() {
 }
 
 FAIL_LIST=()
+BG_LIST=()
+
+# run_timed <seconds> <cmd...> — run cmd with a hard ceiling. Returns the
+# command's own exit status, or 124 when OUR watcher had to kill it (an
+# externally SIGTERM'd command returns 143 instead, so the two differ).
+# `set -m` puts the command in its own process group so the watcher kills
+# the whole tree — otherwise an orphaned `sleep` child would hold the tee
+# pipe open and stall the batch after the kill.
+run_timed() {
+  local secs="$1"; shift
+  local flag; flag="$(mktemp -t menu-timeout.XXXXXX)"; rm -f "$flag"
+  set -m
+  "$@" &
+  local pid=$!
+  ( sleep "$secs" && kill -TERM -- "-$pid" 2>/dev/null && : > "$flag" ) >/dev/null 2>&1 &
+  local watcher=$!
+  wait "$pid" 2>/dev/null
+  local rc=$?
+  kill "$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null
+  set +m
+  if [ -f "$flag" ]; then rm -f "$flag"; return 124; fi
+  rm -f "$flag"
+  return "$rc"
+}
 
 run_one() {
-  local i="$1" p="${PTH[$1]}" extra="" st t0 l0 l1
+  local i="$1" p="${PTH[$1]}" extra="" st t0 l0 l1 elev=""
   if [[ ! -f "$p" ]]; then
     printf 'MISSING: %s\n' "$p"
     printf '\n>>> [%d] %s\n    MISSING FILE (cwd: %s)\n' "$((i+1))" "$p" "$PWD" >> "$LOG"
@@ -177,6 +262,8 @@ run_one() {
   fi
   if [[ "${TAG[$i]}" == *ARGS* ]]; then
     printf 'Arguments for %s (blank for none): ' "$p"; read -r extra
+  else
+    extra="${PRE[$i]}"
   fi
   l0=$(( $(wc -l < "$LOG" 2>/dev/null) + 1 ))
   t0=$SECONDS
@@ -188,24 +275,104 @@ run_one() {
     printf '    started: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')"
   } >> "$LOG"
   if [[ "${TAG[$i]}" == *SUDO* && "$EUID" -ne 0 ]]; then
-    printf '%s    WARNING: tagged SUDO but not running as root — likely to fail%s\n' "$Y" "$R"
-    printf '    WARNING: tagged SUDO but not running as root — likely to fail\n' >> "$LOG"
+    if [[ "${SUDO_FAILED:-0}" -eq 1 ]]; then
+      printf '%s    needs root — skipping (sudo previously failed)%s\n' "$Y" "$R"
+      printf '    needs root — skipping (sudo previously failed)\n' >> "$LOG"
+      FAIL_LIST+=("[$((i+1))] $p — skipped: sudo previously failed")
+      return 1
+    fi
+    printf '%s    needs root — elevating via sudo%s\n' "$Y" "$R"
+    printf '    needs root — elevating via sudo\n' >> "$LOG"
+    if sudo -v; then
+      elev="sudo"
+    else
+      SUDO_FAILED=1
+      printf '%s    sudo authentication failed — skipping this and later SUDO scripts%s\n' "$Y" "$R"
+      printf '    sudo authentication failed — skipping this and later SUDO scripts\n' >> "$LOG"
+      FAIL_LIST+=("[$((i+1))] $p — sudo authentication failed")
+      return 1
+    fi
   fi
-  case "$p" in
-    *.py) python3 "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
-    *)    bash    "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
-  esac
-  printf '%s<<< [%d] exit %d after %ds%s\n' "$B" "$((i+1))" "$st" "$((SECONDS-t0))" "$R"
-  printf '<<< [%d] exit %d after %ds\n' "$((i+1))" "$st" "$((SECONDS-t0))" >> "$LOG"
+  local tlim="${MENU_TIMEOUT:-900}"
+  if [[ "${TAG[$i]}" == *DAEMON* && "$DAEMON_BG" -eq 1 ]]; then
+    # Background mode: detach the daemon and continue to the next script.
+    local base dlog bgpid existing
+    base="$(basename "$p")"
+    existing="$(pgrep -f "$base" 2>/dev/null | tr '\n' ' ')"
+    if [ -n "$existing" ]; then
+      printf '%s    already running (PID %s) — not starting a duplicate%s\n' "$Y" "$existing" "$R"
+      printf '    already running (PID %s) — not starting a duplicate\n' "$existing" >> "$LOG"
+      st=0
+    else
+      dlog="logs/daemon-${base%.*}-$(date +%Y%m%d-%H%M%S).log"
+      case "$p" in
+        *.py) nohup $elev python3 "$p" $extra >> "$dlog" 2>&1 < /dev/null & ;;
+        *)    nohup $elev bash    "$p" $extra >> "$dlog" 2>&1 < /dev/null & ;;
+      esac
+      bgpid=$!
+      disown 2>/dev/null || true
+      sleep 1
+      if kill -0 "$bgpid" 2>/dev/null; then
+        printf '%s    started in background (PID %d) — continuing to next script%s\n' "$G" "$bgpid" "$R"
+        printf '    output: %s (stop: %skill %d)\n' "$PWD/$dlog" "${elev:+$elev }" "$bgpid"
+        printf '    started in background (PID %d); output: %s\n' "$bgpid" "$PWD/$dlog" >> "$LOG"
+        BG_LIST+=("[$((i+1))] $p — background PID $bgpid")
+        st=0
+      else
+        printf '%s    background start failed — output: %s%s\n' "$Y" "$PWD/$dlog" "$R"
+        { printf '    background start failed; output tail:\n'; tail -n 5 "$dlog"; } >> "$LOG"
+        st=1
+      fi
+    fi
+  elif [[ "${TAG[$i]}" == *DAEMON* ]]; then
+    tlim="${MENU_DAEMON_TIMEOUT:-60}"
+    # Foreground daemons never exit by design: bounded smoke run, no guard
+    # wrapper (a full-window run ends in our own timeout kill, not a failure).
+    case "$p" in
+      *.py) run_timed "$tlim" $elev python3 "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
+      *)    run_timed "$tlim" $elev bash    "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
+    esac
+  else
+    case "$p" in
+      *.py) guard_run "script:$p" run_timed "$tlim" $elev python3 "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
+      *)    guard_run "script:$p" run_timed "$tlim" $elev bash    "$p" $extra 2>&1 | tee -a "$LOG"; st=${PIPESTATUS[0]} ;;
+    esac
+  fi
+  if [[ "$st" -eq 124 && "${TAG[$i]}" == *DAEMON* ]]; then
+    printf '%s    daemon: ran the full %ds window, then stopped (long-running by design)%s\n' "$G" "$tlim" "$R"
+    printf '    daemon: ran the full %ds window, then stopped — long-running by design (install its *-setup.sh entry for permanent operation)\n' "$tlim" >> "$LOG"
+    st=0
+  elif [[ "$st" -eq 124 ]]; then
+    printf '%s    TIMEOUT: killed after %ds (override with MENU_TIMEOUT)%s\n' "$Y" "$tlim" "$R"
+    printf '    TIMEOUT: killed after %ds\n' "$tlim" >> "$LOG"
+  fi
+  # Outcome banner: brief success statement, or a brief error excerpt pulled
+  # from this script's section of the log file, plus the log's name and path.
+  # On a terminal it stays up 5s, then the batch continues (no pause w/o TTY).
+  local dur=$((SECONDS-t0)) excerpt=""
+  if [[ "$st" -ne 0 ]]; then
+    excerpt="$(tail -n 3 "$LOG" 2>/dev/null | sed 's/^/      /')"
+  fi
+  printf '%s<<< [%d] exit %d after %ds%s\n' "$B" "$((i+1))" "$st" "$dur" "$R"
+  printf '<<< [%d] exit %d after %ds\n' "$((i+1))" "$st" "$dur" >> "$LOG"
   if [[ "$st" -ne 0 ]]; then
     {
-      printf '    --- failure diagnostics: [%d] %s exited %d after %ds ---\n' "$((i+1))" "$p" "$st" "$((SECONDS-t0))"
+      printf '    --- failure diagnostics: [%d] %s exited %d after %ds ---\n' "$((i+1))" "$p" "$st" "$dur"
       log_system_context
       printf '    --- end diagnostics ---\n'
     } >> "$LOG"
     l1=$(( $(wc -l < "$LOG" 2>/dev/null) + 0 ))
-    FAIL_LIST+=("[$((i+1))] $p — exit $st after $((SECONDS-t0))s (log lines $l0-$l1)")
+    FAIL_LIST+=("[$((i+1))] $p — exit $st after ${dur}s (log lines $l0-$l1)")
   fi
+  if [[ "$st" -eq 0 ]]; then
+    printf '%s    OK: %s succeeded (%ds)%s\n' "$G" "$p" "$dur" "$R"
+    record_success "$p"
+  else
+    printf '%s    FAILED: %s (exit %d, %ds) — last log lines:%s\n' "$Y" "$p" "$st" "$dur" "$R"
+    printf '%s\n' "$excerpt"
+  fi
+  printf '    log: %s — %s/%s\n' "$(basename "$LOG")" "$PWD" "$LOG"
+  [[ -t 1 ]] && sleep 5
   return "$st"
 }
 
@@ -239,6 +406,7 @@ run_batch() {
   fi
   LOG="logs/menu-$(date +%Y%m%d-%H%M%S).log"
   FAIL_LIST=()
+  BG_LIST=()
   t0=$SECONDS
   {
     printf '========================================================================\n'
@@ -248,13 +416,17 @@ run_batch() {
     for i in "${idxs[@]}"; do printf '  [%d] %s %s\n' "$((i+1))" "${TAG[$i]}" "${PTH[$i]}"; done
     printf '========================================================================\n'
   } >> "$LOG"
-  for i in "${idxs[@]}"; do run_one "$i" || fails=$((fails+1)); done
+  for i in "${idxs[@]}"; do guard_run "run_one" run_one "$i" || fails=$((fails+1)); done
   {
     printf '\n========================================================================\n'
     printf 'batch summary — %d succeeded, %d failed, %ds total\n' "$((${#idxs[@]}-fails))" "$fails" "$((SECONDS-t0))"
     if [[ "$fails" -gt 0 ]]; then
       printf 'failures:\n'
       for f in "${FAIL_LIST[@]}"; do printf '  %s\n' "$f"; done
+    fi
+    if [[ "${#BG_LIST[@]}" -gt 0 ]]; then
+      printf 'background daemons left running (stop with sudo pkill -f <name>):\n'
+      for f in "${BG_LIST[@]}"; do printf '  %s\n' "$f"; done
     fi
   } | tee -a "$LOG"
   printf '\nDone. %d succeeded, %d failed. Log: %s\n' "$((${#idxs[@]}-fails))" "$fails" "$LOG"
@@ -314,6 +486,9 @@ interactive() {
       q|Q|quit|exit) return 0 ;;
       l|L) print_menu ;;
       a|A) toggle_all; print_menu ;;
+      b|B) DAEMON_BG=$((1-DAEMON_BG))
+           printf 'Daemon mode: %s.\n' "$([[ "$DAEMON_BG" -eq 1 ]] && printf 'background (daemons detach, batch continues)' || printf 'smoke-run (60s window)')"
+           print_menu ;;
       c|C) for ((i=0; i<N; i++)); do CHK[$i]=0; done; printf 'All checkboxes cleared.\n'; print_menu ;;
       r|R|run) run_checked; print_menu ;;
       "!"*)  run_immediate "${sel#!}"; print_menu ;;
@@ -346,8 +521,14 @@ case "${1:-}" in
   --check) do_check ;;
   --json)  do_json ;;
   --run)   shift
-           list="${1:?usage: security-menu.sh --run 1,3,5-8 [--yes]}"
-           [[ "${2:-}" == "--yes" ]] && ASSUME_YES=1
+           list="${1:?usage: security-menu.sh --run 1,3,5-8 [--yes] [--bg]}"
+           shift
+           for a in "$@"; do
+             case "$a" in
+               --yes) ASSUME_YES=1 ;;
+               --bg)  DAEMON_BG=1 ;;
+             esac
+           done
            run_immediate "$list" ;;
   -h|--help) sed -n '2,23p' "$0" ;;
   "")      interactive ;;

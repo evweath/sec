@@ -7,6 +7,25 @@ from reportlab.platypus import (
 )
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 OUTPUT = '/Users/evw/dev/AI_Coding_CLI_Tools_Comparison_2026.pdf'
 
 doc = SimpleDocTemplate(
@@ -347,5 +366,16 @@ sources = [
 for title, url in sources:
     story.append(Paragraph(f'• {title} — <font color="#0f3460">{url}</font>', source_style))
 
-doc.build(story)
-print(f'PDF written to: {OUTPUT}')
+def main():
+    def build():
+        doc.build(story)
+        return True
+
+    built = guard_run('doc_build', build)
+    if built is None or built is SKIP:
+        throw(f'doc.build failed: {OUTPUT}')
+    print(f'PDF written to: {OUTPUT}')
+
+
+if __name__ == '__main__':
+    main()

@@ -23,6 +23,17 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# As root, only trust a root-owned lib: a user-writable ancestor dir (e.g.
+# Intel Homebrew's /usr/local) could plant one and have it sourced as root.
+_eg_ok() { [ -f "$1" ] && { [ "$EUID" -ne 0 ] || [ "$(stat -f %u "$1" 2>/dev/null)" = "0" ]; }; }
+while [ "$_eg_d" != "/" ] && ! _eg_ok "$_eg_d/lib/error-guard.sh"; do _eg_d="$(dirname "$_eg_d")"; done
+_eg_ok "$_eg_d/lib/error-guard.sh" && . "$_eg_d/lib/error-guard.sh"; unset _eg_d; unset -f _eg_ok
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+# EVW_GUARD_POLICY unset: launchd one-shot — a tripped breaker aborts (no TTY).
+
 LOG="/private/var/log/evw-dns-guard.log"
 HEARTBEAT="/private/var/run/evw-dns-guard-heartbeat.ts"
 
@@ -33,7 +44,7 @@ log() { printf '[%s] %s\n' "$(date -Iseconds)" "$*" >> "$LOG"; }
 
 # Log rotation: keep last 2 MB
 if [[ -f "$LOG" ]] && (( $(wc -c < "$LOG") > 2097152 )); then
-    mv "$LOG" "${LOG}.1"
+    guard_run "log-rotate" mv "$LOG" "${LOG}.1"
 fi
 
 log "--- dns-guard tick ---"
@@ -54,11 +65,19 @@ expected_norm=$(printf '%s\n' "${EXPECTED[@]}" | sort | tr '\n' ' ')
 
 changed=0
 
+# If listing services fails, the drift loop below would be a no-op and the
+# final "OK" line a lie — detect it and WARN instead.
+service_list=$(guard_run "listallnetworkservices" networksetup -listallnetworkservices 2>/dev/null)
+if [[ $? -ne 0 || -z "$service_list" ]]; then
+    log "WARN: could not list network services — drift check skipped"
+    exit 0
+fi
+
 while IFS= read -r svc; do
     # Skip blanks and disabled services (prefixed with *)
     [[ -n "$svc" && "$svc" != \** ]] || continue
 
-    current=$(networksetup -getdnsservers "$svc" 2>/dev/null)
+    current=$(guard_run "getdnsservers" networksetup -getdnsservers "$svc" 2>/dev/null)
 
     # "There aren't any DNS Servers set on X." => treat as empty
     if [[ "$current" == *"aren't any"* ]]; then
@@ -69,17 +88,17 @@ while IFS= read -r svc; do
 
     if [[ "$current_norm" != "$expected_norm" ]]; then
         log "DRIFT on '$svc': had [${current_norm:-<none>}] expected [${expected_norm}]"
-        if networksetup -setdnsservers "$svc" "${EXPECTED[@]}" 2>>"$LOG"; then
+        if guard_run "setdnsservers" networksetup -setdnsservers "$svc" "${EXPECTED[@]}" 2>>"$LOG"; then
             log "  re-pinned DNS on '$svc'"
             changed=1
         else
             log "  ERROR: failed to set DNS on '$svc'"
         fi
     fi
-done < <(networksetup -listallnetworkservices 2>/dev/null | tail -n +2)
+done < <(printf '%s\n' "$service_list" | tail -n +2)
 
 if (( changed )); then
-    dscacheutil -flushcache 2>/dev/null
+    guard_run "flushcache" dscacheutil -flushcache 2>/dev/null
     killall -HUP mDNSResponder 2>/dev/null
     log "cache flushed + mDNSResponder restarted"
 else

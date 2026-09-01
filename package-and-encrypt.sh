@@ -18,6 +18,14 @@
 #     transport — just treat the passphrase as exposed if you suspect the worst.
 
 set -euo pipefail
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 cd "$(dirname "$0")"
 
 FILES=(
@@ -34,15 +42,24 @@ FILES=(
 OUT="scripts-bundle.tar.gz.enc"
 
 # Refresh manifest so it matches current file contents
-shasum -a 256 harden.sh lock-remote-access.sh run-with-ls-silent.sh \
-              little-snitch-triage.txt little-snitch-triage.pdf > MANIFEST.sha256
+guard_run "shasum-manifest" shasum -a 256 harden.sh lock-remote-access.sh run-with-ls-silent.sh \
+              little-snitch-triage.txt little-snitch-triage.pdf > MANIFEST.sha256 || true
 echo "Refreshed MANIFEST.sha256:"
 cat MANIFEST.sha256
 echo
 
+# Verify every listed input exists first — a missing file must not yield a
+# valid-looking but incomplete encrypted bundle.
+missing=0
+for f in "${FILES[@]}"; do
+    [ -f "$f" ] || { echo "MISSING INPUT: $f" >&2; missing=1; }
+done
+[ "$missing" -eq 0 ] || { echo "Aborting — bundle inputs missing (see above)." >&2; exit 1; }
+
 echo "Bundling: ${FILES[*]}"
-tar czf - "${FILES[@]}" \
-    | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -out "$OUT"
+# pipefail is on (set -euo pipefail above): a tar or openssl failure aborts nonzero.
+guard_run "tar-bundle" tar czf - "${FILES[@]}" \
+    | guard_run "openssl-encrypt" openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -out "$OUT"
 
 echo
 echo "Wrote: $(pwd)/$OUT  ($(wc -c < "$OUT" | tr -d ' ') bytes)"

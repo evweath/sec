@@ -14,6 +14,13 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 RED='\033[1;31m'
 GRN='\033[1;32m'
 YLW='\033[1;33m'
@@ -126,7 +133,7 @@ fi
 info "INSE-8050: Disabling com.apple.ftp-proxy..."
 FTP_PLIST="/System/Library/LaunchDaemons/com.apple.ftp-proxy.plist"
 if [[ -f "$FTP_PLIST" ]]; then
-    launchctl unload -w "$FTP_PLIST" 2>/dev/null && \
+    guard_run "unload-ftp-proxy" launchctl unload -w "$FTP_PLIST" 2>/dev/null && \
         ok "ftp-proxy unloaded" || \
         warn "ftp-proxy may already be unloaded"
 else
@@ -138,7 +145,7 @@ fi
 info "AUTH-9262: Setting minimum password policy via pwpolicy..."
 CURRENT_POLICY=$(pwpolicy -getglobalpolicy 2>/dev/null || echo "")
 if ! echo "$CURRENT_POLICY" | grep -q "minChars"; then
-    pwpolicy -setglobalpolicy "minChars=12 requiresAlpha=1 requiresNumeric=1" && \
+    guard_run "pwpolicy" pwpolicy -setglobalpolicy "minChars=12 requiresAlpha=1 requiresNumeric=1" && \
         ok "Password policy set: minChars=12 requiresAlpha requiresNumeric" || \
         warn "pwpolicy failed — may require MDM on managed devices"
 else
@@ -158,7 +165,7 @@ if [[ -f "$BAD_CUSTOM" ]]; then
 fi
 
 # Lynis on Homebrew expects custom.prf in the same dir as default.prf
-LYNIS_VER=$(ls "${BREW_PREFIX}/Cellar/lynis/" 2>/dev/null | head -1)
+LYNIS_VER=$(ls "${BREW_PREFIX}/Cellar/lynis/" 2>/dev/null | head -1 || true)
 if [[ -n "$LYNIS_VER" ]]; then
     LYNIS_CUSTOM_PRF="${BREW_PREFIX}/Cellar/lynis/${LYNIS_VER}/custom.prf"
     # Correct syntax is skip-test=, NOT ignore=
@@ -206,14 +213,23 @@ else
     # The packages.wazuh.com directory index returns 403; resolve the latest
     # version via the GitHub API and build the direct pkg URL from it.
     WAZ_VER=$(curl -fsSL --max-time 20 "https://api.github.com/repos/wazuh/wazuh/releases/latest" 2>/dev/null \
-        | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+' | head -1)
+        | grep -oE '"tag_name": *"v[0-9.]+"' | grep -oE '[0-9.]+' | head -1 || true)
     if [[ -n "$WAZ_ARCH" && -n "$WAZ_VER" ]]; then
         WAZ_PKG="/tmp/wazuh-agent.pkg"
         if curl -fsSL "https://packages.wazuh.com/4.x/macos/wazuh-agent-${WAZ_VER}-1.${WAZ_ARCH}.pkg" -o "$WAZ_PKG"; then
-            installer -pkg "$WAZ_PKG" -target / && ok "Wazuh agent installed" || warn "Wazuh installer failed"
-            if [[ -f /Library/Ossec/bin/ossec-control ]]; then
-                OSSEC_CONTROL=/Library/Ossec/bin/ossec-control
-                "$OSSEC_CONTROL" start && ok "Wazuh agent started" || warn "Wazuh start failed"
+            # Verify pkg signature BEFORE installing — an unsigned/invalid pkg must never reach installer(8)
+            WAZ_SIG=$(pkgutil --check-signature "$WAZ_PKG" 2>&1 || true)
+            echo "$WAZ_SIG" >> "$LOG_FILE"
+            if echo "$WAZ_SIG" | grep -q "Status: signed by a certificate trusted by macOS"; then
+                guard_run "wazuh-install" installer -pkg "$WAZ_PKG" -target / && ok "Wazuh agent installed" || warn "Wazuh installer failed"
+                if [[ -f /Library/Ossec/bin/ossec-control ]]; then
+                    OSSEC_CONTROL=/Library/Ossec/bin/ossec-control
+                    guard_run "ossec-start" "$OSSEC_CONTROL" start && ok "Wazuh agent started" || warn "Wazuh start failed"
+                fi
+            else
+                warn "Wazuh pkg signature INVALID or untrusted — NOT installing:"
+                echo "$WAZ_SIG" | sed 's/^/    /' | tee -a "$LOG_FILE"
+                warn "Skipping Wazuh agent install — download left at $WAZ_PKG for manual inspection"
             fi
         else
             warn "Wazuh download failed — install manually from packages.wazuh.com"
@@ -280,7 +296,7 @@ if [[ "$APACHE_RUNNING" == "true" ]]; then
 else
     info "Apache is not actively running — disabling it permanently..."
     if [[ -f "$APACHE_PLIST" ]]; then
-        launchctl unload -w "$APACHE_PLIST" 2>/dev/null && \
+        guard_run "unload-apache" launchctl unload -w "$APACHE_PLIST" 2>/dev/null && \
             ok "Apache LaunchDaemon unloaded" || \
             warn "Apache may already be unloaded"
     fi
@@ -295,11 +311,11 @@ section "PART 4: Firewall Configuration"
 
 # Application Firewall — enable + stealth mode
 info "Enabling Application Firewall..."
-/usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null && \
+guard_run "app-firewall" /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on 2>/dev/null && \
     ok "Application Firewall enabled" || warn "Could not enable Application Firewall"
 
 info "Enabling Stealth Mode..."
-/usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null && \
+guard_run "stealth-mode" /usr/libexec/ApplicationFirewall/socketfilterfw --setstealthmode on 2>/dev/null && \
     ok "Stealth mode enabled" || warn "Could not enable stealth mode"
 
 # pf — verify enabled
@@ -307,7 +323,7 @@ info "Checking pf status..."
 if pfctl -s info 2>/dev/null | grep -q "Enabled"; then
     ok "pf firewall is enabled"
 else
-    pfctl -e 2>/dev/null && ok "pf enabled" || warn "Could not enable pf"
+    guard_run "pf-enable" pfctl -e 2>/dev/null && ok "pf enabled" || warn "Could not enable pf"
 fi
 
 
@@ -343,7 +359,7 @@ else
     chmod 700 "$INSTALL_DIR" "$LOG_DIR"
 
     # Copy script
-    cp "$SENTINEL_SRC" "${INSTALL_DIR}/mac-sentinel.py"
+    guard_run "install-sentinel" cp "$SENTINEL_SRC" "${INSTALL_DIR}/mac-sentinel.py" || true
     chmod 700 "${INSTALL_DIR}/mac-sentinel.py"
     chown root:wheel "${INSTALL_DIR}/mac-sentinel.py"
     ok "Script installed to ${INSTALL_DIR}/mac-sentinel.py"
@@ -351,7 +367,7 @@ else
     # Install fswatch (required for file monitoring) — must run as real user
     BREW="${BREW_PREFIX}/bin/brew"
     if [[ -f "$BREW" ]]; then
-        FSWATCH_BIN=$(sudo -u "$REAL_USER" "$BREW" --prefix fswatch 2>/dev/null)/bin/fswatch
+        FSWATCH_BIN=$(sudo -u "$REAL_USER" "$BREW" --prefix fswatch 2>/dev/null || true)/bin/fswatch
         if ! sudo -u "$REAL_USER" command -v fswatch &>/dev/null && [[ ! -f "$FSWATCH_BIN" ]]; then
             info "Installing fswatch as ${REAL_USER}..."
             sudo -u "$REAL_USER" "$BREW" install fswatch 2>&1 | tee -a "$LOG_FILE" && \
@@ -363,6 +379,7 @@ else
 
     # Install Python deps
     info "Installing Python dependencies..."
+    # ACCEPTED RISK: unpinned PyPI supply chain — latest psutil/watchdog fetched without version/hash pinning
     python3 -m pip install psutil watchdog --quiet --break-system-packages 2>/dev/null && \
         ok "Python deps installed" || warn "pip install had warnings"
 
@@ -406,7 +423,7 @@ PLIST_EOF
     launchctl unload "$PLIST_PATH" 2>/dev/null || true
 
     # Load service
-    if launchctl load -w "$PLIST_PATH" 2>/dev/null; then
+    if guard_run "sentinel-load" launchctl load -w "$PLIST_PATH" 2>/dev/null; then
         sleep 2
         if launchctl list com.evw.mac-sentinel &>/dev/null; then
             ok "mac-sentinel daemon loaded and running"
@@ -458,7 +475,7 @@ warn "  sudo chown root:wheel /usr/bin/gcc /usr/bin/clang 2>/dev/null"
 
 # ─── LOGG-2190: Deleted files still open ─────────────────────────────────────
 info "LOGG-2190: Checking for deleted files still in use..."
-DELETED_FILES=$(lsof +L1 2>/dev/null | grep -v "^COMMAND" | wc -l | tr -d ' ')
+DELETED_FILES=$(lsof +L1 2>/dev/null | grep -v "^COMMAND" | wc -l | tr -d ' ' || true)
 if [[ "$DELETED_FILES" -gt 0 ]]; then
     warn "${DELETED_FILES} deleted files still held open (normal on macOS)"
     warn "These typically clear on next reboot. Details:"
@@ -470,7 +487,7 @@ fi
 
 # ─── ClamAV freshness check ───────────────────────────────────────────────────
 info "Checking ClamAV definition freshness..."
-CLAM_DB=$(find "${BREW_PREFIX}/var/lib/clamav" -name "*.cvd" 2>/dev/null | head -1)
+CLAM_DB=$(find "${BREW_PREFIX}/var/lib/clamav" -name "*.cvd" 2>/dev/null | head -1 || true)
 if [[ -n "$CLAM_DB" ]]; then
     AGE_HOURS=$(( ( $(date +%s) - $(stat -f %m "$CLAM_DB") ) / 3600 ))
     if [[ $AGE_HOURS -gt 48 ]]; then

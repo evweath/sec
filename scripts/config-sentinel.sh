@@ -16,6 +16,13 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 SENTINEL_DIR="${HOME}/.config-sentinel"
 BASELINE_FILE="${SENTINEL_DIR}/baseline.sha256"
 CHANGE_LOG="${SENTINEL_DIR}/changes.log"
@@ -120,6 +127,7 @@ watched_files() {
     echo "${HOME}/dev/security/sec/hardening.sh"
     echo "${HOME}/dev/security/sec/lockdown.sh"
     echo "${HOME}/dev/security/sec/launchd/com.ew.lockdown.plist"
+    echo "${HOME}/dev/security/lib/error-guard.sh"   # sourced by lockdown.sh & co.
 
     # ── Extra watches (managed via secdash UI; one absolute path per line) ──
     local extra="${SENTINEL_DIR}/extra-watches"
@@ -216,7 +224,7 @@ Old hash: ${safe_old}
 New hash: ${safe_new}
 
 Verify this change is authorized, then run:
-  ~/dev/security/scripts/config-sentinel.sh --baseline
+  ~/scripts/config-sentinel.sh --baseline
 
 If this change is unexpected, treat your system as potentially compromised." ¬
     buttons {"Acknowledge"} default button "Acknowledge" ¬
@@ -229,7 +237,12 @@ APPLESCRIPT
 # ── Notification banner ───────────────────────────────────────────────────────
 send_notification() {
     local msg="$1"
-    osascript -e "display notification \"${msg}\" with title \"${ALERT_TITLE}\" sound name \"Basso\"" 2>/dev/null || true
+
+    # Escape backslashes and double-quotes for AppleScript string literal
+    local safe_msg
+    safe_msg=$(printf '%s' "$msg" | sed 's/\\/\\\\/g; s/"/\\"/g')
+
+    osascript -e "display notification \"${safe_msg}\" with title \"${ALERT_TITLE}\" sound name \"Basso\"" 2>/dev/null || true
 }
 
 # ── Fire all three alert channels ────────────────────────────────────────────
@@ -256,11 +269,11 @@ Old SHA-256 : ${old_hash:-n/a}
 New SHA-256 : ${new_hash:-n/a}
 
 If this change is AUTHORIZED, update the baseline:
-  ~/dev/security/scripts/config-sentinel.sh --baseline
+  ~/scripts/config-sentinel.sh --baseline
 
 If this change is NOT authorized, your system may be compromised.
 Review the change log:
-  ~/dev/security/scripts/config-sentinel.sh --report"
+  ~/scripts/config-sentinel.sh --report"
 
     send_email "⚠️ Security Alert: ${change_type} — ${filename}" "$email_body"
 
@@ -378,10 +391,10 @@ cmd_test() {
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 case "${1:---scan}" in
-    --baseline) cmd_baseline ;;
-    --scan)     cmd_scan     ;;
-    --list)     cmd_list     ;;
-    --report)   cmd_report   ;;
-    --test)     cmd_test     ;;
+    --baseline) guard_run "cmd_baseline" cmd_baseline ;;
+    --scan)     guard_run "cmd_scan"     cmd_scan     ;;
+    --list)     guard_run "cmd_list"     cmd_list     ;;
+    --report)   guard_run "cmd_report"   cmd_report   ;;
+    --test)     guard_run "cmd_test"     cmd_test     ;;
     *) echo "Usage: $0 [--baseline|--scan|--list|--report|--test]"; exit 1 ;;
 esac

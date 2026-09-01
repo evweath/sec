@@ -10,6 +10,15 @@
 # Allowlist: processes intentionally permitted to bind externally.
 # Format: "process_name:port" or "process_name:*" or "*:port"
 
+set -uo pipefail
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 LOG=/var/log/binding-monitor.log
 ALERT_TITLE="Binding Monitor"
 AUTO_KILL=${AUTO_KILL:-0}      # Set to 1 to auto-terminate violating processes
@@ -34,6 +43,11 @@ log() {
 
 notify_user() {
     local msg="$1"
+    # Escape for the AppleScript string literal: backslash first, then
+    # double-quote — the message embeds lsof's attacker-controllable
+    # COMMAND field.
+    msg="${msg//\\/\\\\}"
+    msg="${msg//\"/\\\"}"
     # Find the console user's UID so we can send to the right session
     local console_uid
     console_uid=$(id -u "$(stat -f '%Su' /dev/console 2>/dev/null)" 2>/dev/null || echo "")
@@ -91,12 +105,22 @@ while IFS= read -r line; do
 
     VIOLATIONS=$((VIOLATIONS + 1))
     log "  VIOLATION  pid=$pid  proc=$proc  addr=$name"
-    notify_user "VIOLATION: $proc (pid $pid) is listening on $name — accessible from LAN!"
+    guard_run "notify_user" notify_user "VIOLATION: $proc (pid $pid) is listening on $name — accessible from LAN!"
 
     if [[ "$AUTO_KILL" -eq 1 ]]; then
         log "  Waiting ${GRACE_SECONDS}s then sending SIGTERM to pid=$pid"
         sleep "$GRACE_SECONDS"
-        if kill -0 "$pid" 2>/dev/null; then
+        # Re-verify the PID is still the same listener process before killing:
+        # the original process may have exited during the grace window and an
+        # innocent process may have reused the PID. lsof truncates COMMAND,
+        # so compare as a prefix of the live process name.
+        current_comm="$(ps -p "$pid" -o comm= 2>/dev/null)"
+        current_name="$(basename "$current_comm" 2>/dev/null)"
+        if [[ -z "$current_comm" ]]; then
+            log "  pid=$pid no longer running"
+        elif [[ "$current_name" != "$proc"* ]]; then
+            log "  ABORT kill: pid=$pid now runs '$current_name' (was '$proc') — PID reused, not killing"
+        elif kill -0 "$pid" 2>/dev/null; then
             kill -TERM "$pid" 2>/dev/null && log "  SIGTERM sent to pid=$pid" \
                 || log "  SIGTERM failed (may need root)"
         else
@@ -104,7 +128,7 @@ while IFS= read -r line; do
         fi
     fi
 
-done < <(lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | tail -n +2)
+done < <(guard_run "lsof-scan" lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | tail -n +2)
 
 if [[ "$VIOLATIONS" -eq 0 ]]; then
     log "  No violations found."

@@ -13,6 +13,25 @@ from reportlab.platypus import (
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.platypus.flowables import BalancedColumns
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 SRC = '/Users/evw/dev/security/MASTER-SECURITY-LOG.md'
 OUT = '/Users/evw/dev/security/MASTER-SECURITY-LOG.pdf'
 
@@ -251,62 +270,76 @@ def parse_md(path):
 
 # ── Build PDF ─────────────────────────────────────────────────────────────────
 
-story = []
+def main():
+    story = []
 
-# Cover page
-story.append(Spacer(1, 0.6*inch))
+    # Cover page
+    story.append(Spacer(1, 0.6*inch))
 
-title_style = ParagraphStyle('CoverTitle', parent=styles['Normal'],
-    fontSize=28, fontName='Helvetica-Bold', textColor=colors.HexColor('#1a1a2e'),
-    spaceAfter=6, leading=34)
-sub_style = ParagraphStyle('CoverSub', parent=styles['Normal'],
-    fontSize=13, textColor=colors.HexColor('#555555'), spaceAfter=4, leading=18)
-meta_style = ParagraphStyle('CoverMeta', parent=styles['Normal'],
-    fontSize=9, textColor=colors.HexColor('#888888'), leading=14)
+    title_style = ParagraphStyle('CoverTitle', parent=styles['Normal'],
+        fontSize=28, fontName='Helvetica-Bold', textColor=colors.HexColor('#1a1a2e'),
+        spaceAfter=6, leading=34)
+    sub_style = ParagraphStyle('CoverSub', parent=styles['Normal'],
+        fontSize=13, textColor=colors.HexColor('#555555'), spaceAfter=4, leading=18)
+    meta_style = ParagraphStyle('CoverMeta', parent=styles['Normal'],
+        fontSize=9, textColor=colors.HexColor('#888888'), leading=14)
 
-story.append(Paragraph('Master Security Log', title_style))
-story.append(Paragraph('evw\'s MacBook Pro · macOS 26.5 (25F71)', sub_style))
-story.append(Spacer(1, 0.1*inch))
-story.append(HRFlowable(width='100%', thickness=2, color=ACCENT_DARK, spaceAfter=10))
-story.append(Paragraph('Threat model: Nation-state level · Ongoing investigation', meta_style))
-story.append(Paragraph('Period covered: 2026-05-11 through 2026-06-02', meta_style))
-story.append(Paragraph('Sessions documented: 14 scans across 16 days', meta_style))
-story.append(Paragraph('Analyst: evw + Claude Sonnet 4.6 (claude-sonnet-4-6)', meta_style))
-story.append(Spacer(1, 0.35*inch))
+    story.append(Paragraph('Master Security Log', title_style))
+    story.append(Paragraph('evw\'s MacBook Pro · macOS 26.5 (25F71)', sub_style))
+    story.append(Spacer(1, 0.1*inch))
+    story.append(HRFlowable(width='100%', thickness=2, color=ACCENT_DARK, spaceAfter=10))
+    story.append(Paragraph('Threat model: Nation-state level · Ongoing investigation', meta_style))
+    story.append(Paragraph('Period covered: 2026-05-11 through 2026-06-02', meta_style))
+    story.append(Paragraph('Sessions documented: 14 scans across 16 days', meta_style))
+    story.append(Paragraph('Analyst: evw + Claude Sonnet 4.6 (claude-sonnet-4-6)', meta_style))
+    story.append(Spacer(1, 0.35*inch))
 
-# Executive summary box on cover
-summary_data = [[Paragraph(
-    '<b>Pattern:</b> Over 14 scan sessions, the same set of remote-management services '
-    '(RemoteManagementAgent, sharingd, studentd, identityservicesd, replicatord, privatecloudcomputed) '
-    'were disabled via launchctl, then silently reset on the next reboot — for 4 consecutive sessions. '
-    'The reset targeted exactly the services that enable remote access and telemetry, while leaving '
-    'unrelated services untouched. This specificity is inconsistent with random system behavior. '
-    'All binary hashes have remained clean. LS deny rules have prevented any external network '
-    'connections from affected services throughout.',
-    ParagraphStyle('SumBody', parent=BODY, fontSize=9, leading=14))]]
-t = Table(summary_data, colWidths=[6.5*inch])
-t.setStyle(TableStyle([
-    ('BACKGROUND',  (0,0), (-1,-1), colors.HexColor('#eaf0fb')),
-    ('LEFTPADDING', (0,0), (-1,-1), 12),
-    ('RIGHTPADDING',(0,0), (-1,-1), 12),
-    ('TOPPADDING',  (0,0), (-1,-1), 10),
-    ('BOTTOMPADDING',(0,0),(-1,-1), 10),
-    ('LINEBEFORE',  (0,0), (0,-1), 4, colors.HexColor('#2980b9')),
-]))
-story.append(t)
+    # Executive summary box on cover
+    summary_data = [[Paragraph(
+        '<b>Pattern:</b> Over 14 scan sessions, the same set of remote-management services '
+        '(RemoteManagementAgent, sharingd, studentd, identityservicesd, replicatord, privatecloudcomputed) '
+        'were disabled via launchctl, then silently reset on the next reboot — for 4 consecutive sessions. '
+        'The reset targeted exactly the services that enable remote access and telemetry, while leaving '
+        'unrelated services untouched. This specificity is inconsistent with random system behavior. '
+        'All binary hashes have remained clean. LS deny rules have prevented any external network '
+        'connections from affected services throughout.',
+        ParagraphStyle('SumBody', parent=BODY, fontSize=9, leading=14))]]
+    t = Table(summary_data, colWidths=[6.5*inch])
+    t.setStyle(TableStyle([
+        ('BACKGROUND',  (0,0), (-1,-1), colors.HexColor('#eaf0fb')),
+        ('LEFTPADDING', (0,0), (-1,-1), 12),
+        ('RIGHTPADDING',(0,0), (-1,-1), 12),
+        ('TOPPADDING',  (0,0), (-1,-1), 10),
+        ('BOTTOMPADDING',(0,0),(-1,-1), 10),
+        ('LINEBEFORE',  (0,0), (0,-1), 4, colors.HexColor('#2980b9')),
+    ]))
+    story.append(t)
 
-story.append(PageBreak())
+    story.append(PageBreak())
 
-# Main content from markdown
-story.extend(parse_md(SRC))
+    # Main content from markdown
+    md_story = guard_run('parse_md', parse_md, SRC)
+    if md_story is None or md_story is SKIP:
+        throw(f'parse_md failed: {SRC}')
+    story.extend(md_story)
 
-# Footer note
-story.append(Spacer(1, 0.3*inch))
-story.append(hr())
-story.append(Paragraph(
-    f'Generated 2026-06-02  ·  Source: MASTER-SECURITY-LOG.md  ·  '
-    f'SHA-256 of source: see MANIFEST.sha256',
-    CAPTION))
+    # Footer note
+    story.append(Spacer(1, 0.3*inch))
+    story.append(hr())
+    story.append(Paragraph(
+        f'Generated 2026-06-02  ·  Source: MASTER-SECURITY-LOG.md  ·  '
+        f'SHA-256 of source: see MANIFEST.sha256',
+        CAPTION))
 
-doc.build(story)
-print(f'PDF written: {OUT}')
+    def build():
+        doc.build(story)
+        return True
+
+    built = guard_run('doc_build', build)
+    if built is None or built is SKIP:
+        throw(f'doc.build failed: {OUT}')
+    print(f'PDF written: {OUT}')
+
+
+if __name__ == '__main__':
+    main()

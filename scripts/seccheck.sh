@@ -3,6 +3,15 @@
 # Run anytime: ./seccheck.sh
 # For full checks (audit, PF): sudo ./seccheck.sh
 
+set -uo pipefail
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 PASS=0; FAIL=0; WARN=0
 
 ok()   { echo "  [OK]   $1"; ((PASS++)); }
@@ -83,7 +92,7 @@ fi
 
 # PF anchor
 if [[ $NEED_ROOT -eq 1 ]]; then
-    RULE_COUNT=$(pfctl -a com.ew.devports -s rules 2>/dev/null | wc -l | tr -d ' ')
+    RULE_COUNT=$(guard_run "pf-devports-rules" pfctl -a com.ew.devports -s rules 2>/dev/null | wc -l | tr -d ' ')
     if [[ "$RULE_COUNT" -gt 2 ]]; then
         ok "PF dev-port lockdown active ($RULE_COUNT rules)"
     else
@@ -221,7 +230,7 @@ for plist in /Library/LaunchDaemons/*.plist; do
     # Check against explicit allowlist; anything else is suspicious.
     if [[ "$label" == com.apple.* ]]; then
         known=0
-        for k in "${KNOWN_APPLE_DAEMONS_IN_LIBRARY[@]}"; do [[ "$label" == "$k" ]] && known=1 && break; done
+        for k in ${KNOWN_APPLE_DAEMONS_IN_LIBRARY[@]+"${KNOWN_APPLE_DAEMONS_IN_LIBRARY[@]}"}; do [[ "$label" == "$k" ]] && known=1 && break; done
         if [[ $known -eq 0 ]]; then
             fail "IMPERSONATION RISK: com.apple.* label in /Library/LaunchDaemons: $label ($plist)"
             UNKNOWN_FOUND=$((UNKNOWN_FOUND + 1))
@@ -291,7 +300,7 @@ fi
 
 # com.openssh.ssh-agent is the keychain SSH key agent — normal and harmless.
 # Only flag com.openssh.sshd or enabled Remote Login (the actual daemon).
-if launchctl list 2>/dev/null | grep -q "com.openssh.sshd"; then
+if guard_run "launchctl-list" launchctl list 2>/dev/null | grep -q "com.openssh.sshd"; then
     warn "SSH daemon (sshd) is loaded — disable in System Settings → Sharing unless intentional"
 elif sudo systemsetup -getremotelogin 2>/dev/null | grep -qi "on"; then
     warn "Remote Login (SSH) is ON in System Settings"
@@ -303,7 +312,7 @@ fi
 echo ""
 echo "── 9. Certificates ──────────────────────────────────────"
 
-ROGUE_CA=$(security find-certificate -a -p /Library/Keychains/System.keychain 2>/dev/null | \
+ROGUE_CA=$(guard_run "security-find-certificate" security find-certificate -a -p /Library/Keychains/System.keychain 2>/dev/null | \
     openssl x509 -noout -subject 2>/dev/null | grep -v "com.apple\|Apple\|DigiCert\|Let's Encrypt\|GlobalSign")
 if [[ -z "$ROGUE_CA" ]]; then
     ok "No unexpected CA certs in System.keychain"
@@ -408,7 +417,7 @@ ${line}"
         ok "config-sentinel: no changes to watched files (last 10 min)"
     fi
 
-    if launchctl list 2>/dev/null | grep -q "com.ew.config-sentinel"; then
+    if guard_run "launchctl-list" launchctl list 2>/dev/null | grep -q "com.ew.config-sentinel"; then
         ok "config-sentinel LaunchAgent loaded (scans every 5 min)"
     else
         warn "config-sentinel LaunchAgent not loaded — run: launchctl load -w ~/Library/LaunchAgents/com.ew.config-sentinel.plist"

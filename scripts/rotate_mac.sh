@@ -3,6 +3,15 @@
 # Triggers automatically on network change; also run manually before joining untrusted networks.
 # Usage: sudo ./rotate_mac.sh [interface]   (default: en0)
 
+set -uo pipefail
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 IFACE="${1:-en0}"
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -29,17 +38,17 @@ echo "[$(date)] Rotating $IFACE: $OLD_MAC → $NEW_MAC"
 IS_WIFI=$(networksetup -listallhardwareports 2>/dev/null | awk "/Hardware Port:/{port=\$0} /Device: $IFACE\$/{if (port ~ /Wi-Fi|Airport/) print \"yes\"; exit}")
 if [ "$IS_WIFI" = "yes" ] || networksetup -listallhardwareports 2>/dev/null | grep -A1 "Wi-Fi\|Airport" | grep -q "Device: $IFACE"; then
     echo "  WiFi interface detected — powering off before MAC change"
-    networksetup -setairportpower "$IFACE" off
+    guard_run "airport-power" networksetup -setairportpower "$IFACE" off
     sleep 1
 fi
 
 # Change MAC
-ifconfig "$IFACE" ether "$NEW_MAC"
+guard_run "mac-change" ifconfig "$IFACE" ether "$NEW_MAC"
 STATUS=$?
 
 # Power WiFi back on
 if [ "$IS_WIFI" = "yes" ] || networksetup -listallhardwareports 2>/dev/null | grep -A1 "Wi-Fi\|Airport" | grep -q "Device: $IFACE"; then
-    networksetup -setairportpower "$IFACE" on
+    guard_run "airport-power" networksetup -setairportpower "$IFACE" on
     sleep 2
 fi
 

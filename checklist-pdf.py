@@ -19,6 +19,25 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 SECURITY_DIR = Path(__file__).parent
 CHECKLIST = SECURITY_DIR / 'SECURITY-CHECKLIST.md'
 
@@ -232,9 +251,11 @@ def main() -> None:
 
     if args.checklist_only:
         output_path = SECURITY_DIR / f'SECURITY-CHECKLIST-{today}.pdf'
-        html = md_to_html(CHECKLIST, f'Security Checklist — {today}')
+        html = guard_run('md_to_html', md_to_html, CHECKLIST, f'Security Checklist — {today}')
+        if html is None or html is SKIP:
+            throw(f'md_to_html failed: {CHECKLIST}')
         print(f'Generating checklist PDF: {output_path}')
-        html_to_pdf(html, output_path)
+        guard_run('html_to_pdf', html_to_pdf, html, output_path)
         print(f'Done: {output_path}')
         return
 
@@ -258,17 +279,24 @@ def main() -> None:
         parts.append(CHECKLIST.read_text(encoding='utf-8'))
 
     combined_md = SECURITY_DIR / '_combined_report.md'
-    combined_md.write_text(''.join(parts), encoding='utf-8')
+    written = guard_run('write_combined_md', combined_md.write_text,
+                        ''.join(parts), encoding='utf-8')
+    if written is None or written is SKIP:
+        throw(f'write failed: {combined_md}')
 
     output_path = scan_dir / f'SECURITY-SCAN-REPORT-{today}.pdf'
     print(f'Generating PDF: {output_path}')
-    html = md_to_html(combined_md, f'Security Scan Report — {today}')
-    html_to_pdf(html, output_path)
+    html = guard_run('md_to_html', md_to_html, combined_md, f'Security Scan Report — {today}')
+    if html is None or html is SKIP:
+        throw(f'md_to_html failed: {combined_md}')
+    guard_run('html_to_pdf', html_to_pdf, html, output_path)
     combined_md.unlink(missing_ok=True)
 
     # Also save HTML version as fallback
     html_path = scan_dir / f'SECURITY-SCAN-REPORT-{today}.html'
-    html_path.write_text(html, encoding='utf-8')
+    written = guard_run('write_html', html_path.write_text, html, encoding='utf-8')
+    if written is None or written is SKIP:
+        throw(f'write failed: {html_path}')
     print(f'HTML saved: {html_path}')
     print(f'PDF output: {output_path}')
 

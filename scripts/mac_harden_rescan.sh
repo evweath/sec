@@ -11,6 +11,13 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 # ---- Colors -----------------------------------------------------------------
 RED='\033[0;31m'
 ORANGE='\033[0;33m'
@@ -696,26 +703,26 @@ print_summary() {
 # MAIN
 # =============================================================================
 main() {
-    require_root
-    banner
-    check_sip
-    check_filevault
-    enforce_firewall
-    disable_sharing
-    audit_ports
-    audit_persistence
-    audit_kexts
-    check_gatekeeper
-    suppress_telemetry
-    check_screen_lock
-    audit_ssh
-    audit_connections
-    audit_little_snitch
-    audit_processes
-    audit_sudo
-    audit_profiles
-    audit_environment
-    print_summary
+    guard_run "require_root" require_root || true
+    guard_run "banner" banner || true
+    guard_run "check_sip" check_sip || true
+    guard_run "check_filevault" check_filevault || true
+    guard_run "enforce_firewall" enforce_firewall || true
+    guard_run "disable_sharing" disable_sharing || true
+    guard_run "audit_ports" audit_ports || true
+    guard_run "audit_persistence" audit_persistence || true
+    guard_run "audit_kexts" audit_kexts || true
+    guard_run "check_gatekeeper" check_gatekeeper || true
+    guard_run "suppress_telemetry" suppress_telemetry || true
+    guard_run "check_screen_lock" check_screen_lock || true
+    guard_run "audit_ssh" audit_ssh || true
+    guard_run "audit_connections" audit_connections || true
+    guard_run "audit_little_snitch" audit_little_snitch || true
+    guard_run "audit_processes" audit_processes || true
+    guard_run "audit_sudo" audit_sudo || true
+    guard_run "audit_profiles" audit_profiles || true
+    guard_run "audit_environment" audit_environment || true
+    guard_run "print_summary" print_summary || true
 }
 
 main "$@"

@@ -4,6 +4,13 @@
 # Usage: bash ~/dev/security/preserve-recording.sh
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 SECURITY_DIR="$HOME/dev/security"
 DEST="/Volumes/Passport/forensic-evidence"
 BUNDLE_NAME="replayd-incident-2026-06-02"
@@ -29,10 +36,11 @@ echo "Size:      $(du -sh "$RECORDING" | awk '{print $1}')"
 # ── Verify hash ────────────────────────────────────────────────────────────────
 echo ""
 echo "Verifying SHA-256 (this takes ~60 seconds for 4 GB)..."
-ACTUAL_HASH=$(python3 -c "
-import hashlib, sys
+ACTUAL_HASH=$(RECORDING="$RECORDING" python3 -c "
+import hashlib, os
 h = hashlib.sha256()
-with open('$RECORDING', 'rb') as f:
+# path arrives via env — a crafted filename can never inject Python source
+with open(os.environ['RECORDING'], 'rb') as f:
     while chunk := f.read(8*1024*1024):
         h.update(chunk)
 print(h.hexdigest())
@@ -53,8 +61,8 @@ fi
 STAGING=$(mktemp -d)
 trap 'rm -rf "$STAGING"' EXIT
 
-cp "$RECORDING" "$STAGING/"
-cp "$SECURITY_DIR/replayd-incident-chain-of-custody.txt" "$STAGING/"
+guard_run "cp-recording" cp "$RECORDING" "$STAGING/" || true
+guard_run "cp-chain-of-custody" cp "$SECURITY_DIR/replayd-incident-chain-of-custody.txt" "$STAGING/" || true
 
 # Write manifest into staging
 {
@@ -62,8 +70,8 @@ cp "$SECURITY_DIR/replayd-incident-chain-of-custody.txt" "$STAGING/"
     echo "Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo ""
     echo "$ACTUAL_HASH  $(basename "$RECORDING")"
-    shasum -a 256 "$SECURITY_DIR/replayd-incident-chain-of-custody.txt" | \
-        awk '{print $1}' | xargs -I{} echo "{}  replayd-incident-chain-of-custody.txt"
+    guard_run "shasum-coc" shasum -a 256 "$SECURITY_DIR/replayd-incident-chain-of-custody.txt" | \
+        awk '{print $1}' | xargs -I{} echo "{}  replayd-incident-chain-of-custody.txt" || true
 } > "$STAGING/MANIFEST.sha256"
 
 echo ""
@@ -80,15 +88,15 @@ echo "Enter encryption passphrase (not echoed, not logged):"
 echo "(Use a strong passphrase you will remember — write it on paper with your recovery key)"
 echo ""
 
-tar -czf - -C "$STAGING" . | \
-    openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
-        -pass fd:3 3</dev/tty > "$ENCRYPTED"
+guard_run "tar-bundle" tar -czf - -C "$STAGING" . | \
+    guard_run "openssl-encrypt" openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+        -pass fd:3 3</dev/tty > "$ENCRYPTED" || true
 
-cp "$STAGING/MANIFEST.sha256" "$MANIFEST_OUT"
+guard_run "cp-manifest" cp "$STAGING/MANIFEST.sha256" "$MANIFEST_OUT" || true
 
 # ── Verify output ─────────────────────────────────────────────────────────────
 echo ""
-BUNDLE_HASH=$(shasum -a 256 "$ENCRYPTED" | awk '{print $1}')
+BUNDLE_HASH=$(guard_run "shasum-bundle" shasum -a 256 "$ENCRYPTED" | awk '{print $1}')
 BUNDLE_SIZE=$(du -sh "$ENCRYPTED" | awk '{print $1}')
 echo "Encrypted bundle: $ENCRYPTED"
 echo "Bundle size:      $BUNDLE_SIZE"

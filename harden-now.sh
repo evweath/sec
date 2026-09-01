@@ -18,6 +18,13 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 DNS_SERVERS="1.1.1.1 1.0.0.1 8.8.8.8 9.9.9.9"
 NEW_NAME="mbp"   # ComputerName + LocalHostName (Bonjour). Edit to taste.
 
@@ -34,7 +41,7 @@ fi
 info "Pinning DNS (1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9) on all active network services"
 networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
     [[ "$svc" == \** ]] && continue   # disabled service
-    networksetup -setdnsservers "$svc" $DNS_SERVERS
+    guard_run "setdnsservers" networksetup -setdnsservers "$svc" $DNS_SERVERS || true
     echo "    $svc -> $(networksetup -getdnsservers "$svc" | tr '\n' ' ')"
 done
 ok "DNS pinned"
@@ -42,23 +49,29 @@ ok "DNS pinned"
 # ── 2. Prune ALF app allow-list ───────────────────────────────────────────────
 info "Pruning Application Firewall allow-list (block-all stays on)"
 FW=/usr/libexec/ApplicationFirewall/socketfilterfw
-"$FW" --getlistapps | sed -nE 's/^[[:space:]]*[0-9]+[[:space:]]*:[[:space:]]*(\/.*)$/\1/p' | while IFS= read -r app; do
-    "$FW" --remove "$app" >/dev/null && echo "    removed: $app"
+# NB: the flag is --listapps — there is no --getlistapps (bad flag exits 255 and,
+# piped into sed -n, fails silently; under pipefail + set -e it kills this script).
+FW_APPS="$("$FW" --listapps 2>/dev/null)" || warn "socketfilterfw --listapps failed (rc=$?) — skipping prune"
+printf '%s\n' "$FW_APPS" | sed -nE 's/^[[:space:]]*[0-9]+[[:space:]]*:[[:space:]]*(\/.*)$/\1/p' | while IFS= read -r app; do
+    app="${app%"${app##*[![:space:]]}"}"   # trim trailing whitespace (--listapps pads columns)
+    [ -n "$app" ] || continue
+    guard_run "alf-remove-app" "$FW" --remove "$app" >/dev/null && echo "    removed: $app" || true
 done
-ok "Allow-list pruned ($(("$FW" --getlistapps 2>/dev/null | grep -c ':') || echo 0) entries remain)"
+FW_LEFT="$(grep -c ':' <<< "$FW_APPS" || true)"
+ok "Allow-list pruned (${FW_LEFT:-0} entries remain)"
 
 # ── 3. Automatic-update flags ─────────────────────────────────────────────────
 info "Enabling automatic macOS / security-response updates"
 SU=/Library/Preferences/com.apple.SoftwareUpdate
-defaults write "$SU" AutomaticallyInstallMacOSUpdates -bool true
-defaults write "$SU" CriticalUpdateInstall -bool true
-defaults write "$SU" ConfigDataInstall -bool true
+guard_run "swupdate-macos-install" defaults write "$SU" AutomaticallyInstallMacOSUpdates -bool true || true
+guard_run "swupdate-critical-install" defaults write "$SU" CriticalUpdateInstall -bool true || true
+guard_run "swupdate-configdata-install" defaults write "$SU" ConfigDataInstall -bool true || true
 ok "Auto-update flags set"
 
 # ── 4. Neutral device name ────────────────────────────────────────────────────
 info "Setting neutral device name: $NEW_NAME"
-scutil --set ComputerName "$NEW_NAME"
-scutil --set LocalHostName "$NEW_NAME"
+guard_run "scutil-computername" scutil --set ComputerName "$NEW_NAME" || true
+guard_run "scutil-localhostname" scutil --set LocalHostName "$NEW_NAME" || true
 # HostName intentionally left unset
 ok "Bonjour now advertises: $(scutil --get LocalHostName)"
 
@@ -66,7 +79,7 @@ ok "Bonjour now advertises: $(scutil --get LocalHostName)"
 KICK=/System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart
 if [[ -x "$KICK" ]]; then
     info "Deactivating Remote Management / ARD"
-    "$KICK" -deactivate -stop 2>&1 | sed 's/^/    /' || true
+    guard_run "ard-deactivate" "$KICK" -deactivate -stop 2>&1 | sed 's/^/    /' || true
     ok "Remote Management deactivated"
 else
     warn "kickstart not found — skipping ARD deactivation"
@@ -74,15 +87,15 @@ fi
 
 # ── 6. netbiosd off ───────────────────────────────────────────────────────────
 info "Disabling netbiosd"
-launchctl disable system/com.apple.netbiosd 2>/dev/null || true
-launchctl bootout system/com.apple.netbiosd 2>/dev/null || true
+guard_run "netbiosd-disable" launchctl disable system/com.apple.netbiosd 2>/dev/null || true
+guard_run "netbiosd-bootout" launchctl bootout system/com.apple.netbiosd 2>/dev/null || true
 pgrep -x netbiosd >/dev/null && warn "netbiosd still running" || ok "netbiosd disabled and stopped"
 
 # ── 6b. AirDrop hard-disable (system-wide, all users) ─────────────────────────
 info "Hard-disabling AirDrop system-wide"
-defaults write /Library/Preferences/com.apple.NetworkBrowser DisableAirDrop -bool true
+guard_run "airdrop-disable" defaults write /Library/Preferences/com.apple.NetworkBrowser DisableAirDrop -bool true || true
 # Take down the AWDL interface AirDrop/AirPlay use for peer discovery
-ifconfig awdl0 down 2>/dev/null || warn "awdl0 not present or already down"
+guard_run "awdl-down" ifconfig awdl0 down 2>/dev/null || warn "awdl0 not present or already down"
 ok "AirDrop disabled (system plist + awdl0 down; user-level keys already set)"
 
 # ── 7. Report-only root checks ────────────────────────────────────────────────

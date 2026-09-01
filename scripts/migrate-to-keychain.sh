@@ -16,6 +16,13 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 CREDS_DIR="${HOME}/.credentials"
 ACCOUNT="$(whoami)"
 BACKUP_DIR="${CREDS_DIR}.backup.$(date +%Y%m%d_%H%M%S)"
@@ -109,8 +116,8 @@ for envfile in "$CREDS_DIR"/*.env; do
             value="${value#\"}" ; value="${value%\"}"
             value="${value#\'}" ; value="${value%\'}"
 
-            store_key "$key" "$value"
-            loader_line "$loader" "$key"
+            guard_run "store_key" store_key "$key" "$value" || true
+            guard_run "loader_line" loader_line "$loader" "$key" || true
         fi
     done < "$envfile"
 
@@ -123,7 +130,7 @@ echo "── 3. Migrate google-client-secrets.json ─────────�
 JSON_FILE="$CREDS_DIR/google-client-secrets.json"
 if [[ -f "$JSON_FILE" ]]; then
     json_content=$(< "$JSON_FILE")
-    store_key "google-client-secrets" "$json_content"
+    guard_run "store_key" store_key "google-client-secrets" "$json_content" || true
 
     # Loader that writes the JSON to stdout — pipe to a temp file when needed
     loader="${CREDS_DIR}/google-client-secrets.sh"
@@ -174,10 +181,10 @@ echo ""
 echo "── 5. Shred plaintext originals ─────────────────────────────"
 for envfile in "$CREDS_DIR"/*.env; do
     [[ -f "$envfile" ]] || continue
-    shred_file "$envfile"
+    guard_run "shred_file" shred_file "$envfile" || true
 done
 if [[ -f "$JSON_FILE" ]]; then
-    shred_file "$JSON_FILE"
+    guard_run "shred_file" shred_file "$JSON_FILE" || true
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────

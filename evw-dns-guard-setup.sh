@@ -8,6 +8,16 @@
 
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# As root, only trust a root-owned lib: a user-writable ancestor dir (e.g.
+# Intel Homebrew's /usr/local) could plant one and have it sourced as root.
+_eg_ok() { [ -f "$1" ] && { [ "$EUID" -ne 0 ] || [ "$(stat -f %u "$1" 2>/dev/null)" = "0" ]; }; }
+while [ "$_eg_d" != "/" ] && ! _eg_ok "$_eg_d/lib/error-guard.sh"; do _eg_d="$(dirname "$_eg_d")"; done
+_eg_ok "$_eg_d/lib/error-guard.sh" && . "$_eg_d/lib/error-guard.sh"; unset _eg_d; unset -f _eg_ok
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 GUARD_SRC="$SCRIPT_DIR/evw-dns-guard.sh"
@@ -24,11 +34,11 @@ echo "=== evw-dns-guard setup ==="
 echo ""
 
 echo "[1/4] Installing guard script..."
-install -m 755 -o root -g wheel "$GUARD_SRC" "$GUARD_DST"
+guard_run "install-guard" install -m 755 -o root -g wheel "$GUARD_SRC" "$GUARD_DST"
 echo "      $GUARD_DST"
 
 echo "[2/4] Writing LaunchDaemon plist..."
-cat > "$GUARD_PLIST" << 'PLIST'
+guard_run "write-plist" cat > "$GUARD_PLIST" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -60,17 +70,20 @@ cat > "$GUARD_PLIST" << 'PLIST'
 </dict>
 </plist>
 PLIST
-chmod 644 "$GUARD_PLIST"
-chown root:wheel "$GUARD_PLIST"
+guard_run "chmod-plist" chmod 644 "$GUARD_PLIST"
+guard_run "chown-plist" chown root:wheel "$GUARD_PLIST"
 echo "      $GUARD_PLIST"
 
 echo "[3/4] Loading daemon..."
 launchctl unload "$GUARD_PLIST" 2>/dev/null || true
-launchctl load -w "$GUARD_PLIST"
+guard_run "launchctl-load" launchctl load -w "$GUARD_PLIST"
 
 echo "[4/4] Verifying..."
 sleep 2
-launchctl print "system/$GUARD_LABEL" 2>/dev/null | grep -E '^\s+(state|pid) ' | head -4 || true
+launchctl print "system/$GUARD_LABEL" 2>/dev/null | grep -E '^\s+(state|pid) ' | head -4 || {
+    echo "ERROR: $GUARD_LABEL not registered after load" >&2
+    exit 1
+}
 
 echo ""
 echo "=== Done ==="

@@ -3,6 +3,13 @@
 # Run weekly: bash ~/dev/security/l5-stamp.sh
 set -euo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 # Resolve ots dynamically — it has lived under various Python user dirs
 OTS="$(command -v ots 2>/dev/null || true)"
 if [ -z "$OTS" ]; then
@@ -35,11 +42,11 @@ hdir() {
   [ -d "$dir" ] || return 0
   if [ -n "$ext" ]; then
     find "$dir" -maxdepth 1 -name "$ext" -type f 2>/dev/null | sort | while read -r f; do
-      h "$f" "${label_prefix}$(basename "$f")"
+      guard_run "h" h "$f" "${label_prefix}$(basename "$f")"
     done
   else
     find "$dir" -maxdepth 1 -type f 2>/dev/null | sort | while read -r f; do
-      h "$f" "${label_prefix}$(basename "$f")"
+      guard_run "h" h "$f" "${label_prefix}$(basename "$f")"
     done
   fi
 }
@@ -56,7 +63,7 @@ hdir() {
   for f in /sbin/launchd /usr/libexec/cfprefsd /usr/libexec/nsurlsessiond \
             /usr/libexec/replayd /usr/libexec/remotemanagementd \
             /System/Library/CoreServices/RemoteManagementAgent; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
   # ── System binaries ────────────────────────────────────────────────────────
@@ -74,7 +81,7 @@ hdir() {
             /usr/sbin/spindump /usr/bin/lsof /usr/bin/netstat \
             /usr/bin/nettop /usr/bin/dscl /usr/bin/id \
             /usr/bin/shasum /usr/bin/openssl /usr/bin/csrutil; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
   # ── Applications (/Applications/) ─────────────────────────────────────────
@@ -113,7 +120,7 @@ hdir() {
   echo ""
   echo "# Deployed /usr/local/bin/evw-* and disabled.501.plist"
   find /usr/local/bin -maxdepth 1 -name "evw-*" -type f 2>/dev/null | sort | while read -r f; do h "$f" "/usr/local/bin/$(basename "$f")"; done
-  h "/private/var/db/com.apple.xpc.launchd/disabled.501.plist"
+  guard_run "h" h "/private/var/db/com.apple.xpc.launchd/disabled.501.plist"
 
   # ── Python ─────────────────────────────────────────────────────────────────
   echo ""
@@ -122,7 +129,7 @@ hdir() {
             "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
             "$HOME/.pyenv/versions/3.13.13/bin/python3" \
             "${OTS:-/dev/null}"; do
-    h "$f"
+    guard_run "h" h "$f"
   done
 
   echo ""
@@ -137,7 +144,7 @@ hdir() {
     ! -path "*/build/*" \
     ! -path "*/dist/*" \
     2>/dev/null | sort | while read -r f; do
-    h "$f" "${f/#$HOME/~}"
+    guard_run "h" h "$f" "${f/#$HOME/~}"
   done
 
   # ── Shell config / dotfiles ────────────────────────────────────────────────
@@ -148,7 +155,7 @@ hdir() {
             "$HOME/.ssh/config" "$HOME/.ssh/known_hosts" "$HOME/.ssh/authorized_keys" \
             /etc/hosts /etc/shells /etc/zshrc /etc/zprofile \
             /etc/pam.d/sudo /etc/sudoers; do
-    h "$f"
+    guard_run "h" h "$f"
   done
   # SSH public keys hashed; private keys recorded by existence only
   find "$HOME/.ssh" -maxdepth 1 -name "*.pub" -type f 2>/dev/null | sort | while read -r f; do h "$f"; done
@@ -159,41 +166,41 @@ hdir() {
   # ── LaunchAgents and LaunchDaemons ─────────────────────────────────────────
   echo ""
   echo "# LaunchAgents — user"
-  hdir "$HOME/Library/LaunchAgents" "~/Library/LaunchAgents/" "*.plist"
+  guard_run "hdir" hdir "$HOME/Library/LaunchAgents" "~/Library/LaunchAgents/" "*.plist"
 
   echo ""
   echo "# LaunchAgents — system"
-  hdir "/Library/LaunchAgents" "/Library/LaunchAgents/" "*.plist"
+  guard_run "hdir" hdir "/Library/LaunchAgents" "/Library/LaunchAgents/" "*.plist"
 
   echo ""
   echo "# LaunchDaemons — system"
-  hdir "/Library/LaunchDaemons" "/Library/LaunchDaemons/" "*.plist"
+  guard_run "hdir" hdir "/Library/LaunchDaemons" "/Library/LaunchDaemons/" "*.plist"
 
   # ── User Preferences ──────────────────────────────────────────────────────
   echo ""
   echo "# User preferences — ~/Library/Preferences/"
   find "$HOME/Library/Preferences" -maxdepth 1 -name "*.plist" -type f 2>/dev/null | sort | while read -r f; do
-    h "$f" "~/Library/Preferences/$(basename "$f")"
+    guard_run "h" h "$f" "~/Library/Preferences/$(basename "$f")"
   done
 
   # ── System Preferences ────────────────────────────────────────────────────
   echo ""
   echo "# System preferences — /Library/Preferences/"
   find /Library/Preferences -maxdepth 1 -name "*.plist" -type f 2>/dev/null | sort | while read -r f; do
-    h "$f" "/Library/Preferences/$(basename "$f")"
+    guard_run "h" h "$f" "/Library/Preferences/$(basename "$f")"
   done
 
   # ── Little Snitch ─────────────────────────────────────────────────────────
   echo ""
   echo "# Little Snitch"
-  h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
-  h "/Applications/Little Snitch.app/Contents/Info.plist" "Apps/Little Snitch/Info.plist"
+  guard_run "h" h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
+  guard_run "h" h "/Applications/Little Snitch.app/Contents/Info.plist" "Apps/Little Snitch/Info.plist"
 
   # ── DuckDuckGo ────────────────────────────────────────────────────────────
   echo ""
   echo "# DuckDuckGo"
-  h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
-  h "/Applications/DuckDuckGo.app/Contents/Info.plist" "Apps/DuckDuckGo/Info.plist"
+  guard_run "h" h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
+  guard_run "h" h "/Applications/DuckDuckGo.app/Contents/Info.plist" "Apps/DuckDuckGo/Info.plist"
 
   # ── Claude Code ───────────────────────────────────────────────────────────
   echo ""
@@ -211,7 +218,7 @@ hdir() {
     ! -path "*/file-history/*" \
     ! -path "*/downloads/*" \
     2>/dev/null | sort | while read -r f; do
-    h "$f" "${f/#$HOME/~}"
+    guard_run "h" h "$f" "${f/#$HOME/~}"
   done
 
   echo ""
@@ -219,7 +226,7 @@ hdir() {
   find "$CLAUDE_DIR/projects" -maxdepth 4 -type f \
     ! -path "*/tool-results/*" \
     2>/dev/null | sort | while read -r f; do
-    h "$f" "${f/#$HOME/~}"
+    guard_run "h" h "$f" "${f/#$HOME/~}"
   done
 
   echo ""
@@ -228,7 +235,7 @@ hdir() {
   if [ -d "$CLAUDE_VERSIONS" ]; then
     for v in $(ls "$CLAUDE_VERSIONS" | sort); do
       f="$CLAUDE_VERSIONS/$v"
-      [ -f "$f" ] && h "$f" "~/.local/share/claude/versions/$v"
+      [ -f "$f" ] && guard_run "h" h "$f" "~/.local/share/claude/versions/$v"
     done
   fi
 
@@ -293,7 +300,7 @@ echo "Manifest: $MANIFEST ($LINES lines, $HASHES file hashes)"
 # Stamp
 if [ -x "$OTS" ]; then
   echo "Submitting to OpenTimestamps calendars..."
-  "$OTS" stamp "$MANIFEST"
+  guard_run "ots-stamp" "$OTS" stamp "$MANIFEST" || true
   echo "Proof: ${MANIFEST}.ots"
 else
   echo "WARNING: ots not found at $OTS — skipping stamp (reinstall opentimestamps-client)"

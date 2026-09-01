@@ -5,14 +5,24 @@ Usage: python3 ls-dedup.py <input-model.json> <output-model.json>
 import json, sys
 from collections import defaultdict
 
-INPUT  = sys.argv[1] if len(sys.argv) > 1 else '/tmp/ls-model-2026-06-08.json'
-OUTPUT = sys.argv[2] if len(sys.argv) > 2 else '/tmp/ls-model-deduped.json'
-
-with open(INPUT) as f:
-    model = json.load(f)
-
-rules = model.get('rules', [])
-print(f"Input rules: {len(rules)}")
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
 
 def norm(v):
     """Normalize a field value for fingerprinting."""
@@ -40,55 +50,84 @@ def rule_priority(r):
     use_count = r.get('useCount', 0)
     return (protected, use_count)
 
-# Group rules by fingerprint
-groups = defaultdict(list)
-for i, r in enumerate(rules):
-    groups[fingerprint(r)].append((i, r))
+def load_model(path):
+    with open(path) as f:
+        return json.load(f)
 
-kept = []
-removed_count = 0
-removed_by_action = defaultdict(int)
+def dedup_rules(rules):
+    # Group rules by fingerprint
+    groups = defaultdict(list)
+    for i, r in enumerate(rules):
+        groups[fingerprint(r)].append((i, r))
 
-for fp, copies in groups.items():
-    if len(copies) == 1:
-        kept.append(copies[0][1])
-    else:
-        # Sort: highest priority first (keep that one)
-        copies.sort(key=lambda x: rule_priority(x[1]), reverse=True)
-        best = dict(copies[0][1])
-        # Merge useCount so statistics aren't lost
-        best['useCount'] = sum(c[1].get('useCount', 0) for c in copies)
-        kept.append(best)
-        removed_count += len(copies) - 1
-        removed_by_action[fp[0]] += len(copies) - 1
-        if len(copies) > 3:
-            action = fp[0].upper()
-            proc = (fp[2] or '(any)')[-50:]
-            remote = (fp[3] or fp[4] or fp[5] or fp[6] or 'any')[:30]
-            print(f"  DEDUP [{action:5}] {proc}  remote={remote}  x{len(copies)} → 1  (removed {len(copies)-1})")
+    kept = []
+    removed_count = 0
+    removed_by_action = defaultdict(int)
 
-print(f"\nRemoved {removed_count} duplicate rules by action:")
-for action, count in sorted(removed_by_action.items(), key=lambda x: -x[1]):
-    print(f"  {action:12} -{count}")
+    for fp, copies in groups.items():
+        if len(copies) == 1:
+            kept.append(copies[0][1])
+        else:
+            # Sort: highest priority first (keep that one)
+            copies.sort(key=lambda x: rule_priority(x[1]), reverse=True)
+            best = dict(copies[0][1])
+            # Merge useCount so statistics aren't lost
+            best['useCount'] = sum(c[1].get('useCount', 0) for c in copies)
+            kept.append(best)
+            removed_count += len(copies) - 1
+            removed_by_action[fp[0]] += len(copies) - 1
+            if len(copies) > 3:
+                action = fp[0].upper()
+                proc = (fp[2] or '(any)')[-50:]
+                remote = (fp[3] or fp[4] or fp[5] or fp[6] or 'any')[:30]
+                print(f"  DEDUP [{action:5}] {proc}  remote={remote}  x{len(copies)} → 1  (removed {len(copies)-1})")
+    return kept, removed_count, removed_by_action
 
-print(f"\nOutput rules: {len(kept)}  (was {len(rules)}, -{removed_count})")
+def save_model(model, path):
+    with open(path, 'w') as f:
+        json.dump(model, f, indent=2)
+    return True
 
-model['rules'] = kept
-with open(OUTPUT, 'w') as f:
-    json.dump(model, f, indent=2)
-print(f"Saved to {OUTPUT}")
+def main():
+    INPUT  = sys.argv[1] if len(sys.argv) > 1 else '/tmp/ls-model-2026-06-08.json'
+    OUTPUT = sys.argv[2] if len(sys.argv) > 2 else '/tmp/ls-model-deduped.json'
 
-# Verify critical deny rules survived
-CRITICAL = [
-    'replayd', 'privatecloudcomputed', 'remotemanagementd',
-    'RemoteManagementAgent', 'studentd', 'launchctl', 'kickstart',
-    'datadoghq', 'influxdata', 'found.io',
-    # TikTok/Zoho tracker denies (carried over from retired ls-add-deny-tiktok-zoho.sh)
-    'tiktok', 'bytedance', 'zohopublic', 'zohocdn', 'salesiq', 'pagesense',
-]
-print("\nVerifying critical deny rules survived dedup:")
-deny_rules = [r for r in kept if r.get('action') == 'deny']
-for name in CRITICAL:
-    found = any(name in str(r) for r in deny_rules)
-    status = "✅" if found else "❌ MISSING"
-    print(f"  {status}  {name}")
+    model = guard_run("load-model", load_model, INPUT)
+    if model is None or model is SKIP:
+        return 1
+    rules = model.get('rules', [])
+    print(f"Input rules: {len(rules)}")
+
+    result = guard_run("dedup", dedup_rules, rules)
+    if result is None or result is SKIP:
+        return 1
+    kept, removed_count, removed_by_action = result
+
+    print(f"\nRemoved {removed_count} duplicate rules by action:")
+    for action, count in sorted(removed_by_action.items(), key=lambda x: -x[1]):
+        print(f"  {action:12} -{count}")
+
+    print(f"\nOutput rules: {len(kept)}  (was {len(rules)}, -{removed_count})")
+
+    model['rules'] = kept
+    if not guard_run("save-model", save_model, model, OUTPUT):
+        return 1
+    print(f"Saved to {OUTPUT}")
+
+    # Verify critical deny rules survived
+    CRITICAL = [
+        'replayd', 'privatecloudcomputed', 'remotemanagementd',
+        'RemoteManagementAgent', 'studentd', 'launchctl', 'kickstart',
+        'datadoghq', 'influxdata', 'found.io',
+        # TikTok/Zoho tracker denies (carried over from retired ls-add-deny-tiktok-zoho.sh)
+        'tiktok', 'bytedance', 'zohopublic', 'zohocdn', 'salesiq', 'pagesense',
+    ]
+    print("\nVerifying critical deny rules survived dedup:")
+    deny_rules = [r for r in kept if r.get('action') == 'deny']
+    for name in CRITICAL:
+        found = any(name in str(r) for r in deny_rules)
+        status = "✅" if found else "❌ MISSING"
+        print(f"  {status}  {name}")
+
+if __name__ == '__main__':
+    sys.exit(main())

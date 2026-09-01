@@ -29,6 +29,28 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
+# KeepAlive daemon: never let the guard exit the process — trip = log + skip
+os.environ.setdefault("EVW_GUARD_POLICY", "continue")
+
 DEFAULT_LOG = Path("/var/log/file-sentinel.log")
 
 # User home is hardcoded: this daemon runs as root, where Path.home() is
@@ -93,8 +115,10 @@ def log_record(log_path: Path, record: dict) -> None:
 
 
 def notify(title: str, msg: str) -> None:
-    safe_msg   = msg.replace('"', '\\"')
-    safe_title = title.replace('"', '\\"')
+    # AppleScript string-literal escaping: backslash first, then double-quote
+    # (a filename like  foo\"...  would otherwise break out of the literal).
+    safe_msg   = msg.replace("\\", "\\\\").replace('"', '\\"')
+    safe_title = title.replace("\\", "\\\\").replace('"', '\\"')
     try:
         subprocess.run(
             ["osascript", "-e",
@@ -202,10 +226,8 @@ class Watcher:
         )
 
         while True:
-            try:
-                events = self.kq.control(None, 64, 2.0)
-            except OSError as exc:
-                print(f"[file-sentinel] kqueue error: {exc}", file=sys.stderr, flush=True)
+            events = guard_run("kq-poll", self.kq.control, None, 64, 2.0)
+            if events is None or events is SKIP:
                 time.sleep(1)
                 continue
 

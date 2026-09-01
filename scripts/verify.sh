@@ -3,6 +3,14 @@
 # Run periodically with sudo to catch "fake off" services or tampered binaries.
 
 set -u
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 LOG="$(dirname "$0")/verify.log"
 exec > >(tee -a "$LOG") 2>&1
 
@@ -27,8 +35,11 @@ if [ ! -f "$BASELINE_HASHES" ]; then
   echo "ERROR: baseline not found at $BASELINE_HASHES"
 else
   CURRENT=$(mktemp)
-  find /bin /sbin /usr/bin /usr/sbin /usr/libexec -type f -print0 2>/dev/null \
-    | xargs -0 shasum -a 256 2>/dev/null | sort > "$CURRENT"
+  collect_system_hashes() {
+    find /bin /sbin /usr/bin /usr/sbin /usr/libexec -type f -print0 2>/dev/null \
+      | xargs -0 shasum -a 256 2>/dev/null | sort
+  }
+  guard_run "shasum-drift" collect_system_hashes > "$CURRENT"
   BASELINE_SORTED=$(mktemp)
   sort "$BASELINE_HASHES" > "$BASELINE_SORTED"
   if diff -q "$BASELINE_SORTED" "$CURRENT" >/dev/null ; then
@@ -89,7 +100,7 @@ section "5. Apple firewall state (expect: enabled, stealth on, block-all on)"
 
 # ========== 6. Bluetooth state ==========
 section "6. Bluetooth ControllerPowerState (expect: 0)"
-defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState 2>&1
+guard_run "bluetooth-power-state" defaults read /Library/Preferences/com.apple.Bluetooth ControllerPowerState 2>&1
 
 # ========== 7. AWDL state ==========
 section "7. awdl0 interface (expect: down or no inet6 address)"

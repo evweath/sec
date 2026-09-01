@@ -35,6 +35,13 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 # ────────────────────────────────────────────────────────────────────────────
 # Setup
 # ────────────────────────────────────────────────────────────────────────────
@@ -48,7 +55,7 @@ ok()      { printf "%s[+]%s %s\n" "$GRN" "$NC" "$*"; }
 warn()    { printf "%s[!]%s %s\n" "$YLW" "$NC" "$*"; }
 err()     { printf "%s[x]%s %s\n" "$RED" "$NC" "$*"; }
 section() { printf "\n%s═══ %s ═══%s\n" "$BLU" "$*" "$NC"; }
-try()     { "$@" || warn "command failed (continuing): $*"; }
+try()     { local _c="$1"; [ "$_c" = "sudo" ] && _c="${2:-sudo}"; guard_run "try:${_c##*/}" "$@" || warn "command failed (continuing): $*"; }
 
 # Guardrails
 [[ "$(uname)" == "Darwin" ]] || { err "macOS only"; exit 1; }
@@ -94,6 +101,7 @@ sudo lsof -nP -iUDP 2>/dev/null | tee "$HOME/open-udp-before.txt" || true
 section "2. Homebrew"
 if ! command -v brew >/dev/null 2>&1; then
     log "Installing Homebrew…"
+    # Canonical unpinnable upstream install — TLS is the only authenticity check here.
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     if [[ -x /opt/homebrew/bin/brew ]]; then eval "$(/opt/homebrew/bin/brew shellenv)"
     elif [[ -x /usr/local/bin/brew ]]; then eval "$(/usr/local/bin/brew shellenv)"; fi
@@ -281,8 +289,18 @@ if [[ -n "$WAZ_ARCH" ]]; then
         WAZ_FILE="wazuh-agent-${WAZ_VER}-1.${WAZ_ARCH}.pkg"
         log "Downloading $WAZ_FILE"
         if curl -fsSL "https://packages.wazuh.com/4.x/macos/$WAZ_FILE" -o "$WAZ_PKG"; then
-            try sudo installer -pkg "$WAZ_PKG" -target /
-            ok "Wazuh agent installed. Configure manager IP in /Library/Ossec/etc/ossec.conf"
+            # macOS installer(8) installs unsigned pkgs without complaint —
+            # require an Apple-issued developer signature before running it.
+            # ('Status: signed by untrusted certificate' also contains
+            # 'Status: signed', so match the full Apple-issued string.)
+            WAZ_SIG="$(pkgutil --check-signature "$WAZ_PKG" 2>&1 || true)"
+            if printf '%s\n' "$WAZ_SIG" | grep -q "Status: signed by a developer certificate issued by Apple"; then
+                try sudo installer -pkg "$WAZ_PKG" -target /
+                ok "Wazuh agent installed. Configure manager IP in /Library/Ossec/etc/ossec.conf"
+            else
+                warn "Wazuh pkg signature check FAILED — NOT installing. Skipping Wazuh step."
+                printf '%s\n' "$WAZ_SIG" | sed 's/^/    /'
+            fi
         else
             warn "Wazuh agent download failed — install manually from packages.wazuh.com"
         fi

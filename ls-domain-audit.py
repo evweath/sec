@@ -24,6 +24,25 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,7 +157,9 @@ def main():
     current_path = sys.argv[1]
     prior_path = sys.argv[2] if len(sys.argv) > 2 else None
 
-    rules = load(current_path)
+    rules = guard_run("load-model", load, current_path)
+    if rules is None or rules is SKIP:
+        sys.exit(1)
     allow = [r for r in rules if r.get('action') == 'allow' and not r.get('disabled')]
     deny  = [r for r in rules if r.get('action') == 'deny']
 
@@ -323,7 +344,9 @@ def main():
         print(f'SECTION 8 — NEW ALLOW RULES vs {Path(prior_path).parent.name}')
         print('═' * 80)
 
-        prior_rules = load(prior_path)
+        prior_rules = guard_run("load-prior-model", load, prior_path)
+        if prior_rules is None or prior_rules is SKIP:
+            sys.exit(1)
         prior_allow = [r for r in prior_rules if r.get('action') == 'allow']
 
         # Fingerprint: process + remote + ports + via

@@ -15,6 +15,16 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# As root, only trust a root-owned lib: a user-writable ancestor dir (e.g.
+# Intel Homebrew's /usr/local) could plant one and have it sourced as root.
+_eg_ok() { [ -f "$1" ] && { [ "$EUID" -ne 0 ] || [ "$(stat -f %u "$1" 2>/dev/null)" = "0" ]; }; }
+while [ "$_eg_d" != "/" ] && ! _eg_ok "$_eg_d/lib/error-guard.sh"; do _eg_d="$(dirname "$_eg_d")"; done
+_eg_ok "$_eg_d/lib/error-guard.sh" && . "$_eg_d/lib/error-guard.sh"; unset _eg_d; unset -f _eg_ok
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 GUARD_SRC="$(dirname "$0")/evw-comms-guard.sh"
 GUARD_DST="/usr/local/bin/evw-comms-guard.sh"
 DAEMON_PLIST="/Library/LaunchDaemons/com.evw.comms-guard.plist"
@@ -24,6 +34,16 @@ log() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*"; }
 
 if [[ "$(id -u)" -ne 0 ]]; then
     echo "ERROR: must run as root (sudo bash $0)"
+    exit 1
+fi
+
+# ── DISABLED 2026-09-01 ─────────────────────────────────────────────────────
+# The comms guard this script installs CAUSED recurring ~100-second internet
+# outages (killing bluetoothd flaps the shared Wi-Fi/BT radio). Evidence:
+#   /Users/evw/dev/fix/netdiag/STATE.md
+if [[ "${COMMS_GUARD_ENABLED:-0}" != "1" ]]; then
+    echo "evw-comms-setup: DISABLED 2026-09-01 — the comms guard caused recurring Wi-Fi outages."
+    echo "Do not install it. Override (not recommended): COMMS_GUARD_ENABLED=1"
     exit 1
 fi
 
@@ -40,7 +60,7 @@ echo ""
 
 # ── 1. User-level service disables (disabled.501.plist) ─────────────
 log "[1/6] Disabling user-level services (gui/501)..."
-chflags noschg "$PLIST_501"
+guard_run "chflags-unlock" chflags noschg "$PLIST_501"
 
 GUI_SVCS=(
     com.apple.AirPlayReceiver
@@ -69,8 +89,14 @@ for svc in "${GUI_SVCS[@]}"; do
         || log "  (not found) gui/501/$svc"
 done
 
-chflags schg "$PLIST_501"
-log "  schg re-applied to $PLIST_501"
+guard_run "chflags-relock" chflags schg "$PLIST_501"
+# Verify the relock actually took — never log success unverified.
+if ls -lO "$PLIST_501" | grep -qw schg; then
+    log "  schg re-applied to $PLIST_501"
+else
+    echo "ERROR: schg NOT set on $PLIST_501 — file left unlocked, aborting" >&2
+    exit 1
+fi
 echo ""
 
 # ── 2. System-level service disables ────────────────────────────────
@@ -104,9 +130,9 @@ echo ""
 
 # ── 3. Bluetooth hardware off ────────────────────────────────────────
 log "[3/6] Turning off Bluetooth hardware..."
-defaults write /Library/Preferences/com.apple.Bluetooth ControllerPowerState -int 0
-defaults write /Library/Preferences/com.apple.Bluetooth BluetoothAutoSeekKeyboard -bool false
-defaults write /Library/Preferences/com.apple.Bluetooth BluetoothAutoSeekPointingDevice -bool false
+guard_run "defaults-bluetooth" defaults write /Library/Preferences/com.apple.Bluetooth ControllerPowerState -int 0
+guard_run "defaults-bluetooth" defaults write /Library/Preferences/com.apple.Bluetooth BluetoothAutoSeekKeyboard -bool false
+guard_run "defaults-bluetooth" defaults write /Library/Preferences/com.apple.Bluetooth BluetoothAutoSeekPointingDevice -bool false
 log "  Bluetooth pref set to off"
 echo ""
 
@@ -130,11 +156,11 @@ echo ""
 
 # ── 5. Install guard script ──────────────────────────────────────────
 log "[5/6] Installing guard script..."
-install -d -m 755 -o root -g wheel /usr/local/bin
-install -m 755 -o root -g wheel "$GUARD_SRC" "$GUARD_DST"
+guard_run "install-bindir" install -d -m 755 -o root -g wheel /usr/local/bin
+guard_run "install-guard" install -m 755 -o root -g wheel "$GUARD_SRC" "$GUARD_DST"
 log "  installed $GUARD_DST"
 
-cat > "$DAEMON_PLIST" << 'PLIST_EOF'
+guard_run "write-plist" cat > "$DAEMON_PLIST" << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -158,15 +184,15 @@ cat > "$DAEMON_PLIST" << 'PLIST_EOF'
 </plist>
 PLIST_EOF
 
-chown root:wheel "$DAEMON_PLIST"
-chmod 644 "$DAEMON_PLIST"
+guard_run "chown-plist" chown root:wheel "$DAEMON_PLIST"
+guard_run "chmod-plist" chmod 644 "$DAEMON_PLIST"
 log "  installed $DAEMON_PLIST"
 echo ""
 
 # ── 6. Load daemon ───────────────────────────────────────────────────
 log "[6/6] Loading LaunchDaemon..."
 launchctl unload "$DAEMON_PLIST" 2>/dev/null || true
-launchctl load -w "$DAEMON_PLIST"
+guard_run "launchctl-load" launchctl load -w "$DAEMON_PLIST"
 log "  loaded com.evw.comms-guard"
 echo ""
 

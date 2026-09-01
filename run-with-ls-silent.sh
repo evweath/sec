@@ -15,6 +15,13 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(dirname "$_eg_d")"; done
+[ -f "$_eg_d/lib/error-guard.sh" ] && . "$_eg_d/lib/error-guard.sh"; unset _eg_d
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+
 LS_CLI="/Applications/Little Snitch.app/Contents/Components/littlesnitch"
 WRAPPED=( "${@:-/Users/evw/dev/security/harden.sh}" )
 
@@ -46,9 +53,32 @@ esac
 restore_mode() {
     local rc=$?
     log "Restoring Little Snitch mode → $PREV_MODE"
-    sudo "$LS_CLI" write-preference activeSilentMode "$PREV_MODE" >/dev/null 2>&1 \
-        && ok "Mode restored." \
-        || err "FAILED to restore mode. Set it back manually in Little Snitch settings."
+    # Retry the restore up to 3 times; if the captured mode still won't stick,
+    # fall back to explicitly writing Alert Mode (0) — fail-closed.
+    local target="$PREV_MODE" attempt restored=""
+    for attempt in 1 2 3 4 5 6; do
+        if [ "$attempt" -eq 4 ]; then
+            target=0
+            warn "Could not restore mode $PREV_MODE — falling back to explicit Alert Mode (0) (fail-closed)"
+        fi
+        if guard_run "ls-restore-mode" sudo "$LS_CLI" write-preference activeSilentMode "$target" >/dev/null 2>&1; then
+            restored=1
+            break
+        fi
+        warn "Restore attempt $attempt/6 failed — retrying…"
+        [ "$attempt" -lt 6 ] && sleep 2
+    done
+    if [ -n "$restored" ]; then
+        if [ "$target" != "$PREV_MODE" ]; then
+            warn "Little Snitch forced to Alert Mode (0) instead of $PREV_MODE — re-check settings."
+        else
+            ok "Mode restored."
+        fi
+    else
+        err "FAILED to restore Little Snitch mode — it may still be in silent-allow!"
+        osascript -e 'display alert "Little Snitch restore FAILED" message "run-with-ls-silent.sh could not restore Little Snitch from silent-allow. Open Little Snitch settings NOW and re-enable Alert Mode manually." as critical' >/dev/null 2>&1 || true
+        [ "$rc" -eq 0 ] && rc=1
+    fi
     kill "$SUDO_KEEPALIVE" 2>/dev/null || true
     exit "$rc"
 }
@@ -57,7 +87,7 @@ trap restore_mode EXIT INT TERM HUP
 
 # Flip to silent-allow
 log "Setting Little Snitch → Silent Mode (Allow Connections)…"
-if sudo "$LS_CLI" write-preference activeSilentMode 1 >/dev/null 2>&1; then
+if guard_run "ls-silent-mode" sudo "$LS_CLI" write-preference activeSilentMode 1 >/dev/null 2>&1; then
     ok "Silent-allow active."
 else
     err "Could not set silent mode. Aborting before running wrapped command."
@@ -66,5 +96,5 @@ fi
 
 # Run the wrapped command
 log "Running: ${WRAPPED[*]}"
-"${WRAPPED[@]}"
+guard_run "wrapped-cmd" "${WRAPPED[@]}"
 # trap handles restore + exit code propagation

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # mac-sentinel — macOS security monitoring and hardening daemon
-# Reads platform sensor nodes and dispatches thermal wakeup events
-# to the kernel power management framework via IOKit interfaces.
-# Requires root. Runs as a long-lived daemon under launchd.
+# Watches sensitive files, network connections, auth/privilege events, USB
+# devices and canary tripwires; logs anomalies and raises user alerts.
+# Requires root. Runs as a long-lived daemon under launchd
+# (label com.evw.mac-sentinel).
 #
 # Converted for macOS Tahoe 26.3 (arm64) from Kodachi thermald.
 # Incorporates all hardening steps from Lynis audit (index 77→90+).
@@ -33,11 +34,38 @@ from pathlib import Path
 from collections import defaultdict, deque
 from typing import Optional, Dict, List, Tuple, Any
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        _eg = _d / "lib" / "error_guard.py"
+        if _eg.exists():
+            # Runs as root: only import a root-owned lib — a user-writable
+            # error_guard.py here would be arbitrary code execution as root.
+            if os.geteuid() == 0 and _eg.stat().st_uid != 0:
+                break
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
+# KeepAlive daemon: never let the guard exit the process — trip = log + skip
+os.environ.setdefault("EVW_GUARD_POLICY", "continue")
+
 
 # ─── PROCESS TITLE MASKING ────────────────────────────────────────────────────
 
 def _mask_process_title(title: str) -> None:
-    """Overwrite argv[0] so ps shows a benign name."""
+    """Set the process title shown in ps/pthread to the daemon name."""
     try:
         # macOS: use setproctitle if available via ctypes
         libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
@@ -58,7 +86,7 @@ SCRIPT_PATH     = os.path.abspath(__file__)
 INSTALL_DIR     = "/usr/local/lib/mac-sentinel"
 LOG_BASE_DIR    = "/var/log/mac-sentinel"
 PID_FILE        = "/var/run/mac-sentinel.pid"
-LAUNCHD_PLIST   = "/Library/LaunchDaemons/com.apple.thermald.plist"
+LAUNCHD_PLIST   = "/Library/LaunchDaemons/com.evw.mac-sentinel.plist"
 CANARY_DIR      = "/usr/local/lib/mac-sentinel/.cache"
 LOG_MAX_BYTES   = 100 * 1024 * 1024   # 100 MB
 ALERT_COOLDOWN_SECONDS = 300           # 5-min dedup window per alert type
@@ -83,7 +111,7 @@ WATCHED_PATHS = [
     "/Library/LaunchDaemons",
     "/System/Library/LaunchDaemons",
     # User persistence (per-user — monitor current user)
-    f"/Users/{os.environ.get('SUDO_USER', 'ew')}/Library/LaunchAgents",
+    f"/Users/{os.environ.get('SUDO_USER', 'evw')}/Library/LaunchAgents",
     # PAM configuration
     "/etc/pam.d",
     # Cron
@@ -321,47 +349,79 @@ def _trigger_alert(data: dict, severity: str = "WARNING") -> None:
 
 
 def _send_notification(title: str, message: str, severity: str) -> None:
-    """Send macOS notification via osascript (works as root via sudo)."""
+    """Send macOS notification via osascript (drops to the console user)."""
     # Method 1: osascript display notification (macOS native, no GTK needed)
     try:
         sound = "Basso" if severity == "CRITICAL" else "Ping"
+        # AppleScript string-literal escaping: backslash first, then quote.
+        # The message carries attacker-controllable data (paths, process
+        # names, USB vendor/product strings).
+        safe_message = message.replace("\\", "\\\\").replace('"', '\\"')
+        safe_title   = title.replace("\\", "\\\\").replace('"', '\\"')
         script = (
-            f'display notification "{message}" '
-            f'with title "{title}" '
+            f'display notification "{safe_message}" '
+            f'with title "{safe_title}" '
             f'subtitle "mac-sentinel" '
             f'sound name "{sound}"'
         )
-        # Find the logged-in user and run notification in their context
+        # Find the logged-in user and run the notification in their context.
+        # No shell anywhere: exec osascript as an argv list after
+        # initgroups/setgid/setuid, so the alert text is never re-parsed
+        # by su/sh command-line quoting.
         logged_user = _get_console_user()
         if logged_user and os.geteuid() == 0:
-            subprocess.Popen(
-                ["su", logged_user, "-c", f"osascript -e '{script}'"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
-            return
+            try:
+                pw = pwd.getpwnam(logged_user)
+            except KeyError:
+                pw = None
+            if pw is not None:
+                def _drop_privs():
+                    os.initgroups(pw.pw_name)
+                    os.setgid(pw.pw_gid)
+                    os.setuid(pw.pw_uid)
+                subprocess.Popen(
+                    ["/usr/bin/osascript", "-e", script],
+                    preexec_fn=_drop_privs,
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                return
         subprocess.Popen(
-            ["osascript", "-e", script],
+            ["/usr/bin/osascript", "-e", script],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         return
     except Exception:
         pass
 
-    # Method 2: Write to all active terminal sessions
+    # Method 2: Write to ONE terminal session only.
+    # (2026-09-01 change: previously wrote to EVERY tty in `who`, spamming all
+    # open terminal sessions. Now: prefer the console user's first real tty,
+    # falling back to the first real tty overall; the "console" entry is
+    # skipped since writing there displays nowhere useful.)
     try:
         result = subprocess.run(
             ["who"], capture_output=True, text=True
         )
+        console_user = _get_console_user()
+        ttys = []
         for line in result.stdout.splitlines():
             parts = line.split()
-            if len(parts) >= 2:
-                tty = f"/dev/{parts[1]}"
-                try:
-                    with open(tty, "w") as t:
-                        t.write(f"\r\n\033[1;31m[sentinel] {title}\033[0m\r\n"
-                                f"{message}\r\n")
-                except Exception:
-                    pass
+            if len(parts) >= 2 and parts[1] != "console":
+                ttys.append((parts[0], f"/dev/{parts[1]}"))
+        chosen = None
+        for user, tty in ttys:
+            if console_user and user == console_user:
+                chosen = tty
+                break
+        if chosen is None and ttys:
+            chosen = ttys[0][1]
+        if chosen:
+            try:
+                with open(chosen, "w") as t:
+                    t.write(f"\r\n\033[1;31m[sentinel] {title}\033[0m\r\n"
+                            f"{message}\r\n")
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -508,15 +568,20 @@ class ThermalSensorWorker(threading.Thread):
                "--format=%p|%f", "-l", "2"] + existing
 
         while _running:
+            proc = guard_run(
+                "fswatch-stream", subprocess.Popen,
+                cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, text=True
+            )
+            if proc is None or proc is SKIP:
+                time.sleep(5)
+                continue
             try:
-                proc = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL, text=True
-                )
                 for line in proc.stdout:
                     if not _running:
                         break
-                    self._process_fswatch_event(line.strip())
+                    guard_run("fswatch-event",
+                              self._process_fswatch_event, line.strip())
                 proc.wait()
             except Exception:
                 time.sleep(5)
@@ -628,9 +693,9 @@ class NetlinkEventWorker(threading.Thread):
     def run(self):
         while _running:
             try:
-                self._scan_connections()
-                self._detect_new_interfaces()
-                self._check_dns_activity()
+                guard_run("net-scan", self._scan_connections)
+                guard_run("net-iface", self._detect_new_interfaces)
+                guard_run("dns-activity", self._check_dns_activity)
             except Exception:
                 pass
             time.sleep(30)
@@ -839,11 +904,11 @@ class AcpiCredentialWorker(threading.Thread):
         cycle = 0
         while _running:
             try:
-                self._check_root_processes()
-                self._parse_unified_log()
+                guard_run("root-procs", self._check_root_processes)
+                guard_run("auth-log", self._parse_unified_log)
                 cycle += 1
                 if cycle >= 10:
-                    self._check_suid_changes()
+                    guard_run("suid-scan", self._check_suid_changes)
                     cycle = 0
             except Exception:
                 pass
@@ -1000,15 +1065,20 @@ class CacheValidationWorker(threading.Thread):
         cmd = ["fswatch", "--event-flags",
                "--format=%p|%f", "-l", "1"] + CANARY_FILES + [CANARY_DIR]
         while _running:
+            proc = guard_run(
+                "canary-stream", subprocess.Popen,
+                cmd, stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL, text=True
+            )
+            if proc is None or proc is SKIP:
+                time.sleep(5)
+                continue
             try:
-                proc = subprocess.Popen(
-                    cmd, stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL, text=True
-                )
                 for line in proc.stdout:
                     if not _running:
                         break
-                    self._process_canary_event(line.strip())
+                    guard_run("canary-event",
+                              self._process_canary_event, line.strip())
                 proc.wait()
             except Exception:
                 time.sleep(5)
@@ -1124,7 +1194,10 @@ class DeviceEnumerationWorker(threading.Thread):
     def run(self):
         while _running:
             try:
-                current = self._get_usb_devices()
+                current = guard_run("usb-enum", self._get_usb_devices)
+                if current is None or current is SKIP:
+                    time.sleep(15)
+                    continue
                 added   = current - self._usb_baseline
                 removed = self._usb_baseline - current
 
@@ -1209,11 +1282,11 @@ class VendorComponentWorker(threading.Thread):
     def run(self):
         while _running:
             try:
-                self._verify_tool_integrity()
-                self._check_firewall_state()
-                self._watchdog_dns()
-                self._check_ossec()
-                self._run_clamav_check()
+                guard_run("tool-integrity", self._verify_tool_integrity)
+                guard_run("firewall-state", self._check_firewall_state)
+                guard_run("dns-watchdog", self._watchdog_dns)
+                guard_run("ossec-check", self._check_ossec)
+                guard_run("clamav-scan", self._run_clamav_check)
             except Exception:
                 pass
             time.sleep(1800)  # 30 min — integrity checks are expensive
@@ -1396,9 +1469,9 @@ class SelfValidationWorker(threading.Thread):
     def run(self):
         while _running:
             try:
-                self._verify_self()
-                self._correlate_events()
-                self._check_install_dir()
+                guard_run("self-verify", self._verify_self)
+                guard_run("event-correlate", self._correlate_events)
+                guard_run("install-dir", self._check_install_dir)
             except Exception:
                 pass
             time.sleep(300)
@@ -1493,12 +1566,12 @@ class MacHardeningWorker(threading.Thread):
     def run(self):
         # Initial hardening pass at startup
         time.sleep(10)  # Let other threads initialise first
-        self._run_all_checks()
+        guard_run("hardening-checks", self._run_all_checks)
 
         # Re-check every 6 hours
         while _running:
             time.sleep(21600)
-            self._run_all_checks()
+            guard_run("hardening-checks", self._run_all_checks)
 
     def _run_all_checks(self):
         checks = [
@@ -1914,7 +1987,7 @@ class MacHardeningWorker(threading.Thread):
             "/Library/LaunchAgents",
             "/Library/LaunchDaemons",
             "/System/Library/LaunchDaemons",
-            f"/Users/{os.environ.get('SUDO_USER', 'ew')}/Library/LaunchAgents",
+            f"/Users/{os.environ.get('SUDO_USER', 'evw')}/Library/LaunchAgents",
         ]
         items: set = set()
         for d in dirs:
@@ -1996,7 +2069,7 @@ LAUNCHD_PLIST_CONTENT = f"""<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.apple.thermald</string>
+    <string>com.evw.mac-sentinel</string>
     <key>ProgramArguments</key>
     <array>
         <string>/usr/bin/python3</string>
@@ -2111,7 +2184,7 @@ def install():
 
     # Verify
     r = subprocess.run(
-        ["launchctl", "list", "com.apple.thermald"],
+        ["launchctl", "list", "com.evw.mac-sentinel"],
         capture_output=True, text=True
     )
     status = "active" if r.returncode == 0 else "FAILED"
@@ -2140,10 +2213,10 @@ def signal_handler(signum, frame):
 def main():
     global _running
 
-    _mask_process_title("thermald")
+    _mask_process_title("mac-sentinel")
 
     parser = argparse.ArgumentParser(
-        description="Apple Thermal Management Daemon",
+        description="mac-sentinel security monitoring daemon",
         add_help=False
     )
     parser.add_argument("--install", action="store_true")
@@ -2160,7 +2233,7 @@ def main():
         return
 
     if os.geteuid() != 0:
-        sys.stderr.write("thermald: must be run as root\n")
+        sys.stderr.write("mac-sentinel: must be run as root\n")
         sys.exit(1)
 
     if args.debug:

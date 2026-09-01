@@ -13,6 +13,25 @@ import sys
 import re
 from pathlib import Path
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
 def permissiveness_score(r: dict) -> int:
     score = 0
     if 'process' not in r:
@@ -58,13 +77,20 @@ def short_process(r: dict) -> str:
     return proc
 
 
+def load_model(path):
+    with open(path) as f:
+        return json.load(f)
+
+
 def main():
     if len(sys.argv) < 2:
         print(f'Usage: {sys.argv[0]} <ls-model.json>')
         sys.exit(1)
 
     path = sys.argv[1]
-    d = json.load(open(path))
+    d = guard_run("load-model", load_model, path)
+    if d is None or d is SKIP:
+        sys.exit(1)
     rules = d.get('rules', [])
 
     allow = [r for r in rules if r.get('action') == 'allow' and not r.get('disabled')]

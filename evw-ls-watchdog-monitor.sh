@@ -10,6 +10,17 @@
 
 set -uo pipefail
 
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error-guard.sh)
+_eg_d="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# As root, only trust a root-owned lib: a user-writable ancestor dir (e.g.
+# Intel Homebrew's /usr/local) could plant one and have it sourced as root.
+_eg_ok() { [ -f "$1" ] && { [ "$EUID" -ne 0 ] || [ "$(stat -f %u "$1" 2>/dev/null)" = "0" ]; }; }
+while [ "$_eg_d" != "/" ] && ! _eg_ok "$_eg_d/lib/error-guard.sh"; do _eg_d="$(dirname "$_eg_d")"; done
+_eg_ok "$_eg_d/lib/error-guard.sh" && . "$_eg_d/lib/error-guard.sh"; unset _eg_d; unset -f _eg_ok
+command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
+command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
+# EVW_GUARD_POLICY unset: launchd one-shot — a tripped breaker aborts (no TTY).
+
 HEARTBEAT="/private/var/run/evw-ls-watchdog-heartbeat.ts"
 MAX_AGE=900   # 15 minutes — watchdog runs every 10 min so 15 min = 1 missed run
 LOG="/private/var/log/evw-ls-watchdog.log"
@@ -31,11 +42,11 @@ if (( age > MAX_AGE )); then
     logger -t evw-ls-watchdog-monitor "ALERT: $msg"
 
     # Deliver notification to the console user's session
-    CONSOLE_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
+    CONSOLE_USER=$(guard_run "console-stat" stat -f '%Su' /dev/console 2>/dev/null || echo "")
     if [[ -n "$CONSOLE_USER" ]]; then
         CONSOLE_UID=$(id -u "$CONSOLE_USER" 2>/dev/null || echo "")
         if [[ -n "$CONSOLE_UID" ]]; then
-            launchctl asuser "$CONSOLE_UID" /usr/bin/osascript \
+            guard_run "notify" launchctl asuser "$CONSOLE_UID" /usr/bin/osascript \
                 -e 'display notification "'"$msg"'" with title "SECURITY ALERT" subtitle "LS Watchdog Dead" sound name "Basso"' \
                 2>/dev/null || true
         fi

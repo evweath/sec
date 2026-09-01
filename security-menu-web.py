@@ -6,14 +6,17 @@ Serves a localhost-only page listing every security script with a real
 checkbox, grouped by section, in a scrollable view. Check what you want,
 press "Run checked", watch live output in the bottom panel.
 
-Safety: binds 127.0.0.1 only, a random per-start token is required on all
-API calls, indices are validated server-side, and MOD/SVC/ARGS selections
-require confirmed=true from the browser's own confirmation step.
+Safety: binds 127.0.0.1 only, a random per-start token is required on the
+page URL (?t=) and on all API calls, the Host header is validated on every
+request (DNS-rebinding mitigation), indices are validated server-side, and
+MOD/SVC/ARGS selections require confirmed=true from the browser's own
+confirmation step.
 
 Usage: python3 security-menu-web.py [--port N] [--no-browser]
 """
 
 import argparse
+import hmac
 import json
 import os
 import secrets
@@ -22,7 +25,30 @@ import sys
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
+
+# error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
+try:
+    import pathlib as _pathlib, sys as _sys
+    _d = _pathlib.Path(__file__).resolve().parent
+    for _ in range(6):
+        if (_d / "lib" / "error_guard.py").exists():
+            _sys.path.insert(0, str(_d / "lib"))
+            break
+        _d = _d.parent
+    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+except ImportError:
+    SKIP = object()
+    def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guarded(_l=None):
+        def deco(fn): return fn
+        return deco
+    class GuardError(RuntimeError): pass
+    def throw(msg): raise GuardError(str(msg))
+
+# Long-running server: never prompt from HTTP handler threads — log + skip
+# failed steps (EVW_GUARD_POLICY=continue) so a bad batch can't kill the UI.
+os.environ.setdefault("EVW_GUARD_POLICY", "continue")
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MENU = os.path.join(BASE, "security-menu.sh")
@@ -31,7 +57,10 @@ RISKY = ("MOD", "SVC", "ARGS")
 
 
 def load_entries():
-    p = subprocess.run(["bash", MENU, "--json"], capture_output=True, text=True, cwd=BASE)
+    p = guard_run("menu-json", subprocess.run,
+                  ["bash", MENU, "--json"], capture_output=True, text=True, cwd=BASE)
+    if p is None or p is SKIP:
+        sys.exit("error: security-menu.sh --json failed (see stderr)")
     if p.returncode != 0:
         sys.exit(f"error: security-menu.sh --json failed: {p.stderr.strip()}")
     return json.loads(p.stdout)
@@ -53,11 +82,16 @@ def append_output(text):
 def run_selection(indices):
     csv = ",".join(str(i) for i in indices)
     try:
-        proc = subprocess.Popen(
+        proc = guard_run(
+            "menu-run", subprocess.Popen,
             ["bash", MENU, "--run", csv, "--yes"],
             cwd=BASE, stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
+        if proc is None or proc is SKIP:
+            append_output("\n[web] runner error: menu-run failed (see server stderr)\n")
+            state["code"] = 1
+            return
         for line in proc.stdout:
             append_output(line)
         state["code"] = proc.wait()
@@ -96,7 +130,7 @@ PAGE = """<!doctype html>
   h2 { position:sticky; top:64px; z-index:5; background:var(--bg);
        font-size:13px; color:var(--accent); margin:0; padding:12px 4px 6px;
        border-bottom:1px solid var(--line); }
-  label.row { display:grid; grid-template-columns:28px 44px 130px minmax(220px,42%) 1fr;
+  label.row { display:grid; grid-template-columns:28px 44px 130px minmax(220px,42%) 150px 1fr;
               align-items:center; gap:6px; padding:7px 4px; border-bottom:1px solid #21262d;
               cursor:pointer; }
   label.row:hover { background:#161b22; }
@@ -106,6 +140,7 @@ PAGE = """<!doctype html>
   .tag { font-size:12px; color:var(--green); }
   .tag.risky { color:var(--amber); }
   .path { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lastrun { color:var(--dim); font-size:12px; white-space:nowrap; }
   .desc { color:var(--dim); font-size:13px; }
   #output { position:fixed; left:0; right:0; bottom:0; height:42vh; z-index:20;
             background:var(--panel); border-top:1px solid var(--line);
@@ -166,6 +201,7 @@ for (const e of ENTRIES) {
     <span class="num">${e.n}</span>
     <span class="tag ${risky ? "risky" : ""}">${e.tags}</span>
     <span class="path" title="${e.path}">${e.path}</span>
+    <span class="lastrun">${e.lastrun || "never"}</span>
     <span class="desc">${e.desc}</span>`;
   row.dataset.search = `${e.n} ${e.tags} ${e.path} ${e.desc}`.toLowerCase();
   list.appendChild(row);
@@ -249,12 +285,28 @@ class Handler(BaseHTTPRequestHandler):
     def _token_ok(self):
         return self.headers.get("X-Menu-Token") == TOKEN
 
+    def _host_ok(self):
+        # DNS-rebinding mitigation: only the loopback Host this server bound
+        host = (self.headers.get("Host") or "").strip().lower()
+        port = self.server.server_address[1]
+        return host in (f"127.0.0.1:{port}", f"localhost:{port}")
+
     def do_GET(self):
-        path = urlparse(self.path).path
-        if path == "/":
+        # error-guard: a failing request must never kill the dashboard
+        guard_run("http-get", self._do_GET)
+
+    def _do_GET(self):
+        if not self._host_ok():
+            return self._send(403, "forbidden")
+        url = urlparse(self.path)
+        if url.path == "/":
+            # page embeds the token — only serve it to a token-bearing URL
+            t = parse_qs(url.query).get("t", [""])[0]
+            if not hmac.compare_digest(t.encode(), TOKEN.encode()):
+                return self._send(403, "forbidden")
             html = PAGE.replace("__TOKEN__", TOKEN).replace("__ENTRIES__", json.dumps(ENTRIES))
             self._send(200, html, "text/html; charset=utf-8")
-        elif path == "/api/status":
+        elif url.path == "/api/status":
             if not self._token_ok():
                 return self._send(403, '{"error":"bad token"}', "application/json")
             with state_lock:
@@ -264,6 +316,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, "not found")
 
     def do_POST(self):
+        # error-guard: a failing request must never kill the dashboard
+        guard_run("http-post", self._do_POST)
+
+    def _do_POST(self):
+        if not self._host_ok():
+            return self._send(403, "forbidden")
         if urlparse(self.path).path != "/api/run":
             return self._send(404, "not found")
         if not self._token_ok():
@@ -298,8 +356,10 @@ def main():
 
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     port = server.server_address[1]
-    url = f"http://127.0.0.1:{port}/"
+    url = f"http://127.0.0.1:{port}/?t={TOKEN}"
     print(f"Master Security Menu web UI: {url}")
+    print("Open that exact URL — the ?t= per-start token is required (a bare "
+          "request gets 403), and it changes on every start.")
     print("SUDO-tagged scripts will prompt for the sudo password in THIS terminal "
           "(run 'sudo -v' here first). Ctrl-C to stop.")
     if not args.no_browser:
