@@ -5,19 +5,20 @@
 #   apply:    python3 ls-hygiene.py model.json --apply --report out.md --undo undo.json
 #             (patches model.json in place; ls-hygiene-apply.sh does backup+restore)
 #
-# This ruleset was already well-pruned (no any-remote allows outside factory
-# rules, no unsigned-binary allows, no inbound allows). Targeted deletions:
+# Targeted deletions:
+#   T1  alert/monitor-origin ALLOW rules to known tracker/ad hosts.
+#   T2  alert-origin DENY rules for com.apple.trustd (they disable OCSP
+#       revocation checking; deleting RESTORES it). Includes any OCSP
+#       responder host (ocsp.*).
+#   T3  alert-origin DENY rules for com.apple.configd (ports 67/any) — DHCP risk.
 #
-#   T1  alert/monitor-origin ALLOW rules to known tracker/ad hosts — several
-#       contradict the user's own DENY rules for the same host.
-#   T2  alert-origin DENY rules for com.apple.trustd — they disabled OCSP
-#       certificate-revocation checking (ocsp2.apple.com, 1826 hits). Deleting
-#       the deny RESTORES revocation checks = security-improving.
-#   T3  alert-origin DENY rules for com.apple.configd (ports 67/any) — can
-#       interfere with DHCP renewal; stock behavior restored.
-# Report-only (NOT touched): com.brave.Browser any-deny (deliberate?),
-# com.apple.apsd any-deny (push off = posture), mDNSResponder inbound denies
-# (consistent with lockdown posture).
+# Durable hardening (apply mode): for every tracker host with no surviving
+# deny rule, ADD an explicit any-process deny tagged "[AUTO-EVW-LS] auto-deny".
+# With a deny in place Little Snitch stops alerting, so the user cannot
+# accidentally re-allow the host via alert dialogs (this was happening —
+# 9 tracker allows regenerated within 16 min of the first cleanup).
+#
+# Report-only (untouched): apsd/push denies, Brave denies, inbound mDNS denies.
 
 import json
 import sys
@@ -34,6 +35,10 @@ def tail(r):
     p = str(r.get("process", ""))
     return p.split("/")[-1] if "/" in p else p
 
+def is_ocsp_host(r):
+    h = str(r.get("remote-hosts", ""))
+    return h.startswith("ocsp.")
+
 def risk_of(r):
     if r.get("protected") or r.get("disabled"):
         return None
@@ -46,6 +51,8 @@ def risk_of(r):
         return "T1-tracker-allow"
     if action == "deny" and proc == "com.apple.trustd":
         return "T2-trustd-deny-(OCSP-disabled)"
+    if action == "deny" and is_ocsp_host(r):
+        return "T2-ocsp-host-deny"
     if action == "deny" and proc == "com.apple.configd":
         return "T3-configd-deny-(DHCP-risk)"
     return None
@@ -79,14 +86,31 @@ def main():
             review.append(r)
         kept.append(r)
 
+    # Durable: plant explicit denies for tracker hosts lacking one.
+    existing_deny_hosts = {str(r.get("remote-hosts", "")) for r in kept
+                           if r.get("action") == "deny"}
+    added = []
+    for h in sorted(TRACKER_HOSTS):
+        if h not in existing_deny_hosts:
+            added.append({
+                "action": "deny", "direction": "outgoing", "process": "any",
+                "remote-hosts": h, "origin": "frontend", "approved": True,
+                "creationDate": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "notes": "[AUTO-EVW-LS] auto-deny tracker (durable; prevents re-allow via alerts)",
+            })
+
     lines = [
         "# [AUTO-EVW-LS] Little Snitch hygiene report",
-        "# {}  rules={}  DELETE={}  review-only={}".format(
-            time.strftime("%Y-%m-%d %H:%M:%S"), len(rules), len(deleted), len(review)),
+        "# {}  rules={}  DELETE={}  ADD-DENY={}  review-only={}".format(
+            time.strftime("%Y-%m-%d %H:%M:%S"), len(rules),
+            len(deleted), len(added), len(review)),
         "", "## DELETED (tagged, full copies in undo JSON)",
     ]
     for tag, r in deleted:
         lines.append("- `{}`  {}".format(tag, describe(r)))
+    lines += ["", "## ADDED (durable denies — stops the alert/re-allow loop)"]
+    for r in added:
+        lines.append("- deny any -> {}".format(r["remote-hosts"]))
     lines += ["", "## REVIEW-ONLY (left in place deliberately)"]
     for r in review:
         lines.append("- {}".format(describe(r)))
@@ -97,11 +121,14 @@ def main():
     else:
         print(text)
     if undo:
-        json.dump([r for _, r in deleted], open(undo, "w"), indent=2)
-    if apply and deleted:
-        model["rules"] = kept
+        json.dump({"deleted": [r for _, r in deleted],
+                   "added_deny_hosts": [r["remote-hosts"] for r in added]},
+                  open(undo, "w"), indent=2)
+    if apply:
+        model["rules"] = kept + added
         json.dump(model, open(path, "w"), indent=2)
-    print("DELETE={} REVIEW={} kept={}".format(len(deleted), len(review), len(kept)))
+    print("DELETE={} ADD-DENY={} REVIEW={} kept={}".format(
+        len(deleted), len(added), len(review), len(kept) + len(added)))
 
 if __name__ == "__main__":
     main()
