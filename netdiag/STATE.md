@@ -254,3 +254,10 @@ cp -Rp; S5 second-pass rsync then MISSING-<name>.txt diagnostic, staging kept
 only for genuinely mismatched folders; S6 staging disk guard (skip oversized
 folder, logged); S7 destination disk guard. Oldest-mtime-first ordering, --all
 mode, resume via STAGE env unchanged. Validated: syntax + ordering + autodetect.
+
+## 2026-09-01 14:49 — mac-sentinel: human timestamps on every entry
+Every sentinel log entry now carries ts_human ("Tuesday, September 01, 2026
+02:48:42 PM CST" — weekday, day, month, year, time, AM/PM, tz) alongside the
+machine ISO ts (kept for the event correlator), and every alert message
+(notification + tty) leads with the human timestamp. Verified live after
+kickstart. (Note: tz label prints as CST — cosmetic macOS tzname quirk.)

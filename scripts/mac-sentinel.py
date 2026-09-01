@@ -302,6 +302,12 @@ def get_log_path(category: str) -> str:
     return os.path.join(LOG_BASE_DIR, f"{logname}.jsonl")
 
 
+def human_ts() -> str:
+    """Human-readable local timestamp for every log/alert entry (2026-09-01
+    request): weekday, day, month, year, time with AM/PM + timezone."""
+    return datetime.now().strftime("%A, %B %d, %Y %I:%M:%S %p ") + time.tzname[0]
+
+
 def write_log(category: str, data: dict, alert: bool = False,
               alert_severity: str = "WARNING") -> None:
     path = get_log_path(category)
@@ -313,6 +319,7 @@ def write_log(category: str, data: dict, alert: bool = False,
 
     entry = {
         "ts":         datetime.utcnow().isoformat() + "Z",
+        "ts_human":   human_ts(),
         "severity":   alert_severity if alert else "INFO",
         "data":       data,
         "chain_hash": current_hash,
@@ -351,7 +358,7 @@ def _trigger_alert(data: dict, severity: str = "WARNING") -> None:
 
     title   = f"🛡️ Security Alert — {severity}"
     lines   = [f"{k}: {v}" for k, v in list(data.items())[:8] if k != "raw"]
-    message = "\n".join(lines)
+    message = human_ts() + "\n" + "\n".join(lines)
     _send_notification(title, message, severity)
 
 
