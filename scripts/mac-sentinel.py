@@ -61,6 +61,13 @@ except ImportError:
 # KeepAlive daemon: never let the guard exit the process — trip = log + skip
 os.environ.setdefault("EVW_GUARD_POLICY", "continue")
 
+# 2026-09-01: IP ownership enrichment (RDAP allocation owner, PTR, FCrDNS
+# check, classification) for every new remote connection in the logs.
+try:
+    from ip_intel import enrich_ip
+except Exception:
+    def enrich_ip(_ip): return {"intel_error": "ip_intel module unavailable"}
+
 
 # ─── PROCESS TITLE MASKING ────────────────────────────────────────────────────
 
@@ -784,6 +791,7 @@ class NetlinkEventWorker(threading.Thread):
             _known_ips[remote_ip] += 1
             is_new_ip = _known_ips[remote_ip] == 1
 
+            intel = enrich_ip(remote_ip) if is_new_ip else {}
             write_log("connections", {
                 "event":       "NEW_CONNECTION",
                 "remote_ip":   remote_ip,
@@ -791,6 +799,9 @@ class NetlinkEventWorker(threading.Thread):
                 "process":     process,
                 "user":        user,
                 "pid":         pid,
+                "ip_intel":    intel,
+                "kill_hint":   "sudo kill -9 {}".format(pid) if pid else None,
+                "block_hint":  "sudo pfctl -t badhosts -T add {}".format(remote_ip),
             }, alert=is_new_ip, alert_severity="WARNING" if is_new_ip else "INFO")
 
             self._check_suspicious_port(remote_ip, remote_port, process)
