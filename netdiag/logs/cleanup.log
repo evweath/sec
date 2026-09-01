@@ -1,0 +1,18 @@
+=== cleanup.sh started Tue Sep  1 11:23:32 CDT 2026 ===
+--- com.evw.ls-watchdog
+  stopped (bootout ok)
+  plist quarantined -> /Library/LaunchDaemons.disabled/
+--- com.evw.ls-watchdog-monitor
+  stopped (bootout ok)
+  plist quarantined -> /Library/LaunchDaemons.disabled/
+--- local.awdl-down
+  stopped (bootout ok)
+  plist quarantined -> /Library/LaunchDaemons.disabled/
+
+=== verification ===
+  ls-watchdog: none running — good
+com.evw.comms-guard.plist
+com.evw.ls-watchdog-monitor.plist
+com.evw.ls-watchdog.plist
+local.awdl-down.plist
+=== cleanup.sh done Tue Sep  1 11:23:32 CDT 2026 ===

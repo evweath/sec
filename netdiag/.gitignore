@@ -1,0 +1,4 @@
+# Sensitive exports — keep out of git (local evidence only)
+logs/ls-model-*.json
+logs/ls-hygiene-undo.json
+logs/boot-audit.txt

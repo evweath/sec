@@ -12,7 +12,7 @@ scan-*/
 /tmp/
 
 # Run artifacts
-logs/
+/logs/
 __pycache__/
 tools-zips/
 scripts/childcustody.zip

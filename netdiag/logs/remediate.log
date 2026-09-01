@@ -1,0 +1,34 @@
+=== remediate.sh started Tue Sep  1 11:05:15 CDT 2026 ===
+--- com.evw.comms-guard
+  stopped (bootout ok)
+  plist quarantined -> /Library/LaunchDaemons.disabled/
+
+=== self-verification (waiting 30s) ===
+comms-guard processes (expect none):
+  none — good
+daemon ages (bluetoothd should now be OLDER than 30s and keep climbing):
+      00:38 /usr/sbin/bluetoothd
+      00:38 /usr/libexec/rapportd
+      00:37 /usr/libexec/sharingd
+      00:37 /usr/libexec/nearbyd
+
+=== remediate.sh done Tue Sep  1 11:05:46 CDT 2026 ===
+Next: watch  tail -f /Users/evw/dev/fix/netdiag/logs/monitor.log  for 10 min.
+Expect NO new 'wifi=inactive' or 'gwip=none' lines (baseline: ~1 per 100s).
+=== remediate.sh started Tue Sep  1 11:05:56 CDT 2026 ===
+--- com.evw.comms-guard
+  not loaded (already stopped?)
+  plist already absent from /Library/LaunchDaemons
+
+=== self-verification (waiting 30s) ===
+comms-guard processes (expect none):
+  none — good
+daemon ages (bluetoothd should now be OLDER than 30s and keep climbing):
+      01:18 /usr/sbin/bluetoothd
+      01:18 /usr/libexec/rapportd
+      01:17 /usr/libexec/sharingd
+      01:17 /usr/libexec/nearbyd
+
+=== remediate.sh done Tue Sep  1 11:06:26 CDT 2026 ===
+Next: watch  tail -f /Users/evw/dev/fix/netdiag/logs/monitor.log  for 10 min.
+Expect NO new 'wifi=inactive' or 'gwip=none' lines (baseline: ~1 per 100s).

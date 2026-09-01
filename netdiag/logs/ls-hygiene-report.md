@@ -1,0 +1,50 @@
+# [AUTO-EVW-LS] Little Snitch hygiene report
+# 2026-09-01 13:25:46  rules=549  DELETE=0  ADD-DENY=0  review-only=42
+
+## DELETED (tagged, full copies in undo JSON)
+
+## ADDED (durable denies — stops the alert/re-allow loop)
+
+## REVIEW-ONLY (left in place deliberately)
+- deny com.apple.mDNSResponder -> any ports=any dir=incoming origin=alert uses=504
+- deny com.apple.mDNSResponder -> 10.245.52.142 ports=5353 dir=incoming origin=alert uses=1
+- deny com.apple.mDNSResponder -> fe80::1 ports=5353 dir=incoming origin=alert uses=12
+- deny com.apple.apsd -> any ports=any dir=? origin=alert uses=1315
+- deny com.apple.apsd -> 10-courier.push.apple.com ports=5223 dir=? origin=alert uses=19
+- deny com.apple.apsd -> 11-courier.push.apple.com ports=5223 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 14-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 17-courier.push.apple.com ports=5223 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 18-courier.push.apple.com ports=443 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 2-courier.push.apple.com ports=443 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 20-courier.push.apple.com ports=5223 dir=? origin=alert uses=31
+- deny com.apple.apsd -> 23-courier.push.apple.com ports=5223 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 25-courier.push.apple.com ports=5223 dir=? origin=alert uses=31
+- deny com.apple.apsd -> 28-courier.push.apple.com ports=443 dir=? origin=alert uses=37
+- deny com.apple.apsd -> 30-courier.push.apple.com ports=5223 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 32-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 33-courier.push.apple.com ports=443 dir=? origin=alert uses=43
+- deny com.apple.apsd -> 34-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 36-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 37-courier.push.apple.com ports=443 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 38-courier.push.apple.com ports=5223 dir=? origin=alert uses=37
+- deny com.apple.apsd -> 39-courier.push.apple.com ports=any dir=? origin=alert uses=25
+- deny com.apple.apsd -> 39-courier.push.apple.com ports=5223 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 4-courier.push.apple.com ports=5223 dir=? origin=alert uses=19
+- deny com.apple.apsd -> 40-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 41-courier.push.apple.com ports=any dir=? origin=alert uses=25
+- deny com.apple.apsd -> 43-courier.push.apple.com ports=5223 dir=? origin=alert uses=31
+- deny com.apple.apsd -> 46-courier.push.apple.com ports=443 dir=? origin=alert uses=37
+- deny com.apple.apsd -> 47-courier.push.apple.com ports=443 dir=? origin=alert uses=13
+- deny com.apple.apsd -> 48-courier.push.apple.com ports=443 dir=? origin=alert uses=25
+- deny com.apple.apsd -> 49-courier.push.apple.com ports=5223 dir=? origin=alert uses=43
+- deny com.apple.apsd -> 50-courier.push.apple.com ports=443 dir=? origin=alert uses=31
+- deny com.apple.apsd -> 50-courier.push.apple.com ports=5223 dir=? origin=alert uses=37
+- deny com.apple.apsd -> init.push.apple.com ports=443 dir=? origin=alert uses=5777
+- deny com.brave.Browser -> any ports=any dir=? origin=alert uses=2971
+- deny com.brave.Browser -> 2600:9000:252f:200:15:85fe:56c0:93a1 ports=443 dir=? origin=alert uses=2
+- deny com.brave.Browser -> 2600:9000:28bc:4400:12:bd7a:5b00:93a1 ports=any dir=? origin=alert uses=2
+- deny com.brave.Browser -> go-updater.brave.com ports=443 dir=? origin=alert uses=391
+- deny com.brave.Browser -> safebrowsing.brave.com ports=443 dir=? origin=alert uses=37
+- deny com.brave.Browser -> safebrowsing.brave.com ports=443 dir=? origin=alert uses=2
+- deny com.brave.Browser -> updates.bravesoftware.com ports=443 dir=? origin=alert uses=37
+- deny com.brave.Browser -> variations.brave.com ports=443 dir=? origin=alert uses=18

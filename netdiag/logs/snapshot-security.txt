@@ -1,0 +1,71 @@
+=== sudo check ===
+sudo: a password is required
+SUDO-NEEDS-PASSWORD
+=== /Library/LaunchDaemons ===
+total 120
+drwxr-xr-x  17 root  wheel   544 Aug 31 16:37 .
+drwxr-xr-x  66 root  wheel  2112 Aug 31 12:16 ..
+-rw-r--r--   1 root  wheel   621 Aug 31 10:15 at.obdev.littlesnitch.daemon.plist
+-rw-r--r--@  1 root  wheel   778 Aug 31 16:36 com.evw.audit-monitor.plist
+-rw-r--r--@  1 root  wheel   620 Aug 31 16:36 com.evw.comms-guard.plist
+-rw-r--r--@  1 root  wheel   728 Aug 31 16:36 com.evw.dns-guard.plist
+-rw-r--r--@  1 root  wheel   752 Aug 31 16:36 com.evw.ls-watchdog-monitor.plist
+-rw-r--r--@  1 root  wheel   736 Aug 31 16:36 com.evw.ls-watchdog.plist
+-rw-r--r--@  1 root  wheel   855 Aug 31 16:37 com.evw.mac-sentinel.plist
+-rw-r--r--@  1 root  wheel   674 Aug 31 16:36 com.evw.plist-monitor.plist
+-rw-r--r--@  1 root  wheel   717 Aug 31 16:36 com.evw.replayd-guard.plist
+-rw-r--r--@  1 root  wheel   610 Aug 31 16:36 com.ew.binding-monitor.plist
+-rw-r--r--@  1 root  wheel   665 Aug 31 16:36 com.ew.file-sentinel.plist
+-rw-r--r--@  1 root  wheel   574 Aug 31 16:30 com.ew.lockdown.plist
+-rw-r--r--@  1 root  wheel   541 Aug 31 16:36 com.ew.pf-devports.plist
+-rw-r--r--@  1 root  wheel   622 Aug 31 16:30 local.awdl-down.plist
+-rw-r--r--@  1 root  wheel   963 Aug 31 16:36 local.security.harden.plist
+=== /Library/LaunchAgents ===
+total 8
+drwxr-xr-x   3 root  wheel    96 Aug 31 10:15 .
+drwxr-xr-x  66 root  wheel  2112 Aug 31 12:16 ..
+-rw-r--r--   1 root  wheel   543 Aug 31 10:15 at.obdev.littlesnitch.agent.plist
+=== ~/Library/LaunchAgents ===
+total 16
+drwxr-xr-x@  4 evw  staff   128 Aug 31 16:31 .
+drwx------@ 81 evw  staff  2592 Aug 31 16:31 ..
+-rw-r--r--@  1 evw  staff   675 Aug 31 16:31 com.ew.config-sentinel.plist
+-rw-r--r--@  1 evw  staff  1078 Aug 31 16:31 homebrew.mxcl.postgresql@16.plist
+=== loaded non-Apple launchd jobs ===
+PID	Status	Label
+7624	0	application.at.obdev.littlesnitch.165156.165465
+1265	0	application.at.obdev.littlesnitch.networkmonitor.165217.165279
+755	0	at.obdev.littlesnitch.agent
+-	0	com.openssh.ssh-agent
+-	0	com.ew.config-sentinel
+1151	0	application.com.brave.Browser.141799.141811
+78703	0	homebrew.mxcl.postgresql@16
+13143	0	application.com.googlecode.iterm2.675908.675928
+67365	0	application.org.libreoffice.script.145554.149460
+11883	0	application.com.company.doublecmd.829446.829463
+=== security/vpn/filter processes ===
+evw               7624  29.5  0.8 435999280 209536   ??  S     1:57PM  10:15.74 /Applications/Little Snitch.app/Contents/MacOS/Little Snitch -SuppressEnforcedInstallerMode
+evw               1265  15.8  1.5 436378032 371408   ??  S    11:10AM  88:01.53 /Applications/Little Snitch.app/Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor
+root               544   0.9  0.1 435372432  37616   ??  Ss   10:55AM   2:43.27 /Library/SystemExtensions/84E5FFFD-62E7-49A6-B766-2D5BBDC02801/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension
+evw                755   0.4  0.5 435886704 127088   ??  S    10:55AM   7:56.34 /Applications/Little Snitch.app/Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent
+root               573   0.2  0.1 463676096  22320   ??  Ss   10:55AM   1:54.85 /Library/Application Support/Objective Development/Little Snitch/Components/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon
+root             96254   0.0  0.1 435402064  12752   ??  Ss+   4:37PM   1:18.53 /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/Resources/Python.app/Contents/MacOS/Python /usr/local/lib/mac-sentinel/mac-sentinel.py
+evw              78705   0.0  0.0 435495968   2128   ??  Ss    4:31PM   0:00.02 postgres: checkpointer   
+evw              12049   0.0  0.1 435535728  31104   ??  Ss    3:52PM   0:02.85 /System/Library/ExtensionKit/Extensions/TimeMachineSettings.appex/Contents/MacOS/TimeMachineSettings -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5hcHBsZS5UaW1lLU1hY2hpbmUtU2V0dGluZ3MuZXh0ZW5zaW9uIiwidHlwZSI6MiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2V9
+evw              11921   0.0  0.0 435274816   8368   ??  Ss    3:08PM   0:00.06 /System/Library/PrivateFrameworks/CascadeSets.framework/Versions/A/XPCServices/SetStoreUpdateService.xpc/Contents/MacOS/SetStoreUpdateService
+evw              11812   0.0  0.1 435312784  16096   ??  Ss    2:37PM   0:00.68 /System/Library/ExtensionKit/Extensions/HeadphoneSettingsExtension.appex/Contents/MacOS/HeadphoneSettingsExtension -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5hcHBsZS5IZWFkcGhvbmVTZXR0aW5ncyIsImVuaGFuY2VkU2VjdXJpdHkiOmZhbHNlLCJ0eXBlIjoyfQ==
+evw              10151   0.0  0.0 435397520   8608   ??  Ss    2:27PM   0:00.44 /System/Library/PrivateFrameworks/CascadeSets.framework/Versions/A/XPCServices/SetStoreUpdateService.xpc/Contents/MacOS/SetStoreUpdateService
+evw               5609   0.0  0.0 435354464   6736   ??  S     1:32PM   0:00.15 /System/Library/PrivateFrameworks/ScreenTimeSettingsFoundation.framework/Versions/A/ScreenTimeSettingsAgent
+_www              5695   0.0  0.0 435344896  10160   ??  S     1:32PM   0:00.13 /Library/Application Support/Objective Development/Little Snitch/Components/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking
+=== MDM enrollment ===
+Enrolled via DEP: No
+MDM enrollment: No
+=== installed profiles ===
+There are no configuration profiles installed for user 'evw'
+=== pf firewall rules ===
+pfctl: /dev/pf: Permission denied
+=== crontab ===
+crontab: no crontab for evw
+=== arp table ===
+? (10.236.160.51) at 32:a2:8f:a2:2e:b1 on en0 ifscope [ethernet]
+mdns.mcast.net (224.0.0.251) at 1:0:5e:0:0:fb on en0 ifscope permanent [ethernet]

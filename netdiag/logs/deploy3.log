@@ -1,0 +1,18 @@
+=== deploy3.sh started Tue Sep  1 12:38:28 CDT 2026 ===
+installed conn-guard
+installed undo
+installed ls-sync
+patched /etc/pf.conf (backup saved)
+pfctl: Use of -f option, could result in flushing of rules
+present in the main ruleset added by the system at startup.
+See /etc/pf.conf for further details.
+No ALTQ support in kernel
+ALTQ related functions disabled
+block drop out quick from any to <auto_evw_block>
+block drop in quick from <auto_evw_block> to any
+conn-guard daemon loaded
+verified: conn-guard running
+No ALTQ support in kernel
+ALTQ related functions disabled
+Baseline saved. Run --scan to detect changes.
+=== deploy3.sh done Tue Sep  1 12:38:35 CDT 2026 ===

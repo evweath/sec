@@ -1,0 +1,6 @@
+=== install-studentd-guard started Tue Sep  1 11:56:39 CDT 2026 ===
+installed /usr/local/bin/evw-studentd-guard.sh
+wrote /Library/LaunchDaemons/com.evw.studentd-guard.plist
+daemon loaded
+verified: com.evw.studentd-guard running
+=== install-studentd-guard done Tue Sep  1 11:56:41 CDT 2026 ===

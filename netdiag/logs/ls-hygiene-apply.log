@@ -1,0 +1,18 @@
+=== ls-hygiene-apply Tue Sep  1 12:58:50 CDT 2026 ===
+model backup saved
+DELETE=16 REVIEW=42 kept=524
+model restored
+post-restore rule count: 524 (expect 524)
+=== ls-hygiene-apply done Tue Sep  1 12:58:50 CDT 2026 ===
+=== ls-hygiene-apply Tue Sep  1 13:17:47 CDT 2026 ===
+model backup saved
+DELETE=10 ADD-DENY=4 REVIEW=42 kept=547
+model restored
+post-restore rules: 547  auto-deny rules: 4  tracker allows left: 0
+=== ls-hygiene-apply done Tue Sep  1 13:17:47 CDT 2026 ===
+=== ls-hygiene-apply Tue Sep  1 13:21:14 CDT 2026 ===
+model backup saved
+DELETE=1 ADD-DENY=0 REVIEW=42 kept=548
+model restored
+post-restore rules: 548  auto-deny rules: 4  tracker allows left: 0
+=== ls-hygiene-apply done Tue Sep  1 13:21:15 CDT 2026 ===

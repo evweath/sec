@@ -1,0 +1,26 @@
+=== deploy4.sh Tue Sep  1 12:41:34 CDT 2026 ===
+updated conn-guard
+updated undo
+conn-guard restarted
+verified: conn-guard running
+── live table test (TEST-NET-3, harmless):
+No ALTQ support in kernel
+ALTQ related functions disabled
+1/1 addresses added.
+  table now:
+   203.0.113.99
+  ping: no answer (expected — TEST-NET is unroutable anyway)
+No ALTQ support in kernel
+ALTQ related functions disabled
+1/1 addresses deleted.
+  table after delete:
+── undo tool smoke test:
+== active auto blocks (pf table auto_evw_block) ==
+
+== state file ==
+  (no state)
+
+== last 15 actions ==
+2026-09-01T17:38:28.496971Z [auto-1788284308-1] GUARD_START score=- ip=- port=- proc=- pid=80054 reasons= undo=-
+2026-09-01T17:41:34.284213Z [auto-1788284494-1] GUARD_START score=- ip=- port=- proc=- pid=84692 reasons= undo=-
+=== deploy4.sh done Tue Sep  1 12:41:40 CDT 2026 ===

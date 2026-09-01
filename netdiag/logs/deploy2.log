@@ -1,0 +1,14 @@
+=== deploy2.sh started Tue Sep  1 12:17:44 CDT 2026 ===
+installed mac-sentinel.py
+installed ip_intel.py
+installed evw-file-vault.py
+installed vault-restore.sh
+wrote com.evw.file-vault.plist
+file-vault daemon loaded
+mac-sentinel restarted
+verified: file-vault running
+verified: mac-sentinel running
+065442ef6785d7a2
+0a9add417825ac4e
+0b7d80b910b633b8
+=== deploy2.sh done Tue Sep  1 12:17:48 CDT 2026 ===
