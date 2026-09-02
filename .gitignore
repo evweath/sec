@@ -17,3 +17,6 @@ __pycache__/
 tools-zips/
 scripts/childcustody.zip
 sec/
+
+# Oversized encrypted archives kept local-only (GitHub 100MB limit)
+memory/scans/*-pcap-full.enc
