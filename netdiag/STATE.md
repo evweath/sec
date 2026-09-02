@@ -391,3 +391,11 @@ Assist, DWService, Supremo, MS RDP client. SKIPPED: com.apple.RemoteDesktop
 (substring collision with already-denied RemoteDesktopAgent) — non-issue: the
 ARD admin app is not installed. Backup: /var/log/mac-sentinel/ls-model-pre-
 denyss-*.json; undo: netdiag/logs/ls-deny-screenshare-undo.json.
+
+## 2026-09-01 17:42 — final consolidation: fix/ fully merged into security/
+All netdiag content merged (--update; security STATE.md remains canonical).
+Live monitor now runs from security/netdiag/monitor.sh (pid in logs/monitor.pid)
+— /Users/evw/dev/fix is now PURELY an archive and can be deleted safely (the
+running monitor no longer depends on it). Menu additions: ls-deny-remote.py,
+ls-deny-screenshare.py, evw-auto-ls-sync.sh — every tool built today is now
+accessible via security-menu.sh.

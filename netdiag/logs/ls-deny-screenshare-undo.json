@@ -1,0 +1,31 @@
+{
+  "added": [
+    "com.apple.ScreenSharing",
+    "com.apple.screensharing.agent",
+    "com.apple.screensharing.menuextra",
+    "com.teamviewer.TeamViewer",
+    "com.teamviewer.TeamViewerHost",
+    "com.teamviewer.Desktop",
+    "com.philandro.anydesk",
+    "org.chromium.chromoting",
+    "com.google.ChromeRemoteDesktopHost",
+    "com.realvnc.vncviewer",
+    "com.realvnc.vncserver",
+    "com.splashtop.Splashtop-Streamer",
+    "com.splashtop.Splashtop-Personal",
+    "com.logmein.LogMeIn",
+    "com.logmein.LogMeInRescueApplet",
+    "com.gotomypc.GoToMyPC",
+    "com.rustdesk.rustdesk",
+    "tv.parsec.www",
+    "com.nomachine.nxplayer",
+    "com.nomachine.nxserver",
+    "com.zoho.assist",
+    "com.dwservice.agent",
+    "com.supremo.Supremo",
+    "com.microsoft.rdc.macos"
+  ],
+  "skipped_already_denied": [
+    "com.apple.RemoteDesktop"
+  ]
+}

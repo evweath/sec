@@ -1,0 +1,19 @@
+=== deploy7.sh Tue Sep  1 15:55:07 CDT 2026 ===
+installed mac-sentinel.py
+installed display script
+wrote com.evw.sentinel-alert-term.plist
+agent loaded (alert Terminal should open now)
+mac-sentinel restarted
+verified: sentinel running
+test entry appended to feed
+── display log content (should show header + numbered test entry):
+ mac-sentinel SECURITY ALERTS — live display
+ Display log (this content): /Users/evw/Library/Logs/mac-sentinel-alert-display.log
+ Alert feed (source):        /Users/evw/Library/Logs/mac-sentinel-alert-feed.log
+ Numbering restarts at 1 each boot. Session start: Tuesday, September 01, 2026 03:55:07 PM
+================================================================================
+#1  {"ts_human": "Tuesday, September 01, 2026 03:55:07 PM CST", "severity": "WARNING", "data": {"event": "NEW_CONNECTION", "remote_ip": "2620:fe::10", "remote_port": 443, "process": "at.obdev.littlesnitch.networkex", "user": "root", "pid": 544, "ip_intel": {"kind": "global", "ptr": "dns10.quad9.net", "fcrdns_ok": false, "net_name": "PCH-PUBLIC-RESOLVER", "handle": "NET6-2620-FE-1", "country": "", "cidr": "2620:FE::/48", "org": "Quad9", "enriched_ts": 1788283070}, "kill_hint": "sudo kill -9 544", "block_hint": "sudo pfctl -t badhosts -T add 2620:fe::10"}}
+#2  {"ts_human": "Tuesday, September 01, 2026 03:55:07 PM CST", "severity": "WARNING", "data": {"event": "ROOT_PROCESS_DETECTED", "pid": 514, "process": "aud", "exe": "/usr/libexec/aud", "cmdline": "/usr/libexec/audioclocksyncd", "lineage": []}}
+#3  {"ts_human": "Tuesday, September 01, 2026 03:55:11 PM CST", "severity": "INFO", "data": {"event": "DISPLAY-PIPELINE-TEST", "note": "synthetic entry verifying feed -> terminal -> display log"}}
+Another instance is running — skipping.
+=== deploy7.sh done Tue Sep  1 15:55:14 CDT 2026 ===

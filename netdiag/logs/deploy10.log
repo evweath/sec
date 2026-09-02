@@ -1,0 +1,24 @@
+=== deploy10.sh Tue Sep  1 16:42:27 CDT 2026 ===
+── killing running remote-connectivity processes (bluetoothd excluded):
+  killed studentd (88924)
+  killed remoted (353)
+  killed AirPlayUIAgent (10274)
+  killed AirPlayXPCHelper (64304)
+  killed rapportd (10233)
+  killed sharingd (10073)
+  killed identityservicesd (64673)
+  killed nearbyd (64686)
+  killed mediaremoted (64404)
+  killed avconferenced (828)
+guard updated (full remote set)
+guard restarted
+── verify: remote-connectivity processes still running (expect only bluetoothd/fairplayd):
+64220 root             /usr/sbin/bluetoothd
+96665 _fpsd            /System/Library/PrivateFrameworks/CoreFP.framework/Versions/A/fairplayd
+── guard log:
+2026-09-01T16:42:28-05:00 KILL rapportd PID=89353 PPID=1
+2026-09-01T16:42:28-05:00 KILL sharingd PID=89364 PPID=1
+2026-09-01T16:42:28-05:00 KILL identityservicesd PID=89375 PPID=1
+2026-09-01T16:42:28-05:00 KILL nearbyd PID=89401 PPID=1
+2026-09-01T16:42:28-05:00 KILL mediaremoted PID=89383 PPID=1
+=== deploy10.sh done Tue Sep  1 16:42:34 CDT 2026 ===

@@ -1,0 +1,9 @@
+=== deploy6.sh Tue Sep  1 15:41:29 CDT 2026 ===
+installed ls-hygiene.py
+installed guard
+daemon loaded
+verified: running
+── first log lines:
+2026-09-01T15:41:29-05:00 === evw-ls-hygiene-guard started (PID=11492, interval=300s) ===
+2026-09-01T15:41:29-05:00 APPLIED: DELETE=2 ADD-DENY=0 (backup ls-model-pre-hygiene-20260901-154129.json)
+=== deploy6.sh done Tue Sep  1 15:41:35 CDT 2026 ===

@@ -1,0 +1,21 @@
+{
+  "added": [
+    "com.apple.studentd",
+    "com.apple.remoted",
+    "com.apple.RemoteDesktopAgent",
+    "com.apple.remotemanagementd",
+    "com.apple.RemoteManagementAgent",
+    "com.apple.AirPlayUIAgent",
+    "com.apple.AirPlayXPCHelper",
+    "com.apple.rapportd",
+    "com.apple.sharingd",
+    "com.apple.identityservicesd",
+    "com.apple.nearbyd",
+    "com.apple.mediaremoted",
+    "com.apple.avconferenced",
+    "com.apple.smbd",
+    "com.apple.netbiosd",
+    "com.apple.screensharing.daemon"
+  ],
+  "skipped_already_denied": []
+}

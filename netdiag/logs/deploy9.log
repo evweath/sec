@@ -1,0 +1,13 @@
+=== deploy9.sh Tue Sep  1 16:28:18 CDT 2026 ===
+installed display script (self-resizing)
+plist reverted to open -a Terminal (no Apple events)
+agent reloaded — new self-sizing terminal should open
+── launchd log (expect clean — no -1743):
+45:101: execution error: Not authorized to send Apple events to Terminal. (-1743)
+45:101: execution error: Not authorized to send Apple events to Terminal. (-1743)
+── display log tail (new session header with legend):
+#1  {"ts_human": "Tuesday, September 01, 2026 03:55:07 PM CST", "severity": "WARNING", "data": {"event": "NEW_CONNECTION", "remote_ip": "2620:fe::10", "remote_port": 443, "process": "at.obdev.littlesnitch.networkex", "user": "root", "pid": 544, "ip_intel": {"kind": "global", "ptr": "dns10.quad9.net", "fcrdns_ok": false, "net_name": "PCH-PUBLIC-RESOLVER", "handle": "NET6-2620-FE-1", "country": "", "cidr": "2620:FE::/48", "org": "Quad9", "enriched_ts": 1788283070}, "kill_hint": "sudo kill -9 544", "block_hint": "sudo pfctl -t badhosts -T add 2620:fe::10"}}
+--
+ Numbering restarts at 1 each boot. Session start: Tuesday, September 01, 2026 04:28:19 PM
+================================================================================
+=== deploy9.sh done Tue Sep  1 16:28:22 CDT 2026 ===

@@ -1,0 +1,22 @@
+=== ls-deny-remote-apply Tue Sep  1 17:26:14 CDT 2026 ===
+model backup saved
+ADDED=16 SKIP=0 total_rules=577
+  + deny any-remote: com.apple.studentd
+  + deny any-remote: com.apple.remoted
+  + deny any-remote: com.apple.RemoteDesktopAgent
+  + deny any-remote: com.apple.remotemanagementd
+  + deny any-remote: com.apple.RemoteManagementAgent
+  + deny any-remote: com.apple.AirPlayUIAgent
+  + deny any-remote: com.apple.AirPlayXPCHelper
+  + deny any-remote: com.apple.rapportd
+  + deny any-remote: com.apple.sharingd
+  + deny any-remote: com.apple.identityservicesd
+  + deny any-remote: com.apple.nearbyd
+  + deny any-remote: com.apple.mediaremoted
+  + deny any-remote: com.apple.avconferenced
+  + deny any-remote: com.apple.smbd
+  + deny any-remote: com.apple.netbiosd
+  + deny any-remote: com.apple.screensharing.daemon
+model restored
+verify: rules = 577  [AUTO-EVW] blanket denies = 16
+=== ls-deny-remote-apply done Tue Sep  1 17:26:15 CDT 2026 ===

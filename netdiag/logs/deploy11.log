@@ -1,0 +1,13 @@
+=== deploy11.sh Tue Sep  1 17:12:23 CDT 2026 ===
+guard updated (INTERVAL=60)
+system/com.apple.remoted disabled
+remoted killed
+guard restarted @60s
+INTERVAL=60    # seconds — Apple's continuity stack respawns ~every 2 min and
+30178 /bin/bash /usr/local/bin/evw-studentd-guard.sh
+── guard log tail:
+2026-09-01T17:12:24-05:00 KILL sharingd PID=24001 PPID=1
+2026-09-01T17:12:24-05:00 KILL identityservicesd PID=24018 PPID=1
+2026-09-01T17:12:24-05:00 KILL nearbyd PID=24078 PPID=1
+2026-09-01T17:12:24-05:00 KILL mediaremoted PID=24051 PPID=1
+=== deploy11.sh done Tue Sep  1 17:12:28 CDT 2026 ===

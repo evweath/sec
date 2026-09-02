@@ -1,0 +1,30 @@
+=== ls-deny-screenshare-apply Tue Sep  1 17:36:47 CDT 2026 ===
+model backup saved
+ADDED=24 SKIP=1 total_rules=601
+  + deny any-remote: com.apple.ScreenSharing
+  + deny any-remote: com.apple.screensharing.agent
+  + deny any-remote: com.apple.screensharing.menuextra
+  + deny any-remote: com.teamviewer.TeamViewer
+  + deny any-remote: com.teamviewer.TeamViewerHost
+  + deny any-remote: com.teamviewer.Desktop
+  + deny any-remote: com.philandro.anydesk
+  + deny any-remote: org.chromium.chromoting
+  + deny any-remote: com.google.ChromeRemoteDesktopHost
+  + deny any-remote: com.realvnc.vncviewer
+  + deny any-remote: com.realvnc.vncserver
+  + deny any-remote: com.splashtop.Splashtop-Streamer
+  + deny any-remote: com.splashtop.Splashtop-Personal
+  + deny any-remote: com.logmein.LogMeIn
+  + deny any-remote: com.logmein.LogMeInRescueApplet
+  + deny any-remote: com.gotomypc.GoToMyPC
+  + deny any-remote: com.rustdesk.rustdesk
+  + deny any-remote: tv.parsec.www
+  + deny any-remote: com.nomachine.nxplayer
+  + deny any-remote: com.nomachine.nxserver
+  + deny any-remote: com.zoho.assist
+  + deny any-remote: com.dwservice.agent
+  + deny any-remote: com.supremo.Supremo
+  + deny any-remote: com.microsoft.rdc.macos
+model restored
+verify: rules = 601  screen-share denies = 24
+=== ls-deny-screenshare-apply done Tue Sep  1 17:36:48 CDT 2026 ===
