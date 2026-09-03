@@ -161,7 +161,11 @@ disable_sharing() {
         pass "Remote Login (SSH) is OFF."
     else
         action "Disabling Remote Login (SSH)..."
-        systemsetup -setremotelogin off 2>/dev/null || true
+        # -f skips the interactive "(yes/no)?" confirmation — without it a
+        # non-interactive run re-prints the prompt forever (flooded logs with
+        # GBs of prompt spam; same class of output flood behind the
+        # 2026-09-02 memory-exhaustion panic).
+        systemsetup -f -setremotelogin off 2>/dev/null || true
         warn "Remote Login was ON — now disabled."
     fi
 

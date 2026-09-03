@@ -30,6 +30,28 @@ log() { printf '%s %s\n' "$(date -Iseconds)" "$*" >> "$LOG"; }
 log "=== evw-plist-monitor started (PID=$$) ==="
 log "Target: /var/db/com.apple.xpc.launchd/$TARGET"
 
+# fs_usage buffers the whole-system fs trace in userspace and grows without
+# bound (117 GB RSS on 2026-09-02 — primary driver of the watchdog-timeout
+# kernel panic that night). Cap it: once fs_usage exceeds MAX_RSS_KB, kill it
+# and exit; launchd KeepAlive restarts the pipeline within seconds.
+MAX_RSS_KB=2097152   # 2 GB
+(
+    while sleep 60; do
+        rss=0
+        for p in $(pgrep -x fs_usage 2>/dev/null); do
+            r=$(ps -o rss= -p "$p" 2>/dev/null | tr -d ' ')
+            rss=$((rss + ${r:-0}))
+        done
+        if [ "$rss" -gt "$MAX_RSS_KB" ]; then
+            log "fs_usage RSS ${rss}KB exceeds cap ${MAX_RSS_KB}KB — restarting pipeline"
+            pkill -x fs_usage 2>/dev/null
+            exit 0
+        fi
+    done
+) &
+CAPPID=$!
+trap 'kill "$CAPPID" 2>/dev/null' EXIT
+
 # fs_usage -w: wide output (full path); -f filesys: filesystem calls only.
 # Output includes: timestamp, syscall, process_name, pid
 guard_run "fs-usage" /usr/bin/fs_usage -w -f filesys 2>/dev/null \

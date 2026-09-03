@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "alerts": {"persist_minutes": 30, "repost_seconds": 60},
+  "self_protection": {"job_failure_breaker": 5, "breaker_cooldown_seconds": 3600, "ls_restore_min_interval_seconds": 300, "max_kills_per_minute": 20},
+  "screenshare": {
+    "kill_on_sight": ["screensharingd","ARDAgent","AppleVNCServer","remoting_host","remotingd","ChromeRemoteDesktopHost","TeamViewer","TeamViewer_Desktop","TeamViewerService","AnyDesk","anydesk","RustDesk","rustdesk","Parsec","parsec","JumpDesktop","Splashtop","LogMeIn","VNC Server","vncserver","RealVNC","tightvnc","OSXvnc"],
+    "alert_only": ["zoom.us","ZoomDaemon","Microsoft Teams","Teams","Webex","webexmta","Discord","Skype","FaceTime"],
+    "tcc_allowlist_prefixes": ["com.apple."],
+    "tcc_kill": true,
+    "ports": [5900,3283,3389,5938,6568,7070],
+    "ls_both_way_deny_identifiers": ["APPLE/com.apple.screensharingd","APPLE/com.apple.ARDAgent","APPLE/com.apple.AppleVNCServer","com.google.ChromeRemoteDesktopHost","com.teamviewer.TeamViewer","com.teamviewer.TeamViewerHost","com.anydesk.AnyDesk","com.carriez.rustdesk","com.splashtop.Splashtop-Streamer","com.logmein.LogMeIn","com.realvnc.vncserver","com.realvnc.VNCViewer"]
+  },
+  "jobs": {
+    "guards-check":       {"enabled": true, "interval_seconds": 300},
+    "screenshare-scan":   {"enabled": true, "interval_seconds": 30},
+    "sentinel-deny-sync": {"enabled": true, "interval_seconds": 300},
+    "ls-change-watch":    {"enabled": true, "interval_seconds": 60, "settle_seconds": 180, "max_settle_seconds": 900},
+    "crash-watch":        {"enabled": true, "interval_seconds": 60},
+    "health-score":       {"enabled": true, "interval_seconds": 300},
+    "audit-alerts-digest":{"enabled": true, "interval_seconds": 3600},
+    "weekly-review":      {"enabled": true, "weekday": "sunday", "time": "09:15"}
+  }
+}

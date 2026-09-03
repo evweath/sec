@@ -129,9 +129,14 @@ def notify(title: str, msg: str) -> None:
         pass
 
 
+# os.O_EVTONLY (0x8000 on macOS) is missing from some Apple Python builds —
+# use the literal constant in that case instead of crashing at startup.
+_O_EVTONLY = getattr(os, "O_EVTONLY", 0x8000)
+
+
 def _open_evtonly(path: str) -> int | None:
     try:
-        return os.open(path, os.O_RDONLY | os.O_EVTONLY)
+        return os.open(path, os.O_RDONLY | _O_EVTONLY)
     except OSError:
         return None
 

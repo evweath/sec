@@ -30,31 +30,45 @@ probe() { "$@" 2>/dev/null; [ $? -le 1 ]; }
 
 log "=== evw-replayd-guard started (PID=$$) ==="
 
+# Full forensic context (lsof/TCC/parent) is expensive and replayd respawns
+# every few seconds — dumping it per kill produced a 171 MB log in <2 days.
+# Capture full context at most once per SNAP_INTERVAL; plain kill lines
+# otherwise.
+SNAP_INTERVAL=600
+LAST_SNAP=0
+
 while true; do
     PID=$(guard_run "probe-replayd" probe pgrep -x replayd || true)
     if [ -n "$PID" ]; then
-        log "ALERT: replayd running PID=$PID — capturing context before kill"
+        now=$(date +%s)
+        if [ $((now - LAST_SNAP)) -ge $SNAP_INTERVAL ]; then
+            LAST_SNAP=$now
+            log "ALERT: replayd running PID=$PID — capturing context before kill"
 
-        # Log parent chain and immediate spawn reason (identifies which Mach port triggered)
-        PARENT_PID=$(ps -p "$PID" -o ppid= 2>/dev/null | tr -d ' ')
-        log "  ppid=$PARENT_PID parent_cmd=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)"
-        REASON=$(launchctl print gui/501/com.apple.replayd 2>/dev/null | grep "immediate reason" | tr -d '\t')
-        log "  spawn_reason: ${REASON:-unknown}"
+            # Log parent chain and immediate spawn reason (identifies which Mach port triggered)
+            PARENT_PID=$(ps -p "$PID" -o ppid= 2>/dev/null | tr -d ' ')
+            log "  ppid=$PARENT_PID parent_cmd=$(ps -p "$PARENT_PID" -o comm= 2>/dev/null)"
+            REASON=$(launchctl print gui/501/com.apple.replayd 2>/dev/null | grep "immediate reason" | tr -d '\t')
+            log "  spawn_reason: ${REASON:-unknown}"
 
-        # Log open files (video/surface evidence)
-        guard_run "lsof-files" lsof -p "$PID" 2>/dev/null | grep -iE "\.mov|\.mp4|\.m4v|IOSurface|screen|video|capture" \
-            | while IFS= read -r line; do log "  lsof: $line"; done
+            # Log open files (video/surface evidence)
+            guard_run "lsof-files" lsof -p "$PID" 2>/dev/null | grep -iE "\.mov|\.mp4|\.m4v|IOSurface|screen|video|capture" \
+                | while IFS= read -r line; do log "  lsof: $line"; done
 
-        # Log network connections
-        guard_run "lsof-net" probe lsof -i -n -P -p "$PID" \
-            | while IFS= read -r line; do log "  net: $line"; done
+            # Log network connections
+            guard_run "lsof-net" probe lsof -i -n -P -p "$PID" \
+                | while IFS= read -r line; do log "  net: $line"; done
 
-        # Log TCC-relevant processes that have screen capture grant
-        guard_run "tcc-db" sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
-            "SELECT client, auth_value FROM access WHERE service='kTCCServiceScreenCapture' AND auth_value=2;" \
-            2>/dev/null | while IFS= read -r line; do log "  tcc-grant: $line"; done
+            # Log TCC-relevant processes that have screen capture grant
+            guard_run "tcc-db" sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" \
+                "SELECT client, auth_value FROM access WHERE service='kTCCServiceScreenCapture' AND auth_value=2;" \
+                2>/dev/null | while IFS= read -r line; do log "  tcc-grant: $line"; done
 
-        guard_run "kill-replayd" kill -9 "$PID" 2>/dev/null && log "  killed PID=$PID" || log "  kill failed PID=$PID"
+            guard_run "kill-replayd" kill -9 "$PID" 2>/dev/null && log "  killed PID=$PID" || log "  kill failed PID=$PID"
+        else
+            guard_run "kill-replayd" kill -9 "$PID" 2>/dev/null \
+                && log "killed replayd PID=$PID" || log "kill failed PID=$PID"
+        fi
     fi
     sleep 5
 done
