@@ -1,0 +1,7 @@
+Brave Browser.app
+Double Commander.app
+iTerm.app
+LibreOffice.app
+Little Snitch.app
+Safari.app
+Utilities

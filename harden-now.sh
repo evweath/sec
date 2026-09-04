@@ -38,13 +38,19 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # ── 1. Pinned DNS on every active service ───────────────────────────────────
-info "Pinning DNS (1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9) on all active network services"
-networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
-    [[ "$svc" == \** ]] && continue   # disabled service
-    guard_run "setdnsservers" networksetup -setdnsservers "$svc" $DNS_SERVERS || true
-    echo "    $svc -> $(networksetup -getdnsservers "$svc" | tr '\n' ' ')"
-done
-ok "DNS pinned"
+# NAT64 safety gate (2026-07-03 incident): pinned non-DNS64 resolvers break
+# IPv4-only hosts on IPv6-only/NAT64 networks. Only pin on dual-stack links.
+if netstat -rn -f inet 2>/dev/null | grep -q '^default'; then
+    info "Pinning DNS (1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9) on all active network services"
+    networksetup -listallnetworkservices | tail -n +2 | while IFS= read -r svc; do
+        [[ "$svc" == \** ]] && continue   # disabled service
+        guard_run "setdnsservers" networksetup -setdnsservers "$svc" $DNS_SERVERS || true
+        echo "    $svc -> $(networksetup -getdnsservers "$svc" | tr '\n' ' ')"
+    done
+    ok "DNS pinned"
+else
+    warn "No IPv4 default route — IPv6-only/NAT64 network: leaving DHCP/ISP DNS64 in place (NOT pinning)"
+fi
 
 # ── 2. Prune ALF app allow-list ───────────────────────────────────────────────
 info "Pruning Application Firewall allow-list (block-all stays on)"

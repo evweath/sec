@@ -1,0 +1,10 @@
+# Bourne-Again SHell, a UNIX command interpreter
+brew "bash"
+# Monitor a directory for changes and run a shell command
+brew "fswatch"
+# GitHub command-line tool
+brew "gh"
+# Open-source, cross-platform JavaScript runtime environment
+brew "node"
+# Object-relational database system
+brew "postgresql@16", restart_service: :changed, link: true

@@ -20,3 +20,8 @@ sec/
 
 # Oversized encrypted archives kept local-only (GitHub 100MB limit)
 memory/scans/*-pcap-full.enc
+
+# Rebuild run artifacts + license file (never leaves this Mac)
+rebuild/logs/
+rebuild/state/ls-registration.xpl
+rebuild/LAST-RUN-MANUAL-STEPS.txt

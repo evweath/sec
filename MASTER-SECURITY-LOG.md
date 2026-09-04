@@ -1098,3 +1098,42 @@ apps are what spiral — killing them never weakens protection.
 - User to run the apply script above (sudo)
 - OTS upgrade (Bitcoin block confirmation)
 - Re-enroll Touch ID; audit iCloud Keychain; Citizen Lab / Access Now contact
+
+---
+
+## SESSION 2026-09-03 (cont.) — File-integrity & rollback system BUILT + rebuild-from-zero kit
+
+### evw-integrity (P0–P5 per FILE-INTEGRITY-ROLLBACK-PLAN.md)
+- **evw-integrity.py** — whole-disk scanner: 3-speed detection (pulse 120 s Tier A,
+  sweep 900 s B/C, full daily A–D), sqlite stat+hash index, git-mirror snapshot
+  store at /var/db/evw-integrity, unified diffs in reports (plists normalized),
+  OTS hook (pending client reinstall), mass-change INCIDENT freeze, deploy.marker
+  auto-approval protocol (install-all.sh patched).
+- **Self-heal**: protected scope (persistence dirs, /usr/local/bin, /private/etc)
+  auto-restored from last commit — NEW quarantined, CHANGED restored, REMOVED
+  restored — before any snapshot, so tampered content never enters history.
+- **evw-rollback.py** — granular restore: list / --paths / --all / --since
+  (seed|known-good|sha); dry-run default; quarantines current content; restores
+  perms+uid/gid; plist-lint + hash verify; UNDO.json per run; re-baselines the
+  store post-restore (the invariant that keeps scanner and rollback consistent).
+- **Tests**: tests/test-integrity.sh — 34/34 round-trips pass (detection, diffs,
+  rollback, heal ×3, deploy window, full --all rollback → clean sweep, verify).
+- **Deploy**: `sudo bash evw-integrity-setup.sh` (store + 4 LaunchDaemons +
+  baseline seed). Canary: `sudo /usr/local/bin/evw-integrity.py canary`.
+
+### rebuild-from-zero kit
+- **rebuild-mac.sh** — fresh macOS → current state in ~15–25 min: CLT/Homebrew,
+  toolkit restore (source/clone), LS license + rule model, install-all + setups +
+  harden-now, full posture (disabled.501+schg, BT/pmset/lock/mDNS/AirDrop/UC/SSH,
+  hosts, kext purge), user LaunchAgents, verify + manual checklist. Idempotent.
+- **rebuild/capture-state.sh** — snapshots restorable state into rebuild/state/
+  (ran: LS model + license + Brewfile + 5 agents + etc + seeded disabled.501).
+- **rebuild/README.md** — procedure, timing, non-automatable steps, refresh cadence.
+- **harden-now.sh NAT64 gate** — DNS pin now skipped on IPv6-only/NAT64 networks
+  (encodes the 2026-07-03 V-010 outage lesson; was a rebuild hazard).
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/ls-apply-security-rescan.sh` (LS rescan apply)
+- `sudo bash /Users/evw/dev/security/evw-integrity-setup.sh` (integrity deploy)
+- `sudo bash /Users/evw/dev/security/rebuild/capture-state.sh` (root-quality state refresh)
+- Reinstall opentimestamps-client (OTS anchoring everywhere is dormant without it)

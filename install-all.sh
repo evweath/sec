@@ -87,6 +87,12 @@ if [[ "${1:-}" != "--yes" ]]; then
     fi
 fi
 
+# evw-integrity deploy marker: changes during this install are admin-approved
+if [[ -d /var/db/evw-integrity ]]; then
+    date +%s > /var/db/evw-integrity/deploy.marker
+    trap 'rm -f /var/db/evw-integrity/deploy.marker' EXIT
+fi
+
 guard_run "install-bindir" install -d -m 755 -o root -g wheel "$BIN" || true
 
 # error-guard lib: daemons installed to /usr/local/bin walk up and source the

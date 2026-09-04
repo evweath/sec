@@ -1,0 +1,7 @@
+# [AUTO-EVW] outbound/inbound blocks applied by evw-auto-conn-guard.
+# Table entries carry a 1h TTL in the guard's state file; undo via
+#   sudo evw-auto-undo.sh <action_id|all-blocks>
+# Remove the stanza in /etc/pf.conf + this file to disable permanently.
+table <auto_evw_block> persist
+block drop out quick from any to <auto_evw_block>
+block drop in  quick from <auto_evw_block> to any

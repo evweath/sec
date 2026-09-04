@@ -1,0 +1,22 @@
+# com.ew.devports — PF anchor: block external inbound on dev/API ports.
+#
+# Even if a process binds to 0.0.0.0, connections arriving on any physical
+# interface are dropped here BEFORE reaching the socket. Loopback is always
+# allowed so localhost-only services continue to work.
+#
+# To permanently allow a port from the LAN, add a pass rule ABOVE the block:
+#   pass in quick on en0 proto tcp from 192.168.1.0/24 to any port 8000
+#
+# Reload after changes:
+#   sudo pfctl -a com.ew.devports -f /etc/pf.anchors/com.ew.devports
+
+# ── Loopback always passes ────────────────────────────────────────────────────
+pass in  quick on lo0 all
+pass out quick on lo0 all
+
+# ── Dev / API ports that must never be externally reachable ──────────────────
+# macOS pfctl does not support table declarations inside anchor files.
+# Port list is inlined directly into the block rules instead.
+block in  quick proto tcp  from any to any port { 8000, 8001, 8080, 8081, 8443, 3000, 3001, 4000, 4200, 5000, 5173, 5174, 8743, 9000, 9001, 6379, 5432, 3306, 27017, 8888, 8889 }
+# Block inbound UDP too (covers QUIC)
+block in  quick proto udp  from any to any port { 8000, 8001, 8080, 8081, 8443, 3000, 3001, 4000, 4200, 5000, 5173, 5174, 8743, 9000, 9001, 6379, 5432, 3306, 27017, 8888, 8889 }
