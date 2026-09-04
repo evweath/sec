@@ -8,3 +8,11 @@ brew "gh"
 brew "node"
 # Object-relational database system
 brew "postgresql@16", restart_service: :changed, link: true
+
+# GUI apps present in /Applications (were not brew-managed; declared here so
+# rebuild --full-apps restores them)
+cask "brave-browser"
+cask "iterm2"
+cask "libreoffice"
+cask "double-commander"
+cask "little-snitch"
