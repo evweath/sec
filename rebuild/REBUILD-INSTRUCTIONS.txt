@@ -1,0 +1,155 @@
+================================================================================
+                HOW TO REBUILD THIS MAC FROM SCRATCH
+================================================================================
+Written: 2026-09-04.  Plain-language edition — no prior experience needed.
+Everything referenced below lives on this USB drive, in the folder:  sec/
+
+WHAT THIS DOES
+--------------
+Rebuilds the Mac's COMPLETE SECURITY SETUP on a freshly installed macOS:
+  - Little Snitch firewall, its license, and all ~1,300 firewall rules
+  - all security guard programs and background services
+  - all hardening settings (Bluetooth off, AirDrop off, remote access off,
+    disabled system services, firewall anchors, etc.)
+
+WHAT THIS DOES NOT DO
+---------------------
+  - Does NOT restore personal files: documents, photos, code projects,
+    browser data, email. Those are not on this drive. Restore those from
+    your Time Machine backup (or Migration Assistant) FIRST if needed,
+    then come back to these instructions.
+  - Does NOT sign you into anything. That is intentional — do NOT sign into
+    iCloud, FaceTime, iMessage, or any Apple service during or after setup.
+
+WHAT YOU NEED
+-------------
+  1. The Mac, freshly erased with a clean macOS installed
+     (Apple menu → Erase All Content and Settings, or reinstall from
+     Recovery: power on holding the power button → Options → Reinstall macOS).
+  2. This USB drive.
+  3. About 30 minutes, plus your login password.
+  4. Internet connection (Wi-Fi is fine) — needed for the apps step only.
+
+================================================================================
+PART 1 — FIRST BOOT ON THE FRESH MAC
+================================================================================
+
+1. When the new macOS starts for the first time, go through Apple's setup:
+   - Language, country, Wi-Fi: choose as normal.
+   - When asked to sign in with an Apple ID: SKIP / SET UP LATER.
+     (Do not sign into iCloud.)
+   - When asked to transfer data from another Mac: choose NO / skip
+     (unless you are restoring personal files from Time Machine — do that
+     first, separately, then return here).
+   - Create the computer account with the username:   evw
+     Use the same password as before if you remember it.
+   - Skip Siri, skip analytics/sharing prompts, skip Screen Time.
+2. You will arrive at the desktop. Plug in this USB drive.
+
+================================================================================
+PART 2 — COPY THE SECURITY FOLDER ONTO THE MAC
+================================================================================
+
+1. Open Terminal:
+   Press  Command+Space  to open Spotlight, type   Terminal   and press Enter.
+2. Copy and paste this line exactly (it copies the security folder from the
+   USB drive to the Mac), then press Enter:
+
+     mkdir -p ~/dev && rsync -a /Volumes/Passport/sec/ ~/dev/security/
+
+   (If this drive is named "restore" instead of "Passport", use:
+      mkdir -p ~/dev && rsync -a /Volumes/restore/sec/ ~/dev/security/   )
+3. Wait 10–30 seconds until the cursor returns. Nothing is printed — that
+   means it worked.
+
+================================================================================
+PART 3 — RUN THE REBUILD SCRIPT
+================================================================================
+
+1. In the same Terminal window, paste this and press Enter:
+
+     bash ~/dev/security/rebuild-mac.sh --full-apps
+
+2. It will ask for your login password several minutes in. Type it and press
+   Enter. NOTHING APPEARS ON SCREEN WHILE YOU TYPE — that is normal on a Mac.
+   (The script keeps the password alive so you only type it once or twice.)
+3. The script runs 8 phases and prints a line for each step (ok = good,
+   [!] = needs attention but usually fine). Expect 15–25 minutes.
+   It will pause once with:   Type APPLY to import these changes...
+   Type  APPLY  and press Enter if it asks.
+4. At the end it prints "VERIFY: all core daemons registered" and a manual
+   checklist. If some lines say "NOT up", don't worry — finish Part 4 and
+   run the same command again (the script is safe to re-run; it fixes itself).
+
+================================================================================
+PART 4 — THE FEW THINGS ONLY A HUMAN CAN CLICK (about 5 minutes)
+================================================================================
+
+Apple requires these to be approved by a person at the screen:
+
+1. APPROVE LITTLE SNITCH (the firewall):
+   - Apple menu → System Settings → General → Login Items & Extensions
+     → scroll to "Network Extensions" → click the (i) next to
+     "Little Snitch" → turn it ON → enter password when asked.
+   - Then open Little Snitch (Command+Space, type Little Snitch, Enter).
+     Its license is restored automatically from this drive; if it asks for a
+     license key, it is in this file on the USB:
+       sec/rebuild/state/ls-registration.xpl
+2. NOTIFICATIONS / PERMISSION POPUPS: as the security tools start, macOS may
+   ask "allow notifications?" — click Allow/OK on all of them.
+3. RUN THE SCRIPT ONE MORE TIME (this finishes the firewall rules and
+   re-checks everything):
+
+     bash ~/dev/security/rebuild-mac.sh --full-apps
+
+   If it says the rule model was restored and all daemons are up, you are
+   nearly done. If Little Snitch was already fine, this step just re-verifies.
+4. TOUCH ID: System Settings → Touch ID & Password → re-enroll a finger.
+5. GITHUB (only if you use git): add this Mac's new SSH key at
+   github.com/settings/keys.
+6. RESTART THE MAC (Apple menu → Restart).
+
+================================================================================
+PART 5 — AFTER THE RESTART: CONFIRM IT WORKED
+================================================================================
+
+1. Open Terminal again and paste:
+
+     bash ~/dev/security/scripts/verify.sh
+
+   Expect mostly green/OK lines.
+2. Check the firewall has its rules: paste
+
+     sudo "/Applications/Little Snitch.app/Contents/Components/littlesnitch" export-model /tmp/rules.json && python3 -c "import json; print(len(json.load(open('/tmp/rules.json'))['rules']), 'rules loaded')"
+
+   It should print a number near 1,300+ (type your password if asked).
+3. Done. The security system is fully rebuilt and self-monitoring.
+
+================================================================================
+WHAT IS ON THIS DRIVE (reference)
+================================================================================
+  sec/                          the complete security toolkit (full history)
+  sec/rebuild/REBUILD-INSTRUCTIONS.txt   this file
+  sec/rebuild-mac.sh            the rebuild script you ran
+  sec/rebuild/state/            your settings: firewall rules (ls-model.json),
+                                license (ls-registration.xpl), app list
+                                (Brewfile), background services, /etc config
+  sec/little-snitch/            Little Snitch app (offline copy) + rule model
+  sec-repo-2026-09-04.bundle    one-file backup of the whole folder
+                                (experts: git clone <file> restores it)
+
+IF SOMETHING GOES WRONG
+-----------------------
+  - "command not found: rsync"  → install Xcode tools when macOS offers, or
+    run:  xcode-select --install   then redo Part 2.
+  - Rebuild script stops early  → read the last red line, fix what it says,
+    then just run the same command again. It is safe to re-run any number
+    of times; completed steps are skipped.
+  - Little Snitch rules did not restore → approve it in System Settings
+    (Part 4 step 1), open the app once, then run the script again.
+  - No internet during apps step → the core security still installs; apps
+    (browser, editor, office) can be installed later by re-running:
+      bash ~/dev/security/rebuild-mac.sh --full-apps
+  - Really stuck → the folder sec/logs/ and ~/dev/security/rebuild/logs/
+    contain full logs of every action for review.
+================================================================================
