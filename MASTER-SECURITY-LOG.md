@@ -1040,3 +1040,61 @@ VIOLATIONS-REGISTER.md **V-010**.
 - **Do NOT pin a non-DNS64 resolver (Quad9, Cloudflare, Google) on an IPv6-only/NAT64 network.** Precondition check before any DNS pin: `netstat -rn -f inet | grep -q '^default'` — if absent, leave DHCP/ISP DNS64 in place.
 - ICMP to CDN/LB-fronted IPv4-only hosts (admin.shopify.com) is **not** a valid reachability test — use DNS resolution + TCP/443.
 - Security-preserving DNS filtering on this network requires either macOS 464XLAT/CLAT active, or a verified DNS64 filtering resolver whose NAT64 prefix matches T-Mobile's — deferred until on a healthy link.
+
+---
+
+## SESSION 2026-09-03 — 🔴 INCIDENT #22: Little Snitch resource spiral (watchdog panic + lock-up) + LS security rescan
+
+### INCIDENT #22 — LS UI CPU/memory spiral → kernel panic 09:44, forced restart 18:07
+
+**Trigger:** User report "ls locked up and i had to restart the mac."
+
+**Evidence:**
+| Time | Event |
+|------|-------|
+| 09:44 | Kernel panic: `watchdog timeout: no checkins from watchdogd in 94 seconds` (panic-full-2026-09-03-094444.0002.panic) |
+| — | At panic: **63 swapfiles**, compressor at **100% of segments limit (BAD)**; LS Network Monitor ~10,982s user CPU / 694 MB; LS config app ~6,993s / 324 MB; networkext 986s user + 480s sys / 21M page faults |
+| 15:49 | `Little Snitch_…cpu_resource.diag` — config app spinning in KVO notification cascades (UI update storm) |
+| 18:07 | User-initiated restart; minor shutdown stall (1s, leftover user procs — not LS) |
+
+**Root cause:** Long-lived Little Snitch UI apps (config app + Network Monitor open all day)
+processing a constant stream of connection events (denied retry storms: apsd→init.push.apple.com
+31,476 uses, mDNSResponder 12k+, Brave 9k+) → KVO update storm → sustained CPU burn for hours →
+memory growth on a 24 GB machine already under pressure → swap explosion → watchdogd starved →
+panic (morning). Same spiral re-formed in the afternoon → beachball lock-up → forced restart.
+Same failure class as the 2026-05-23 networkext panic + May 27–Jun 1 shutdown stalls.
+
+**Key fact:** filtering lives in the root-owned network extension + daemon. The user-owned UI
+apps are what spiral — killing them never weakens protection.
+
+### Prevention applied (this session)
+- **`evw-ls-resource-guard.sh`** + user LaunchAgent `com.evw.ls-resource-guard` (300s, no root):
+  - true avg CPU since last check (ΔCPU/Δwall) + RSS for LS config app / Network Monitor / Agent
+  - breach = >20% of one core sustained or RSS >1 GB (512 MB Agent); 2 consecutive breaches →
+    `kill -TERM` the UI app + notification (filtering unaffected)
+  - swapfile count >24 → notification (panic precursor; 63 preceded the 09:44 panic), 24h cooldown
+- Log: `logs/ls-resource-guard.log`
+- Recommendations standing: quit LS config app/Network Monitor when not in use; take
+  `Little Snitch_2026-09-03-154908….cpu_resource.diag` to Obdev if 6.4.1+ doesn't fix the KVO storm.
+
+### LS security rescan (all 1,365 rules)
+- Full model audited (18:07 boot export + deep audit + domain audit). Posture strong:
+  all 15 critical denies present, 15/15 XPC subscribers blocked, 0 sensitive-process allows,
+  0 non-factory incoming allows, 0 non-factory any-remote allows, 0 unsigned-binary allows.
+  Broad any-rules are all protected factory defaults (ICMP/DHCP/mDNSResponder/trustd).
+- **Found:** ByteDance/Volcengine tracker allows (Safari→gator.volces.com **770 uses**,
+  apmplus.volces.com, tab.volces.com, python3→gator…queniuck.com); **TikTok/Zoho deny rules
+  lost in the 2026-08-31 model rebuild** (ls-dedup critical list: all MISSING);
+  8 monitor-origin 0-use allows; 1 any-port monitor allow (iterm2→ghcr.io).
+- **Prepared (not yet applied — needs root):** `ls-security-rescan.py` + `ls-apply-security-rescan.sh`
+  - +16 denies: gator/apmplus/tab.volces.com, queniuck.com + TikTok/Zoho posture set (12)
+  - −6 tracker allows, −8 monitor-unused, ~1 tightened (ghcr.io→tcp:443), −24 duplicates (dedup)
+  - Result: 1,365 → 1,343 rules; all 23 critical denies verified in output
+  - Report: `scan-2026-09-03/ls-security-rescan-report.txt`
+- **To apply:** `sudo bash /Users/evw/dev/security/ls-apply-security-rescan.sh` (type APPLY;
+  exports live model first, backup saved to scan dir)
+
+### Pending
+- User to run the apply script above (sudo)
+- OTS upgrade (Bitcoin block confirmation)
+- Re-enroll Touch ID; audit iCloud Keychain; Citizen Lab / Access Now contact
