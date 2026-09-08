@@ -67,13 +67,22 @@ echo "── 2. Network Defences ───────────────�
 # Tor
 if pgrep -x tor &>/dev/null; then ok "Tor is running"; else warn "Tor is NOT running (brew services start tor)"; fi
 
-# Unbound / DNS
+# Unbound / DNS (evw-dns-guard enforces pinned set: 1.1.1.1 1.0.0.1 8.8.8.8 9.9.9.9)
 DNS_SERVER=$(scutil --dns 2>/dev/null | awk '/nameserver/{print $3; exit}')
-if pgrep -x unbound &>/dev/null; then ok "Unbound DNS resolver is running"; else fail "Unbound is NOT running — DNS unprotected"; fi
+PINNED_DNS=" 1.1.1.1 1.0.0.1 8.8.8.8 8.8.4.4 9.9.9.9 149.112.112.112 "
+if pgrep -x unbound &>/dev/null; then
+    ok "Unbound DNS resolver is running"
+elif [[ "$PINNED_DNS" == *" $DNS_SERVER "* ]]; then
+    ok "DNS resolver matches dns-guard pinned set ($DNS_SERVER)"
+else
+    fail "DNS resolver unexpected — pointing to $DNS_SERVER"
+fi
 if [[ "$DNS_SERVER" == "127.0.0.1" || "$DNS_SERVER" == "::1" ]]; then
     ok "DNS routes through localhost (Unbound)"
+elif [[ "$PINNED_DNS" == *" $DNS_SERVER "* ]]; then
+    ok "DNS routes to pinned resolvers ($DNS_SERVER)"
 else
-    fail "DNS is NOT through localhost — pointing to $DNS_SERVER"
+    fail "DNS is NOT through localhost/pinned set — pointing to $DNS_SERVER"
 fi
 
 # Little Snitch
@@ -180,25 +189,53 @@ KNOWN_AGENTS=(
     "com.ai-orchestrator.backend"
     "com.ai-orchestrator.frontend"
     "com.donutintel.app"
+    "com.evw.alert-center"
+    "com.evw.ls-resource-guard"
+    "com.evw.security-audit-login"
+    "com.evw.sentinel-alert-term"
     "com.ew.config-sentinel"
     "com.ew.rotate-mac"
     "com.google.GoogleUpdater.wake"
     "com.google.keystone.agent"
     "com.google.keystone.xpcservice"
     "com.user.ls-monitor"
+    "homebrew.mxcl.postgresql@16"
     "homebrew.mxcl.tor"
 )
 
 KNOWN_DAEMONS=(
     "at.obdev.littlesnitch.daemon"
-    "com.ew.rotate-hostname"
-    "com.ew.pf-devports"
+    "com.evw.audit-monitor"
+    "com.evw.auto-conn-guard"
+    "com.evw.dns-guard"
+    "com.evw.file-vault"
+    "com.evw.integrity-full"
+    "com.evw.integrity-pulse"
+    "com.evw.integrity-sweep"
+    "com.evw.integrity-verify"
+    "com.evw.ls-hygiene-guard"
+    "com.evw.ls-watchdog-monitor"
+    "com.evw.ls-watchdog"
+    "com.evw.mac-sentinel"
+    "com.evw.plist-monitor"
+    "com.evw.replayd-guard"
+    "com.evw.security-audit"
+    "com.evw.security-system"
+    "com.evw.studentd-guard"
+    "com.evw.wazuh-guard"
+    "com.evw.wazuh-monitor"
     "com.ew.binding-monitor"
     "com.ew.file-sentinel"
+    "com.ew.lockdown"
+    "com.ew.pf-devports"
+    "com.ew.rotate-hostname"
+    "com.wazuh.agent"
     "homebrew.mxcl.clamav"
     "homebrew.mxcl.freshclam"
     "homebrew.mxcl.unbound"
     "io.macfuse.app.launchservice.daemon"
+    "local.awdl-down"
+    "local.security.harden"
     "org.wireshark.ChmodBPF"
 )
 

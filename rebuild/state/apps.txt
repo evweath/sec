@@ -1,3 +1,5 @@
+.DS_Store
+.localized
 Brave Browser.app
 Double Commander.app
 iTerm.app

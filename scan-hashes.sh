@@ -154,6 +154,11 @@ h() {
   guard_run "h" h "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
 
   echo ""
+  echo "# ── Lynis + KnockKnock ───────────────────────────────────────"
+  guard_run "h" h /opt/homebrew/bin/lynis
+  guard_run "h" h "/Applications/KnockKnock.app/Contents/MacOS/KnockKnock"
+
+  echo ""
   echo "# ── DuckDuckGo browser binary ────────────────────────────────"
   guard_run "h" h "/Applications/DuckDuckGo.app/Contents/MacOS/DuckDuckGo"
 

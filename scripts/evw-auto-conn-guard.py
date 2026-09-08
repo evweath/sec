@@ -64,7 +64,8 @@ LS_QUEUE  = os.path.join(LOG_DIR, "ls-rule-queue.json")
 LS_SYNC   = "/usr/local/bin/evw-auto-ls-sync.sh"
 
 TRUSTED_IPS = {"1.1.1.1", "1.0.0.1", "8.8.8.8", "8.8.4.4",
-               "9.9.9.9", "149.112.112.112"}
+               "9.9.9.9", "149.112.112.112",
+               "52.6.20.177"}  # ada-portal production server (deploys)
 STANDARD_PORTS  = {22, 25, 53, 80, 143, 443, 465, 587, 853, 993, 995}
 TLS_OK_PORTS    = {443, 853, 993, 995, 465}
 SUSPICIOUS_PORTS = {23, 512, 513, 514, 1080, 3128, 4444, 6666, 6667,

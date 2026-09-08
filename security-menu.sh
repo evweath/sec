@@ -109,6 +109,8 @@ add "$S" "scripts/verify.sh"                         "[RO,SUDO]" "Drift audit: b
 add "$S" "imported/scripts/dump-connections.sh"      "[RO,SUDO]" "Dump all network connections, netstat, nettop, LS logs to a file"
 add "$S" "scan-2026-05-21/hunt-osascript-parent.sh"  "[RO,SUDO]" "Trace parent processes of osascript executions for 120 seconds"
 add "$S" "evw-security-audit.sh"                     "[RO]"      "Unattended audit to scan dir + boot-audit.log (root mode adds LS export + TCC)"
+add "$S" "lynis-audit.sh"                            "[RO]"      "Lynis system audit (full when root) into scan dir: lynis.log + lynis-report.dat"
+add "$S" "knockknock-scan.sh"                        "[RO]"      "KnockKnock persistence scan (CLI, no VirusTotal) into scan dir: knockknock.json"
 
 # ─── LITTLE SNITCH ───────────────────────────────────────────────────────────
 S="LITTLE SNITCH"
@@ -161,6 +163,11 @@ add "$S" "scripts/ls-deny-screenshare.py"              "[MOD,SUDO]"  "[AUTO-EVW]
 add "$S" "scripts/ls-hygiene.py"                       "[MOD,SUDO]"  "[AUTO-EVW-LS] Audit+clean Little Snitch rules (tracker allows, OCSP/DHCP-killing denies) with backup+undo"
 add "$S" "scripts/evw-ls-hygiene-guard.sh"             "[SVC,DAEMON,SUDO]" "[AUTO-EVW-LS] LS rule hygiene every 5 min, persistent (backup+undo always)"
 add "$S" "scripts/evw-sentinel-alert-display.sh"       "[SVC]"       "Live sentinel alert terminal (auto-opens each boot; numbered entries + display log)"
+add "$S" "evw-wazuh-status.sh"                         "[RO]"       "Wazuh agent status: version, daemons, manager reachability, guard state"
+add "$S" "evw-wazuh-setup.sh"                          "[SVC,SUDO]" "Finish Wazuh install: set manager IP, start agent, install keep-alive guard"
+add "$S" "evw-wazuh-guard.sh"                          "[SVC,DAEMON,SUDO]" "Keep Wazuh agent daemons alive; log manager connect/disconnect transitions"
+add "$S" "evw-wazuh-monitor.py"                        "[SVC,DAEMON,SUDO]" "Feed Wazuh alerts into sentinel display + alert-center (CRITICAL persists)"
+add "$S" "evw-wazuh-dashboard.py"                      "[SVC,DAEMON,SUDO]" "Web dashboard for the Wazuh agent + guard log (loopback, tokenized URL)"
 # DISABLED 2026-09-01: comms-guard caused recurring ~100s Wi-Fi outages — killing
 # bluetoothd flaps the shared Wi-Fi/BT radio. Evidence: /Users/evw/dev/fix/netdiag/STATE.md
 # add "$S" "evw-comms-guard.sh"                        "[SVC,DAEMON,SUDO]" "DISABLED — caused Wi-Fi outages; do not run"

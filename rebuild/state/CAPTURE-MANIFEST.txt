@@ -1,9 +1,8 @@
-# rebuild state capture — 2026-09-04T00:45:44Z
+# rebuild state capture — 2026-09-04T14:37:16Z
 # machine: MacBook-Pro / macOS 26.6.2 (25G83)
-ls-model.json        copied from /Users/evw/dev/security/scan-2026-09-03/ls-model.json
+ls-model.json        LIVE EXPORT 2026-09-04T14:37:16Z
 ls-registration.xpl  captured
-Brewfile             10 lines
 launchagents/        5 plists
 etc/                 hosts + 2 pf anchors
-disabled-501         SEEDED (core 8; refresh with sudo)
+disabled-501         LIVE DUMP
 inventories          pyenv/pipx/apps/ots

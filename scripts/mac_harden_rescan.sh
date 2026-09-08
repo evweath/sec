@@ -256,9 +256,45 @@ audit_ports() {
 audit_persistence() {
     section "6. Launch Agent & Daemon Persistence Audit"
 
-    KNOWN_USER_AGENTS=("homebrew.mxcl.ollama.plist")
+    KNOWN_USER_AGENTS=(
+        "homebrew.mxcl.ollama.plist"
+        "homebrew.mxcl.postgresql@16.plist"
+        "com.evw.alert-center.plist"
+        "com.evw.ls-resource-guard.plist"
+        "com.evw.security-audit-login.plist"
+        "com.evw.sentinel-alert-term.plist"
+        "com.ew.config-sentinel.plist"
+    )
     KNOWN_SYS_AGENTS=("at.obdev.littlesnitch.agent.plist")
-    KNOWN_SYS_DAEMONS=("at.obdev.littlesnitch.daemon.plist")
+    KNOWN_SYS_DAEMONS=(
+        "at.obdev.littlesnitch.daemon.plist"
+        "com.wazuh.agent.plist"
+        "com.evw.audit-monitor.plist"
+        "com.evw.auto-conn-guard.plist"
+        "com.evw.dns-guard.plist"
+        "com.evw.file-vault.plist"
+        "com.evw.integrity-full.plist"
+        "com.evw.integrity-pulse.plist"
+        "com.evw.integrity-sweep.plist"
+        "com.evw.integrity-verify.plist"
+        "com.evw.ls-hygiene-guard.plist"
+        "com.evw.ls-watchdog-monitor.plist"
+        "com.evw.ls-watchdog.plist"
+        "com.evw.mac-sentinel.plist"
+        "com.evw.plist-monitor.plist"
+        "com.evw.replayd-guard.plist"
+        "com.evw.security-audit.plist"
+        "com.evw.security-system.plist"
+        "com.evw.studentd-guard.plist"
+        "com.evw.wazuh-guard.plist"
+        "com.evw.wazuh-monitor.plist"
+        "com.ew.binding-monitor.plist"
+        "com.ew.file-sentinel.plist"
+        "com.ew.lockdown.plist"
+        "com.ew.pf-devports.plist"
+        "local.awdl-down.plist"
+        "local.security.harden.plist"
+    )
 
     # User Launch Agents
     if [ -d "$HOME/Library/LaunchAgents" ]; then

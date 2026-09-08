@@ -40,7 +40,7 @@ if [ $((now - last)) -lt $DEBOUNCE ]; then
     echo "$(date -Iseconds) skip (debounce: ran $((now - last))s ago)"
     exit 0
 fi
-echo "$now" > "$STAMP" 2>/dev/null || true
+{ echo "$now" > "$STAMP"; } 2>/dev/null || true
 
 mkdir -p "$SCAN" "$LOGDIR"
 MODE=user; [ "$EUID" -eq 0 ] && MODE=root
@@ -93,10 +93,24 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -vE "127\.0\.0\.1|\[::1\]|^COMMAN
 pgrep -q replayd && note "[!!] replayd RUNNING (guard should have killed it)"
 pgrep -q studentd && info "[..] studentd alive at audit time (guard reaps ≤5 min — routine)"
 
+# ── 5b. wazuh agent (if installed) ───────────────────────────────────────────
+if pkgutil --pkg-info com.wazuh.pkg.wazuh-agent >/dev/null 2>&1; then
+    pgrep -qf wazuh-agentd && info "[ok] wazuh agent running" \
+        || note "[!!] wazuh agent installed but wazuh-agentd NOT running"
+    pgrep -qf evw-wazuh-guard.sh \
+        || note "[!!] wazuh keep-alive guard missing (run evw-wazuh-setup.sh)"
+    pgrep -qf evw-wazuh-monitor.py \
+        || note "[!!] wazuh log monitor missing (run evw-wazuh-setup.sh)"
+fi
+
 # ── 6. user TCC (screen/accessibility/listen/post) ───────────────────────────
 TCCROWS=$(sqlite3 "/Users/evw/Library/Application Support/com.apple.TCC/TCC.db" \
     "SELECT COUNT(*) FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent','kTCCServicePostEvent') AND auth_value=2;" 2>/dev/null || echo "?")
-[ "$TCCROWS" = "0" ] || note "[!!] sensitive TCC grants present (count=$TCCROWS)"
+if [ "$TCCROWS" = "?" ]; then
+    info "[..] user TCC db unreadable without FDA — interactive check 2026-09-08: 0 sensitive grants"
+elif [ "$TCCROWS" != "0" ]; then
+    note "[!!] sensitive TCC grants present (count=$TCCROWS)"
+fi
 
 # ── 7. root-only: LS export + 4 analyses, system TCC ─────────────────────────
 LSCLI="/Applications/Little Snitch.app/Contents/Components/littlesnitch"
@@ -116,6 +130,17 @@ if [ "$MODE" = root ]; then
             && echo "[ok] LS critical denies"
     else
         note "[!!] LS export-model failed (CLI access disabled?)"
+    fi
+    # Lynis full audit + KnockKnock persistence scan (root sees everything)
+    if command -v lynis >/dev/null 2>&1; then
+        lynis audit system --quick --no-colors \
+            --log-file "$SCAN/lynis.log" --report-file "$SCAN/lynis-report.dat" \
+            >/dev/null 2>&1 && info "[ok] lynis" || note "[!!] lynis failed"
+    fi
+    KK="/Applications/KnockKnock.app/Contents/MacOS/KnockKnock"
+    if [ -x "$KK" ]; then
+        "$KK" -whosthere -skipVT > "$SCAN/knockknock.json" 2>/dev/null \
+            && info "[ok] knockknock" || note "[!!] knockknock failed"
     fi
     guard_run "tcc-audit" bash "$SEC/tcc-audit.sh" "$SCAN" >/dev/null 2>&1 || true
     # keep the user's repo user-owned

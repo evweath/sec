@@ -1,6 +1,10 @@
 #!/bin/bash
-# tm-restore.sh v5 — restore folders OUT of Time Machine backups with FULL
-# access, WITHOUT filling the Mac's disk, WITH full access to ALL snapshots on
+# tm-restore.sh v7 — get FULL access to folders in Time Machine backups, the
+# SIMPLEST way that works: if the backup can simply be re-permissioned IN
+# PLACE (chown/chmod directly on it), that is all the script does — no
+# copying, no staging, no disk-space cost. Read-only sources (APFS snapshots
+# are read-only by design) fall back to the v5 copy pipeline: restore OUT of
+# the backup, WITHOUT filling the Mac's disk, WITH access to ALL snapshots on
 # the TM disk (not just the few the system auto-mounts).
 #
 # WHY v4: Finder shows ~20 TM backup folders but Terminal sees only 2-3 —
@@ -35,8 +39,46 @@
 #   * --status prints per-snapshot progress (done / remaining folders).
 #   * a pid lock (/private/var/tmp/tm-restore.pid) prevents two concurrent runs.
 #
+# WHY v6 (SIMPLEST ROUTE FIRST — in-place permission fix when possible):
+# copying is only a means to an end (full permissions). When the backup tree
+# is on a WRITABLE filesystem, chflags/chown/chmod -R directly on it achieves
+# the same end with zero copying and zero disk-space cost. Writability is
+# decided EMPIRICALLY per snapshot (write-probe on the root, with a mount -uw
+# remedy before giving up — APFS snapshot mounts stay read-only no matter
+# what), and every in-place fix is VERIFIED (user owns every item, top dir
+# readable/writable) before the folder counts as done; a folder whose perms
+# do not stick falls back to the copy pipeline automatically. Resume markers
+# and --status work the same either way.
+#
+# WHY v7 (BUGFIX — "only 2 folders found"): for SELF-mounted snapshots,
+# snapshot_root() searched for the '* - Data' volume only at maxdepth 1. But a
+# TM snapshot mount shows the TM VOLUME root, whose real backup data lives one
+# level deeper, at <mnt>/<date>.backup/'* - Data'. The search missed, root fell
+# back to the mount point, and --all then enumerated the TM volume root —
+# finding only 2 "folders": the monolithic <date>.backup dir and fsck junk
+# (.DocumentRevisions-V100-bad-1). v7 resolves root to the directory that
+# CONTAINS the '* - Data' volumes (depth-safe search, same for auto-mounted and
+# self-mounted snapshots), so --all sees the real top-level folders
+# (Macintosh HD - Data, m - Data, ...). Hidden top-level dirs are now skipped,
+# so fsck-renamed junk never enters the work list again.
+#
+# WHY v7 (SCAN — no rework anywhere): --scan-restored scans the Mac's Desktop
+# and every mounted external volume for backup folders that were ALREADY
+# restored with full access (TM-Restored/<date> dirs marked .complete, and
+# <date>-named dirs containing a non-empty '* - Data' tree the user can
+# read/write). Matches are recorded per TM volume in
+# $TMVOL/TM-Restored/RESTORED-ELSEWHERE.tsv; --all, --all-snapshots and
+# --snapshot <d> --all skip those snapshots (auto-scan runs first), and
+# --status lists them. An empty or inaccessible dir (e.g. an abandoned restore)
+# does NOT count as done. Delete a registry line to force a redo.
+# v7 also stops --all from getting stuck when staging still holds work from a
+# snapshot that meanwhile became COMPLETE: the binding is ignored with a loud
+# warning instead of processing the done snapshot and stopping.
+#
 # FORCE REDO: delete a folder's .done-<name>-<hash> marker (one folder) or the
-# .complete file (whole snapshot) inside $TMVOL/TM-Restored/<date>/.
+# .complete file (whole snapshot) inside $TMVOL/TM-Restored/<date>/; for
+# restores registered from ELSEWHERE, delete that snapshot's line in
+# $TMVOL/TM-Restored/RESTORED-ELSEWHERE.tsv.
 #
 # Per folder, strictly one at a time (backup -> Desktop staging -> permission
 # fix -> verified copy-back to the TM disk -> staging deleted), so staging
@@ -54,6 +96,9 @@
 #                                                    # volume (volatile dirs skipped);
 #                                                    # auto-resumes interrupted work
 #   sudo bash tm-restore.sh --status                 # progress: done / remaining
+#   sudo bash tm-restore.sh --scan-restored          # find backups ALREADY restored
+#                                                    # (with full access) on any drive;
+#                                                    # registers them so runs skip them
 #   sudo bash tm-restore.sh --list-snapshots         # show ALL snapshots on the disk
 #   sudo bash tm-restore.sh --snapshot 2026-05-02-111543 --all
 #   sudo bash tm-restore.sh --all-snapshots          # EVERY snapshot, oldest first
@@ -84,7 +129,9 @@ if [ -z "${STAGE:-}" ]; then STAGE="$USER_HOME/Desktop/TM-Restore-staging"; STAG
 else STAGE_PINNED=1; fi
 MNT_BASE=/private/var/tmp/tm-restore-mnt
 LOCK=/private/var/tmp/tm-restore.pid
+REGISTRY=RESTORED-ELSEWHERE.tsv
 CUR_SNAP_DATE=""
+INPLACE_OK=0
 FAILED=()
 UMOUNTS=()
 LOG=/dev/null
@@ -133,14 +180,26 @@ list_snapshots() {  # oldest first
 }
 snap_date() { echo "$1" | sed 's/com\.apple\.TimeMachine\.\(.*\)\.backup/\1/'; }
 
-# ── resolve a readable root ("* - Data") for a snapshot; mount if needed ─────
+# ── resolve a readable root for a snapshot; mount if needed ─────────────────
+# The root is the directory that CONTAINS the '* - Data' volumes
+# (e.g. <snap>/<date>.backup), so --all enumerates the real top-level folders
+# (Macintosh HD - Data, m - Data, ...) instead of the TM volume root. A TM
+# snapshot mount shows the TM VOLUME root; the data sits one level deeper, at
+# <mnt>/<date>.backup/'* - Data' — searching too shallow finds nothing and the
+# old fallback (the mount point) made --all see only 2 folders (v7 bugfix).
+data_parent() {  # $1=base dir -> echoes dir containing '* - Data', rc 0; rc 1 if none
+    local dd
+    dd=$(find "$1" -maxdepth 3 -type d -name '* - Data' 2>/dev/null | head -1)
+    [ -n "$dd" ] && { dirname "$dd"; return 0; }
+    return 1
+}
 snapshot_root() {  # $1=snapname -> echoes root dir, rc 0; rc 1 on failure
     local snap="$1" d mnt root
     d=$(snap_date "$snap")
     # (a) already auto-mounted?
     for u in /Volumes/.timemachine/*/; do
         if [ -d "$u$d.backup" ]; then
-            root=$(find "$u$d.backup" -maxdepth 2 -type d -name '* - Data' 2>/dev/null | head -1)
+            root=$(data_parent "$u$d.backup")
             [ -n "$root" ] && { echo "$root"; return 0; }
         fi
     done
@@ -148,7 +207,7 @@ snapshot_root() {  # $1=snapname -> echoes root dir, rc 0; rc 1 on failure
     mnt="$MNT_BASE/$d"
     if [ -d "$mnt" ] && [ -n "$(ls -A "$mnt" 2>/dev/null)" ]; then
         UMOUNTS+=("$mnt")
-        root=$(find "$mnt" -maxdepth 1 -type d -name '* - Data' 2>/dev/null | head -1)
+        root=$(data_parent "$mnt")
         [ -z "$root" ] && root="$mnt"
         tshoot "reusing leftover mount at $mnt"
         echo "$root"; return 0
@@ -157,7 +216,7 @@ snapshot_root() {  # $1=snapname -> echoes root dir, rc 0; rc 1 on failure
     mkdir -p "$mnt"
     if mount -t apfs -o -s="$snap" "$TMDEV" "$mnt" 2>>"$LOG"; then
         UMOUNTS+=("$mnt")
-        root=$(find "$mnt" -maxdepth 1 -type d -name '* - Data' 2>/dev/null | head -1)
+        root=$(data_parent "$mnt")
         [ -z "$root" ] && root="$mnt"
         tshoot "self-mounted snapshot $d at $mnt"
         echo "$root"; return 0
@@ -171,6 +230,44 @@ fix_perms() {
     chmod -R -N "$1" 2>/dev/null
     chown -R "$USER_NAME":staff "$1" 2>/dev/null
     chmod -R u+rwX "$1" 2>/dev/null
+}
+
+# ── in-place fast path (v6) ─────────────────────────────────────────────────
+# access(W_OK) can lie for root; a real create+delete is the only reliable
+# writability test.
+can_write_tree() {  # $1=dir -> rc 0 if a file can be created inside it
+    local p="$1/.tm-restore-write-probe"
+    [ -d "$1" ] || return 1
+    touch "$p" 2>/dev/null && { rm -f "$p" 2>/dev/null; return 0; }
+    return 1
+}
+mountpoint_of() {  # $1=path -> longest mount point containing it (df lies about .timemachine)
+    local target="$1" best="" mp
+    while IFS= read -r mp; do
+        if [ "$mp" = "/" ]; then [ -z "$best" ] && best="/"; continue; fi
+        case "$target" in
+            "$mp"|"$mp"/*) [ "${#mp}" -gt "${#best}" ] && best="$mp" ;;
+        esac
+    done < <(mount | sed -E 's|^[^ ]+ on (.*) \([^)]*\)$|\1|')
+    printf '%s' "$best"
+}
+tree_full_perms() {  # $1=dir -> rc 0 if USER_NAME owns EVERY item and top dir is rwx
+    [ -r "$1" ] && [ -w "$1" ] && [ -x "$1" ] || return 1
+    [ -z "$(find "$1" ! -user "$USER_NAME" -print -quit 2>/dev/null)" ]
+}
+try_inplace_root() {  # $1=root -> rc 0 if the backup tree is writable in place
+    local root="$1" mp
+    # unlock + claim the root dir itself first, so the probe can create its file
+    chflags nouchg "$root" 2>/dev/null; chflags noschg "$root" 2>/dev/null
+    chown "$USER_NAME":staff "$root" 2>/dev/null; chmod u+rwx "$root" 2>/dev/null
+    can_write_tree "$root" && return 0
+    mp=$(mountpoint_of "$root")
+    if [ -n "$mp" ]; then
+        tshoot "backup root read-only — trying mount -uw $mp"
+        mount -uw "$mp" 2>>"$LOG"
+        can_write_tree "$root" && { tshoot "mount -uw worked — in-place fix possible"; return 0; }
+    fi
+    return 1
 }
 count_files() { find "$1" -type f 2>/dev/null | wc -l | tr -d ' '; }
 
@@ -276,6 +373,10 @@ pick_resume_snapshot() {  # stdout: snapname to resume; rc 1 if none
                 tshoot "staging from previous version has no snapshot tag; assuming newest — remove $STAGE/* if that is wrong"
             fi
         fi
+        if [ -n "$sd" ] && [ -f "$TMVOL/TM-Restored/$sd/.complete" ]; then
+            tshoot "staging holds work from ALREADY-COMPLETED snapshot $sd — ignoring the binding; delete $STAGE manually once satisfied with the destination"
+            sd=""
+        fi
         if [ -n "$sd" ] && echo "$snaps" | grep -qF "com.apple.TimeMachine.$sd.backup"; then
             tshoot "staging holds partial work from snapshot $sd — resuming that snapshot"
             echo "com.apple.TimeMachine.$sd.backup"; return 0
@@ -332,9 +433,121 @@ status_report() {  # read-only progress overview; mounts nothing
         echo "  $d: $done_cnt/$total folders done"
         [ -n "$remaining" ] && { echo "  remaining:"; printf '%b' "$remaining"; }
     done
+    if [ -f "$TMVOL/TM-Restored/$REGISTRY" ]; then
+        echo "Restored elsewhere (verified full access — runs skip these):"
+        while IFS=$'\t' read -r rd rp rts; do
+            [ -n "$rd" ] && echo "  $rd -> $rp (registered ${rts:-?})"
+        done < "$TMVOL/TM-Restored/$REGISTRY"
+    fi
     if [ -d "$STAGE" ] && [ -n "$(ls -A "$STAGE" 2>/dev/null)" ]; then
         echo "Staging: $STAGE ($(du -sh "$STAGE" 2>/dev/null | cut -f1))$([ -f "$STAGE/.snapshot" ] && echo " — partial work from snapshot $(cat "$STAGE/.snapshot" 2>/dev/null)")"
     fi
+}
+
+# ── scan for already-restored backups (v7) ───────────────────────────────────
+is_tm_date() { echo "$1" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}$'; }
+
+noowners_volume() {  # $1=path -> rc 0 if its mount ignores ownership (access for all)
+    local mp; mp=$(mountpoint_of "$1")
+    [ -n "$mp" ] && mount | grep -F " on $mp " | grep -q noowners
+}
+
+access_verified() {  # $1=restored dir -> rc 0 if real data + full access (bounded spot check)
+    local t="$1" dd cr
+    [ -d "$t" ] || return 1
+    dd=$(find "$t" -maxdepth 3 -type d -name '* - Data' 2>/dev/null | head -1)
+    [ -n "$dd" ] || return 1                                            # no backed-up data tree
+    [ -n "$(find "$dd" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ] || return 1  # empty
+    [ -r "$t" ] && [ -w "$t" ] && [ -x "$t" ] || return 1
+    cr=$(dirname "$dd")                        # backup content root (excludes script metadata,
+    [ -r "$cr" ] && [ -w "$cr" ] && [ -x "$cr" ] || return 1   # which stays root-owned by design)
+    noowners_volume "$t" && return 0                     # ownership ignored: access inherent
+    [ -z "$(find "$cr" -maxdepth 4 ! -user "$USER_NAME" -print -quit 2>/dev/null)" ]
+}
+
+snapshot_dates_all() {  # echoes "date<TAB>tmvol" for TM snapshots on all mounted APFS vols
+    local v dev
+    for v in /Volumes/*/; do
+        case "$v" in *.timemachine*|*"Macintosh HD"*) continue;; esac
+        dev=$(mount | grep -F " on ${v%/} " | head -1 | awk '{print $1}')
+        case "$dev" in /dev/disk*) ;; *) continue;; esac
+        diskutil apfs listSnapshots "$dev" 2>/dev/null \
+          | awk -F: '/Name:.*com\.apple\.TimeMachine/{gsub(/^[ \t]+/,"",$2); print $2}' \
+          | while read -r s; do printf '%s\t%s\n' "$(snap_date "$s")" "${v%/}"; done
+    done
+}
+
+register_done() {  # $1=tmvol $2=date $3=path — idempotent upsert into that volume's registry
+    local dir="$1/TM-Restored" reg="$1/TM-Restored/$REGISTRY" tmp
+    mkdir -p "$dir" 2>/dev/null || { tshoot "cannot write registry on $1"; return 1; }
+    tmp=$(mktemp -t tm-restore-reg) || return 1
+    [ -f "$reg" ] && awk -F'\t' -v d="$2" '$1!=d' "$reg" > "$tmp"
+    printf '%s\t%s\t%s\n' "$2" "$3" "$(date -u '+%FT%TZ')" >> "$tmp"
+    cat "$tmp" > "$reg" && rm -f "$tmp"
+}
+
+restored_elsewhere() {  # $1=tmvol $2=date -> echoes path, rc 0 if registered + still verified
+    local reg="$1/TM-Restored/$REGISTRY" p
+    [ -f "$reg" ] || return 1
+    p=$(awk -F'\t' -v d="$2" '$1==d{print $2; exit}' "$reg")
+    [ -n "$p" ] || return 1
+    if access_verified "$p"; then echo "$p"; return 0; fi
+    tshoot "registry entry for $2 no longer valid ($p) — will reprocess"
+    return 1
+}
+
+consider_restored() {  # $1=date $2=path $3=mapfile -> rc 0 if newly registered
+    local date="$1" p="$2" mvol
+    mvol=$(awk -F'\t' -v d="$date" '$1==d{print $2; exit}' "$3")
+    if [ -z "$mvol" ]; then
+        say "  $date  $p — no matching snapshot on any connected TM volume (pruned?)"
+        return 1
+    fi
+    case "$p" in "$mvol/TM-Restored/"*) return 1;; esac  # same-volume: markers already track it
+    if access_verified "$p"; then
+        register_done "$mvol" "$date" "$p" \
+          && say "  $date  DONE, full access: $p — registered on $mvol (future runs skip it)"
+    else
+        say "  $date  $p — NOT complete/accessible (will be processed)"
+        return 1
+    fi
+}
+
+scan_restored() {  # scan Mac Desktop + all mounted volumes for already-restored backups
+    local map base ddir bn found=0 sd
+    map=$(mktemp -t tm-restore-map) || return 1
+    snapshot_dates_all > "$map"
+    say "scanning for already-restored TM backups (Desktop + mounted volumes)..."
+    local cands=() v
+    for v in /Volumes/*/; do
+        case "$v" in *.timemachine*|*"Macintosh HD"*) continue;; esac
+        cands+=("${v%/}")
+    done
+    cands+=("$USER_HOME/Desktop")
+    for base in "${cands[@]}"; do
+        [ -d "$base" ] || continue
+        # pattern A: <base>/TM-Restored/<date> that a previous run completed
+        for ddir in "$base"/TM-Restored/*/; do
+            [ -d "$ddir" ] || continue
+            bn=$(basename "$ddir"); is_tm_date "$bn" || continue
+            [ -f "$ddir/.complete" ] || continue
+            consider_restored "$bn" "${ddir%/}" "$map" && found=$((found+1))
+        done
+        # pattern B: <base>/<date> (manual or older-script restores)
+        for ddir in "$base"/20??-??-??-??????/; do
+            [ -d "$ddir" ] || continue
+            bn=$(basename "$ddir"); is_tm_date "$bn" || continue
+            consider_restored "$bn" "${ddir%/}" "$map" && found=$((found+1))
+        done
+    done
+    rm -f "$map"
+    say "scan done: $found already-restored backup(s) registered (see */TM-Restored/$REGISTRY)"
+    # staging dirs are partial by definition — reported, never registered
+    for sd in "$USER_HOME"/Desktop/TM-Restore-staging*/; do
+        [ -d "$sd" ] && [ -n "$(ls -A "$sd" 2>/dev/null)" ] && \
+            say "  staging (partial, NOT done): ${sd%/}$([ -f "$sd/.snapshot" ] && echo " — from snapshot $(cat "$sd/.snapshot" 2>/dev/null)")"
+    done
+    return 0
 }
 
 copy_tree() { # engine ladder: rsync -> ditto -> cp
@@ -362,6 +575,17 @@ process_folder() {  # $1=SRC  $2=DEST_ROOT  $3=idx  $4=total  $5=root
         log "[$i/$total] SKIP (done): $SRC"; return 0
     fi
     [ ! -e "$SRC" ] && { log "[$i/$total] SKIP missing: $SRC"; FAILED+=("$SRC (missing)"); return 1; }
+
+    # v6 fast path: fix permissions in place — verified before counting as done
+    if [ "$INPLACE_OK" = "1" ]; then
+        fix_perms "$SRC"
+        if tree_full_perms "$SRC"; then
+            log "[$i/$total] IN-PLACE perms fixed (no copy): $SRC"
+            touch "$(marker_name "$DEST_ROOT" "$SRC" "$root")"
+            return 0
+        fi
+        tshoot "in-place fix did not stick on $SRC — falling back to copy pipeline"
+    fi
 
     local need_kb free_kb dst_stage s_cnt d_cnt stage_kb dfree_kb have_kb=0 eff_need=0
     dst_stage="$STAGE/$name"
@@ -447,6 +671,10 @@ process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
             log "=== snapshot $d already complete (.complete marker) — nothing to do ==="
             return 0
         fi
+        if ep=$(restored_elsewhere "$TMVOL" "$d"); then
+            log "=== snapshot $d already restored with full access at $ep — skipping ($REGISTRY) ==="
+            return 0
+        fi
         if manifest_complete "$TMVOL/TM-Restored/$d"; then
             touch "$TMVOL/TM-Restored/$d/.complete"
             log "=== snapshot $d: all manifest folders already done — marking .complete, skipping ==="
@@ -467,6 +695,16 @@ process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
         FAILED+=("snapshot $d (TCC)"); return 1
     fi
 
+    # v6: prefer the simplest route — fix permissions IN PLACE when the
+    # backup is writable; only read-only sources need the copy pipeline.
+    INPLACE_OK=0
+    if try_inplace_root "$root"; then
+        INPLACE_OK=1
+        log "=== backup is WRITABLE — fixing permissions in place, no copying ==="
+    else
+        log "=== backup is read-only — using copy pipeline (staging -> TM-Restored) ==="
+    fi
+
     DEST_ROOT="$TMVOL/TM-Restored/$d"
     if ! mkdir -p "$DEST_ROOT" 2>/dev/null; then
         tshoot "dest not writable — mount -uw $TMVOL"
@@ -485,6 +723,7 @@ process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
         local b
         while IFS= read -r x; do
             b=$(basename "$x")
+            case "$b" in .*) tshoot "skip hidden dir: $x"; continue;; esac
             case "$SKIP_DIRS" in *" $b "*) tshoot "skip volatile dir: $x"; continue;; esac
             WORK+=("$x")
         done < <(
@@ -545,7 +784,7 @@ case "$MODE" in
   "")
     echo "Live TM volume: $TMVOL  device: $TMDEV"
     echo "Snapshots available: $(list_snapshots | wc -l | tr -d ' ')  (newest: $(list_snapshots | tail -1))"
-    echo "Run with --all, --all-snapshots, --snapshot <date>, --status, or explicit folder paths."
+    echo "Run with --all, --all-snapshots, --snapshot <date>, --status, --scan-restored, or explicit folder paths."
     echo "An interrupted run resumes automatically on re-run (done-markers + staging reuse)."
     exit 0
     ;;
@@ -553,7 +792,12 @@ case "$MODE" in
     status_report
     exit 0
     ;;
+  --scan-restored)
+    scan_restored
+    exit 0
+    ;;
   --all-snapshots)
+    scan_restored
     for snap in $(list_snapshots); do
         process_snapshot "$snap" all
     done
@@ -562,11 +806,12 @@ case "$MODE" in
     SNAP_IN="${2:?--snapshot needs a date e.g. 2026-05-02-111543}"
     SNAP="com.apple.TimeMachine.$SNAP_IN.backup"
     shift 2
-    if [ "${1:-}" = "--all" ]; then process_snapshot "$SNAP" all
+    if [ "${1:-}" = "--all" ]; then scan_restored; process_snapshot "$SNAP" all
     elif [ $# -gt 0 ]; then  process_snapshot "$SNAP" explicit "$@"
-    else process_snapshot "$SNAP" all; fi
+    else scan_restored; process_snapshot "$SNAP" all; fi
     ;;
   --all)
+    scan_restored
     NEWEST=$(list_snapshots | tail -1)
     if RSNAP=$(pick_resume_snapshot); then
         if [ "$RSNAP" != "$NEWEST" ]; then

@@ -1137,3 +1137,45 @@ apps are what spiral — killing them never weakens protection.
 - `sudo bash /Users/evw/dev/security/evw-integrity-setup.sh` (integrity deploy)
 - `sudo bash /Users/evw/dev/security/rebuild/capture-state.sh` (root-quality state refresh)
 - Reinstall opentimestamps-client (OTS anchoring everywhere is dormant without it)
+
+## SESSION 2026-09-04 — Wazuh agent integrated into evw toolkit
+
+Agent pkg (4.14.7) was installed 18:33 via harden.sh §10 but never
+configured/started persistently; stock `com.wazuh.agent` plist has no
+KeepAlive. Built the finish-install + integration:
+
+- **evw-wazuh-setup.sh** — idempotent: verify pkg, set manager IP in
+  ossec.conf (timestamped backup first), enable+bootstrap `com.wazuh.agent`,
+  start agent, install guard, verify registration + processes. Manager IP is
+  arg 1 (default 10.0.0.2); unreachable manager = warning only.
+- **evw-wazuh-guard.sh + com.evw.wazuh-guard.plist** — root keep-alive daemon:
+  restarts missing core daemons (wazuh-agentd/-logcollector/-syscheckd, max 1
+  restart/5 min), logs manager connect/disconnect transitions from ossec.log.
+  Log: /private/var/log/evw-wazuh-guard.log.
+- **Wazuh ≥4.8 binary rename**: binaries are wazuh-control / wazuh-agentd /
+  wazuh-logcollector / wazuh-syscheckd / wazuh-execd / wazuh-modulesd (not
+  ossec-*). Config remains /Library/Ossec/etc/ossec.conf. All scripts prefer
+  wazuh-* and fall back to ossec-*. (The 18:33 `ossec-control start` from
+  shell history failed silently for this reason — agent never started.)
+- **evw-wazuh-status.sh** — read-only status: pkg version, daemon processes,
+  manager reachability (tcp 1514/1515), guard state + log tail; degrades
+  gracefully unprivileged.
+- **evw-wazuh-dashboard.py** — loopback web dashboard (stdlib, tokenized URL,
+  Host-pinned): daemon states, manager reachability, guard state, live guard
+  log tail. `python3 evw-wazuh-dashboard.py [--port 8790]`; sudo for full detail.
+- **evw-wazuh-monitor.py + com.evw.wazuh-monitor.plist** — wazuh logs → evw
+  alert pipelines: tails alerts.json + ossec.log; maps rule level ≥12 →
+  CRITICAL, 7–11 → WARNING (rootkit/recon floor WARNING, ≥10 → CRITICAL);
+  emits to mac-sentinel-alert-feed.log (live display), forensic copy to
+  /private/var/log/evw-wazuh-alerts.log, and CRITICAL/WARNING to the
+  alert-center queue (CRITICAL persists until acked). Dedup 300 s per
+  rule+location (30 min for manager reachability flapping).
+- **Wiring**: security-menu.sh (+3 entries), install-all.sh (INSTALL_WAZUH
+  flag, setup delegation, verification rows), evw-security-audit.sh (§5b:
+  agent/guard presence findings), harden.sh manual step 5 now points here.
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/evw-wazuh-setup.sh` — finishes the install
+- ⚠️ Manager 10.0.0.2 UNREACHABLE: not on this Mac's LAN (10.247.120.0/24);
+  ping + tcp 1514/1515/55000 all time out. Confirm the real manager address
+  (or bring the manager up) — the agent retries until it appears.

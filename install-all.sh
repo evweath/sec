@@ -41,6 +41,7 @@ INSTALL_COMMS_GUARD=0      # KEEP OFF: SIGKILLs Bluetooth/AirPlay/Handoff/etc ev
                            # caused the recurring Wi-Fi outages fixed 2026-09-01 (see STATE.md)
 INSTALL_PF_DEVPORTS=1      # PF anchor blocking inbound connections to dev ports
 INSTALL_DAILY_HARDEN=1     # daily 09:00 root security rescan (mac_harden_rescan.sh)
+INSTALL_WAZUH=1            # finish wazuh agent install (manager IP, start) + keep-alive guard
 
 SEC_DIR="/Users/evw/dev/security"
 LEG_DIR="/Users/evw/dev/security/scripts"
@@ -68,7 +69,8 @@ for entry in \
     "audit-monitor :$INSTALL_AUDIT_MONITOR" "file-sentinel :$INSTALL_FILE_SENTINEL" \
     "binding-monitor:$INSTALL_BINDING_MONITOR" "dns-guard    :$INSTALL_DNS_GUARD" \
     "ls-watchdog   :$INSTALL_LS_WATCHDOG" "comms-guard   :$INSTALL_COMMS_GUARD" \
-    "pf-devports   :$INSTALL_PF_DEVPORTS" "daily-harden  :$INSTALL_DAILY_HARDEN"; do
+    "pf-devports   :$INSTALL_PF_DEVPORTS" "daily-harden  :$INSTALL_DAILY_HARDEN" \
+    "wazuh        :$INSTALL_WAZUH"; do
     name="${entry%%:*}"; flag="${entry##*:}"
     if [[ "$flag" == "1" ]]; then echo -e "  ${GRN}install${NC}  ${name// /}"; else echo -e "  ${YLW}skip   ${NC}  ${name// /}"; fi
 done
@@ -175,6 +177,12 @@ if [[ $INSTALL_DAILY_HARDEN -eq 1 ]]; then
     guard_run "install-daily-harden" bash "$LEG_DIR/install_daily_harden.sh" || true
 fi
 
+# ── 5b. Wazuh agent (finish install + keep-alive guard) ───────────────────────
+if [[ $INSTALL_WAZUH -eq 1 ]]; then
+    info "Running evw-wazuh-setup.sh"
+    guard_run "wazuh-setup" bash "$SEC_DIR/evw-wazuh-setup.sh" || true
+fi
+
 # ── 6. Verification ───────────────────────────────────────────────────────────
 echo ""
 info "=== Verification ==="
@@ -190,7 +198,10 @@ for entry in \
     "$INSTALL_LS_WATCHDOG:com.evw.ls-watchdog-monitor" \
     "$INSTALL_COMMS_GUARD:com.evw.comms-guard" \
     "$INSTALL_PF_DEVPORTS:com.ew.pf-devports" \
-    "$INSTALL_DAILY_HARDEN:local.security.harden"; do
+    "$INSTALL_DAILY_HARDEN:local.security.harden" \
+    "$INSTALL_WAZUH:com.wazuh.agent" \
+    "$INSTALL_WAZUH:com.evw.wazuh-guard" \
+    "$INSTALL_WAZUH:com.evw.wazuh-monitor"; do
     flag="${entry%%:*}"; label="${entry##*:}"
     [[ "$flag" != "1" ]] && continue
     if launchctl print "system/$label" &>/dev/null; then
