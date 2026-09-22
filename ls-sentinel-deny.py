@@ -43,6 +43,58 @@ EXCLUSIONS = [
      "user's own git remote (git@github.com:evweath/sec.git, fcrdns verified)"),
 ]
 
+# ip_intel.org substring -> reason endpoints of this org are never denied,
+# regardless of process (github connections come from WebKit, curl, gh, git…)
+EXCLUDED_ORGS = [
+    ("GitHub",
+     "user's key dev resource — github domains are allow-scoped to signed "
+     "processes on tcp:443 by ls-scope-key-resources.py; sentinel IP denies "
+     "were breaking git/curl/WebKit access (2026-09-15 incident)"),
+    ("Shopify",
+     "user's storefront workflow (admin.shopify.com, *.myshopify.com, shop.app) — "
+     "Shopify anycast IPs (23.227.32.0/20, 2620:127:f00::/48) serve all shops, so "
+     "per-IP denies caused an approve-whack-a-mole loop that kept breaking active "
+     "sessions; allow-scoped to WebKit + Brave by domain on tcp:443 via "
+     "ls-shopify-whitelist.py"),
+]
+
+# ptr suffix -> reason endpoints with this reverse-DNS are never denied.
+# Google front-end IPs (gmail, googleapis, google.com) rotate constantly, so
+# per-IP denies there only produced an approve-whack-a-mole loop (226 stale
+# rules by 2026-09-17); gmail is allow-scoped to signed processes by domain
+# on tcp:443 via ls-gmail-fix.py instead. GCP customer IPs
+# (bc.googleusercontent.com) are NOT covered here and still get denied.
+EXCLUDED_PTRS = [
+    ("1e100.net",
+     "Google front-end infrastructure — IPs rotate under the same domains; "
+     "scoped domain allows (ls-gmail-fix.py) replace per-IP denies"),
+]
+
+# (ip_intel.org substring, process prefix) -> reason this org is never denied
+# when reached from this process. Scoped counterpart to EXCLUDED_ORGS: the
+# org stays deny-eligible for every other process (telemetry, app phoning),
+# only the proven approve-whack-a-mole loop is closed.
+EXCLUDED_ORG_PROCS = [
+    ("Microsoft",
+     "com.apple.WebKit.Networking",
+     "Outlook/Office365 web sessions — Microsoft rotates 40.96/40.99/52.96/52.97 "
+     "front-end IPs; 198 stale per-IP rules and 71 manual flips by 2026-09-21. "
+     "Scoped WebKit+O365-domain tcp:443 allows (ls-outlook-fix.py) replace them"),
+    ("Microsoft",
+     "com.apple.Safari",
+     "same Outlook/Office365 loop — macOS 26 attributes most Safari flows to "
+     "the Safari app process; scoped Safari+O365-domain allows cover it"),
+    ("Google LLC",
+     "com.apple.WebKit.Networking",
+     "GCP load-balancer front-ends (bc.googleusercontent.com PTR) serve "
+     "arbitrary sites incl. admin.shopify.com (34.128.177.21, blocked 2026-09-22) "
+     "— shared-CDN per-IP denies; scoped browser domain allows replace them. "
+     "GCP endpoints reached by non-browser processes remain deny-eligible"),
+    ("Google LLC",
+     "com.apple.Safari",
+     "same GCP load-balancer front-end case — Safari-attributed flows"),
+]
+
 # applied would degrade system networking in ways the user may not intend;
 # reported for a manual decision instead
 OPTIONAL = [
@@ -58,6 +110,28 @@ BLANKET_COVERED = ("com.apple.remoted", "com.apple.mediaremoted",
 def excluded(proc):
     for prefix, reason in EXCLUSIONS:
         if proc.startswith(prefix):
+            return reason
+    return None
+
+
+def excluded_org(org):
+    for sub, reason in EXCLUDED_ORGS:
+        if sub.lower() in (org or "").lower():
+            return reason
+    return None
+
+
+def excluded_ptr(ptr):
+    p = (ptr or "").lower().rstrip(".")
+    for suf, reason in EXCLUDED_PTRS:
+        if p.endswith(suf):
+            return reason
+    return None
+
+
+def excluded_org_proc(org, proc):
+    for sub, prefix, reason in EXCLUDED_ORG_PROCS:
+        if sub.lower() in (org or "").lower() and proc.startswith(prefix):
             return reason
     return None
 
@@ -133,6 +207,18 @@ def main():
     for (ip, port), info in sorted(conns.items()):
         proc = info["process"]
         reason = excluded(proc)
+        if reason:
+            skipped.append((proc, ip, port, info, reason))
+            continue
+        reason = excluded_org(info["org"])
+        if reason:
+            skipped.append((proc, ip, port, info, reason))
+            continue
+        reason = excluded_ptr(info["ptr"])
+        if reason:
+            skipped.append((proc, ip, port, info, reason))
+            continue
+        reason = excluded_org_proc(info["org"], proc)
         if reason:
             skipped.append((proc, ip, port, info, reason))
             continue
