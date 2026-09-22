@@ -206,28 +206,30 @@ hdir() {
   echo ""
   echo "# Claude Code — global config (all settings + hooks)"
   CLAUDE_DIR="$HOME/.claude"
-  find "$CLAUDE_DIR" -maxdepth 2 -type f \
-    ! -path "*/cache/*" \
-    ! -path "*/history*" \
-    ! -path "*/sessions/*" \
-    ! -path "*/shell-snapshots/*" \
-    ! -path "*/paste-cache/*" \
-    ! -path "*/tool-results/*" \
-    ! -path "*/telemetry/*" \
-    ! -path "*/stats-cache*" \
-    ! -path "*/file-history/*" \
-    ! -path "*/downloads/*" \
-    2>/dev/null | sort | while read -r f; do
-    guard_run "h" h "$f" "${f/#$HOME/~}"
-  done
+  if [ -d "$CLAUDE_DIR" ]; then
+    find "$CLAUDE_DIR" -maxdepth 2 -type f \
+      ! -path "*/cache/*" \
+      ! -path "*/history*" \
+      ! -path "*/sessions/*" \
+      ! -path "*/shell-snapshots/*" \
+      ! -path "*/paste-cache/*" \
+      ! -path "*/tool-results/*" \
+      ! -path "*/telemetry/*" \
+      ! -path "*/stats-cache*" \
+      ! -path "*/file-history/*" \
+      ! -path "*/downloads/*" \
+      2>/dev/null | sort | while read -r f; do
+      guard_run "h" h "$f" "${f/#$HOME/~}"
+    done
 
-  echo ""
-  echo "# Claude Code — project memory (all projects)"
-  find "$CLAUDE_DIR/projects" -maxdepth 4 -type f \
-    ! -path "*/tool-results/*" \
-    2>/dev/null | sort | while read -r f; do
-    guard_run "h" h "$f" "${f/#$HOME/~}"
-  done
+    echo ""
+    echo "# Claude Code — project memory (all projects)"
+    find "$CLAUDE_DIR/projects" -maxdepth 4 -type f \
+      ! -path "*/tool-results/*" \
+      2>/dev/null | sort | while read -r f; do
+      guard_run "h" h "$f" "${f/#$HOME/~}"
+    done
+  fi
 
   echo ""
   echo "# Claude Code — binaries (all installed versions)"
