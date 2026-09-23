@@ -87,6 +87,7 @@ LS_SCREENSHARE_DENY = "/usr/local/bin/ls-screenshare-deny.py"
 DIAG_DIR = "/Library/Logs/DiagnosticReports"
 NETDIAG_LOG = os.path.join(SEC, "netdiag/logs/monitor.log")
 TCC_DB = "/Library/Application Support/com.apple.TCC/TCC.db"
+TCC_READER = "/usr/local/bin/evw-tcc-reader"
 PY = "/usr/bin/python3"
 TICK_SECONDS = 15
 PAGE_SIZE_DEFAULT = 16384
@@ -104,7 +105,7 @@ SYSTEM_PID_REQUIRED = [
 # they only need to stay registered with launchd.
 SYSTEM_LOADED_ONLY = ["com.ew.pf-devports", "com.ew.lockdown", "local.security.harden",
                       "com.evw.dns-guard", "com.ew.binding-monitor",
-                      "com.evw.security-audit"]
+                      "com.evw.security-audit", "com.evw.ls-hourly-cleanup"]
 GUI_PID_REQUIRED = ["com.evw.alert-center"]
 GUI_LOADED_ONLY = ["com.evw.sentinel-alert-term", "com.ew.config-sentinel",
                    "com.evw.security-audit-login"]
@@ -657,21 +658,40 @@ def _scan_watchlist(job: str, sc: dict, procs) -> None:
     st["alert_only_seen"] = current_alert_only
 
 
-def _scan_tcc(job: str, sc: dict, procs) -> None:
+def _tcc_screen_capture_clients(job: str):
+    """Active kTCCServiceScreenCapture grant clients, or None when TCC.db is
+    unreadable. TCC.db is FDA-protected even for root, so prefer the
+    FDA-scoped helper binary (evw-tcc-reader) over a general interpreter;
+    fall back to direct sqlite3 for contexts whose responsible process holds
+    FDA (e.g. manual runs from an FDA shell)."""
+    if os.path.exists(TCC_READER):
+        rc, out, err = run([TCC_READER, "system"])
+        if rc == 0:
+            return [line.split("|")[1] for line in out.splitlines()
+                    if line.startswith("kTCCServiceScreenCapture|")
+                    and len(line.split("|")) > 3 and line.split("|")[3] == "2"]
+        log(job, "tcc-reader failed ({}): {}".format(rc, err.strip()[:120]))
     rc, out, err = run(["/usr/bin/sqlite3", TCC_DB,
                         "SELECT client,auth_value FROM access WHERE "
                         "service='kTCCServiceScreenCapture' AND auth_value=2;"])
     if rc != 0:
         if skip_not_root(job, "read TCC.db screen-capture grants"):
-            return
+            return None
         log(job, "TCC query failed ({}): {}".format(rc, err.strip()[:200]))
+        return None
+    return [line.split("|")[0] for line in out.splitlines() if line.strip()]
+
+
+def _scan_tcc(job: str, sc: dict, procs) -> None:
+    clients = _tcc_screen_capture_clients(job)
+    if clients is None:
         return
     st = job_state(job)
     prev_grants = st.setdefault("tcc_grants_seen", [])
     grants, warn = [], []
     prefixes = tuple(sc.get("tcc_allowlist_prefixes", []))
-    for line in out.splitlines():
-        client = line.split("|")[0].strip()
+    for client in clients:
+        client = client.strip()
         if not client or client.startswith(prefixes):
             continue
         grants.append(client)

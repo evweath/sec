@@ -11,15 +11,21 @@ while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(d
 command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
 command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
 
-SECURITY_DIR="$HOME/dev/security"
+# Anchor to the repo (this script's directory). Under the LaunchDaemon,
+# HOME is /var/root or unset, so "$HOME/dev/security" must not be used.
+SECURITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# User-profile files come from the repo owner's home ($OWNER_HOME/dev/security).
+OWNER_HOME="$(dirname "$(dirname "$SECURITY_DIR")")"
 DATE="$(date -u +%Y-%m-%d)"
 SCAN_DIR="${1:-$SECURITY_DIR/scan-${DATE}}"
 OUT="$SCAN_DIR/file-hashes.txt"
-PREV_SCAN=$(ls -d "$SECURITY_DIR"/scan-*/ 2>/dev/null | grep -v "scan-${DATE}" | sort | tail -1 || true)
-PREV_OUT="${PREV_SCAN}file-hashes.txt"
-if [ -n "$PREV_SCAN" ] && [ ! -f "$PREV_OUT" ]; then
-  PREV_OUT="${PREV_SCAN}binary-hashes.txt"
-fi
+# Most recent previous scan that actually has a hash file to diff against.
+PREV_SCAN=""
+PREV_OUT=""
+for d in $(ls -d "$SECURITY_DIR"/scan-*/ 2>/dev/null | grep -v "scan-${DATE}" | sort -r); do
+  if [ -f "${d}file-hashes.txt" ]; then PREV_SCAN="$d"; PREV_OUT="${d}file-hashes.txt"; break; fi
+  if [ -f "${d}binary-hashes.txt" ]; then PREV_SCAN="$d"; PREV_OUT="${d}binary-hashes.txt"; break; fi
+done
 
 mkdir -p "$SCAN_DIR"
 
@@ -109,7 +115,7 @@ h() {
 
   echo ""
   echo "# ── Claude Code global config ────────────────────────────────"
-  CLAUDE_DIR="$HOME/.claude"
+  CLAUDE_DIR="$OWNER_HOME/.claude"
   for f in \
     "$CLAUDE_DIR/CLAUDE.md" \
     "$CLAUDE_DIR/settings.json" \
@@ -119,21 +125,21 @@ h() {
     "$CLAUDE_DIR/hooks/pre-tool-use.sh" \
     "$CLAUDE_DIR/hooks/post-tool-use.sh" \
     "$CLAUDE_DIR/hooks/notify-on-stop.sh"; do
-    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$HOME/~}"
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$OWNER_HOME/~}"
   done
 
   echo ""
   echo "# ── Claude Code project memory (security project) ───────────"
-  PROJ_MEM="$HOME/.claude/projects/-Users-evw-dev-security/memory"
+  PROJ_MEM="$OWNER_HOME/.claude/projects/-Users-evw-dev-security/memory"
   if [ -d "$PROJ_MEM" ]; then
     for f in "$PROJ_MEM"/*.md "$PROJ_MEM"/*.csmem "$PROJ_MEM"/MEMORY.md; do
-      [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$HOME/~}"
+      [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  ${f/#$OWNER_HOME/~}"
     done
   fi
 
   echo ""
   echo "# ── Claude Code binaries ─────────────────────────────────────"
-  CLAUDE_VERSIONS="$HOME/.local/share/claude/versions"
+  CLAUDE_VERSIONS="$OWNER_HOME/.local/share/claude/versions"
   if [ -d "$CLAUDE_VERSIONS" ]; then
     for v in $(ls "$CLAUDE_VERSIONS" | sort); do
       f="$CLAUDE_VERSIONS/$v"
@@ -144,7 +150,7 @@ h() {
   echo ""
   echo "# ── Python — pyenv 3.13 + stdlib python3 ────────────────────"
   for f in \
-    "$HOME/.pyenv/versions/3.13.13/bin/python3.13" \
+    "$OWNER_HOME/.pyenv/versions/3.13.13/bin/python3.13" \
     "/usr/bin/python3"; do
     guard_run "h" h "$f"
   done
@@ -165,7 +171,7 @@ h() {
   echo ""
   echo "# ── LaunchAgent/Daemon plists ────────────────────────────────"
   for f in \
-    "$HOME/Library/LaunchAgents/com.evw.donut-intel.plist" \
+    "$OWNER_HOME/Library/LaunchAgents/com.evw.donut-intel.plist" \
     "/Library/LaunchDaemons/com.evw.plist-monitor.plist"; do
     guard_run "h" h "$f"
   done

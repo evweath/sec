@@ -58,6 +58,7 @@ def report(msg):
 TRACKER_DENY = {
     "gator.volces.com":   "ByteDance/Volcengine Gator tracking + anti-bot SDK",
     "apmplus.volces.com": "ByteDance/Volcengine APMPlus telemetry",
+    "apmplus.ap-southeast-1.volces.com": "ByteDance/Volcengine APMPlus telemetry (regional endpoint)",
     "tab.volces.com":     "ByteDance/Volcengine DataTester telemetry",
     "queniuck.com":       "CNAME-cloaking tracker (Volcengine alias target)",
 }
@@ -130,7 +131,9 @@ def save_model(model, dst):
     return True
 
 def write_report(path, text):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
     with open(path, "w") as f:
         f.write(text)
     return True
@@ -195,7 +198,12 @@ def main():
             continue
 
         # 6. specific-host allow without port restriction -> tcp:443
-        if ((r.get("remote-hosts") or r.get("remote-domains"))
+        #    IP-literal rules only with the auto-conn-guard's own on-443
+        #    evidence marker (D5-plain-on-443) — anything else could be a
+        #    legit non-443 service (DNS/NTP/SSH/…) and must stay any-port
+        if ((r.get("remote-hosts") or r.get("remote-domains")
+                or (r.get("remote-addresses")
+                    and "D5-plain-on-443" in str(r.get("notes", ""))))
                 and not r.get("ports")
                 and not r.get("disabled")
                 and r.get("protocol", "any") not in ("udp", "icmp")):

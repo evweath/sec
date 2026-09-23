@@ -1,0 +1,6 @@
+Input: 3504 rules (/var/tmp/ls-hourly.LxJbSloD/step1.json)
+SKIP add-deny apsd: deny rule already present for /System/Library/PrivateFrameworks/ApplePushService.framework/apsd
+SKIP add-deny sharingd: deny rule already present for /usr/libexec/sharingd
+SKIP add-deny replicatord: deny rule already present for /System/Library/PrivateFrameworks/ReplicatorCore.framework/Support/replicatord
+SKIP add-deny screensharingd: deny rule already present for /System/Library/CoreServices/RemoteManagement/screensharingd.bundle/Contents/MacOS/screensharingd
+Done. in=3504 out=3504 | +0 denies, -0 monitor-unused, -0 stale-binary, ~0 tightened to tcp:443, ~0 ots-scoped

@@ -1,0 +1,9 @@
+# [AUTO-EVW-LS] hole-audit report
+# 2026-09-10 17:41:06  rules=2547  DELETE=1  REPLANT=0  REVIEW=0
+
+## DELETED (full copies in undo JSON)
+- `H2-allow-sensitive-proc`  allow identifier.APPLE/com.apple.identityservicesd/simulator -> pds-init.ess.apple.com ports=443 dir=(both) origin=alert
+
+## REPLANTED critical denies (were missing)
+
+## REVIEW-ONLY (any-port allows, left in place)

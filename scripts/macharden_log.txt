@@ -12,3 +12,17 @@
 2026-09-05 10:01:04 [INFO] OK: Passwordless sudo available
 2026-09-05 10:01:04 [INFO] OK: SIP is ENABLED (leave it enabled)
 2026-09-05 10:01:04 [INFO] OK: Free disk space: 552.9 GB (sufficient)
+2026-09-09 16:12:34 [INFO] MacHarden Suite v2.0 started — dry_run=False
+2026-09-09 16:12:34 [INFO] OK: macOS 26.6.2 (Tahoe confirmed)
+2026-09-09 16:12:34 [INFO] OK: Apple Silicon confirmed (arm64)
+2026-09-09 16:12:34 [ERROR] ERR: Do not run this script as root. Run as your admin user; sudo will be invoked as needed.
+2026-09-09 16:12:34 [INFO] OK: Passwordless sudo available
+2026-09-09 16:12:34 [INFO] OK: SIP is ENABLED (leave it enabled)
+2026-09-09 16:12:34 [INFO] OK: Free disk space: 129.9 GB (sufficient)
+2026-09-11 14:44:11 [INFO] MacHarden Suite v2.0 started — dry_run=False
+2026-09-11 14:44:11 [INFO] OK: macOS 26.6.2 (Tahoe confirmed)
+2026-09-11 14:44:11 [INFO] OK: Apple Silicon confirmed (arm64)
+2026-09-11 14:44:11 [ERROR] ERR: Do not run this script as root. Run as your admin user; sudo will be invoked as needed.
+2026-09-11 14:44:11 [INFO] OK: Passwordless sudo available
+2026-09-11 14:44:11 [INFO] OK: SIP is ENABLED (leave it enabled)
+2026-09-11 14:44:11 [INFO] OK: Free disk space: 77.0 GB (sufficient)

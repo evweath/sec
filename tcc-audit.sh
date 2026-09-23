@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # TCC (privacy permissions) audit — screen capture, accessibility, input monitoring.
 #
-# Design: always run with sudo. Root bypasses FDA protection on both TCC.dbs,
-# so Terminal never needs Full Disk Access. This keeps Terminal FDA permanently
-# revoked — granting it would be a broader attack surface than this script needs.
+# Design: always run with sudo. TCC.db is FDA-protected even for root on modern
+# macOS, so reads go through /usr/local/bin/evw-tcc-reader — a small signed
+# helper that holds the Full Disk Access grant, scoped to exactly this fixed
+# query (no SQL/path arguments). This keeps Terminal/iTerm FDA permanently
+# revoked — granting a general interpreter FDA would be a far broader attack
+# surface than this script needs. Falls back to direct sqlite3 for shells that
+# already hold FDA.
 #
 # Usage: sudo bash ~/dev/security/tcc-audit.sh [scan-dir]
 set -euo pipefail
@@ -33,6 +37,18 @@ rm -f "$OUT"   # break any pre-planted symlink before the root tee write below
 SERVICES="'kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent','kTCCServicePostEvent','kTCCServiceCamera','kTCCServiceMicrophone'"
 SQL="SELECT service,client,client_type,auth_value,last_modified,indirect_object_identifier FROM access WHERE service IN ($SERVICES) ORDER BY service,auth_value DESC;"
 
+# Read rows via the FDA-scoped helper when present (same fixed query as $SQL);
+# fall back to direct sqlite3 for shells that already hold FDA.
+TCC_READER=/usr/local/bin/evw-tcc-reader
+tcc_rows() {  # $1 = user|system
+  local dbvar
+  if [ -x "$TCC_READER" ] && "$TCC_READER" "$1" 2>/dev/null; then
+    return 0
+  fi
+  dbvar=$([ "$1" = user ] && echo "$USER_TCC" || echo "$SYS_TCC")
+  sqlite3 "$dbvar" "$SQL" 2>/dev/null
+}
+
 # auth_value: 0=denied 2=allowed 3=limited
 decode_auth() {
   case "$1" in
@@ -51,13 +67,13 @@ decode_auth() {
   USER_TCC="$REAL_HOME/Library/Application Support/com.apple.TCC/TCC.db"
   echo "=== USER TCC.db ==="
   if [ -f "$USER_TCC" ]; then
-    guard_run "tcc-user-db" sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
+    tcc_rows user | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       echo "  [$status] $service → $client"
     done || true
     echo ""
     echo "  Raw (for diffing):"
-    guard_run "tcc-user-db" sqlite3 "$USER_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
+    tcc_rows user | sed 's/^/  /' || true
   else
     echo "  Not found: $USER_TCC"
   fi
@@ -66,7 +82,7 @@ decode_auth() {
   echo "=== SYSTEM TCC.db ==="
   SYS_TCC="/Library/Application Support/com.apple.TCC/TCC.db"
   if [ -f "$SYS_TCC" ]; then
-    guard_run "tcc-system-db" sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | while IFS='|' read -r service client ctype auth mtime ioi; do
+    tcc_rows system | while IFS='|' read -r service client ctype auth mtime ioi; do
       status=$(decode_auth "$auth")
       flag=""
       [ "$status" = "ALLOWED" ] && flag=" ←── GRANTED"
@@ -74,7 +90,7 @@ decode_auth() {
     done || true
     echo ""
     echo "  Raw (for diffing):"
-    guard_run "tcc-system-db" sqlite3 "$SYS_TCC" "$SQL" 2>/dev/null | sed 's/^/  /' || true
+    tcc_rows system | sed 's/^/  /' || true
   else
     echo "  Not found: $SYS_TCC"
   fi

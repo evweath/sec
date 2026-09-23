@@ -78,7 +78,7 @@ fi
 # Verify: re-export and confirm the tracker denies landed
 guard_run "ls-export-verify" "$LSCLI" export-model "$WORK/verify.json" || true
 missing=0
-for domain in gator.volces.com apmplus.volces.com tab.volces.com queniuck.com \
+for domain in gator.volces.com apmplus.volces.com apmplus.ap-southeast-1.volces.com tab.volces.com queniuck.com \
               tiktok.com tiktokcdn-us.com tiktokv.us tiktokw.us ttcdn-us.com \
               tiktokshops.us bytedance.com zohopublic.com zohocdn.com \
               salesiq.zoho.com pagesense-collect.zoho.com pagesense-hb-collect.zoho.com; do

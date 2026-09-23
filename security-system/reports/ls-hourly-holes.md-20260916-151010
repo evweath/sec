@@ -1,0 +1,8 @@
+# [AUTO-EVW-LS] hole-audit report
+# 2026-09-16 15:10:10  rules=2920  DELETE=0  REPLANT=0  REVIEW=0
+
+## DELETED (full copies in undo JSON)
+
+## REPLANTED critical denies (were missing)
+
+## REVIEW-ONLY (any-port allows, left in place)

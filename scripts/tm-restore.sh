@@ -1,5 +1,5 @@
 #!/bin/bash
-# tm-restore.sh v7 — get FULL access to folders in Time Machine backups, the
+# tm-restore.sh v8 — get FULL access to folders in Time Machine backups, the
 # SIMPLEST way that works: if the backup can simply be re-permissioned IN
 # PLACE (chown/chmod directly on it), that is all the script does — no
 # copying, no staging, no disk-space cost. Read-only sources (APFS snapshots
@@ -75,6 +75,23 @@
 # snapshot that meanwhile became COMPLETE: the binding is ignored with a loud
 # warning instead of processing the done snapshot and stopping.
 #
+# WHY v8 (THE LOCKED TM DRIVE + FULL INTERNAL DISK):
+# a TM destination locks its own root with backupd's "group:everyone deny
+# add_file,delete,add_subdirectory,delete_child,writeattr,writeextattr,chown"
+# ACL (inherited down the backup tree) plus com.apple.macl — mkdir/touch fail
+# even for ROOT until that ACL is stripped. The script now unlocks $TMVOL up
+# front (chflags nouchg, chmod -N, chown, write-probe, mount -uw remedy)
+# instead of dying at dest creation.
+# v8 also moves default staging to $TMVOL/TM-Restore-staging: staging on the
+# Mac's disk broke every copy once that disk hit 100% full ("SKIP too-large —
+# staging space"), while the TM disk is the one with room. Legacy Desktop
+# staging is adopted (moved onto the TM volume) so an interrupted resume still
+# works. When source/staging/dest share one APFS volume, copies use clonefile
+# (cp -c — copy-on-write clones, near-zero extra space) and the staging->dest
+# commit is a rename instead of a re-copy; rsync/ditto/cp stay as cross-device
+# fallbacks. And cd / at startup kills the getcwd error flood from a CWD that
+# was moved aside mid-run.
+#
 # FORCE REDO: delete a folder's .done-<name>-<hash> marker (one folder) or the
 # .complete file (whole snapshot) inside $TMVOL/TM-Restored/<date>/; for
 # restores registered from ELSEWHERE, delete that snapshot's line in
@@ -106,8 +123,9 @@
 # --all-snapshots mode.
 #
 # ENV:  TMVOL=/Volumes/passport1  KEEP=1
-#   STAGE=<dir> (default ~/Desktop/TM-Restore-staging — a FIXED path on
-#           purpose, so a re-run resumes a half-copied folder via rsync)
+#   STAGE=<dir> (default $TMVOL/TM-Restore-staging — a FIXED path on the
+#           destination disk, so a re-run resumes a half-copied folder via
+#           rsync AND staging uses the free space that actually exists)
 #   ALL_ROOT (default: the backed-up volume root — set to "<root>/Users"
 #           to restore only user folders)
 #
@@ -125,8 +143,9 @@ USER_NAME="${SUDO_USER:-evw}"
 USER_HOME=$(dscl . -read "/Users/$USER_NAME" NFSHomeDirectory 2>/dev/null | awk '{print $2}')
 [ -z "$USER_HOME" ] && USER_HOME="/Users/$USER_NAME"
 KEEP="${KEEP:-0}"
-if [ -z "${STAGE:-}" ]; then STAGE="$USER_HOME/Desktop/TM-Restore-staging"; STAGE_PINNED=0
-else STAGE_PINNED=1; fi
+# the STAGE default needs the TM volume, so it is resolved right after TMVOL
+# (see below); an explicit STAGE= always wins
+if [ -n "${STAGE:-}" ]; then STAGE_PINNED=1; else STAGE_PINNED=0; fi
 MNT_BASE=/private/var/tmp/tm-restore-mnt
 LOCK=/private/var/tmp/tm-restore.pid
 REGISTRY=RESTORED-ELSEWHERE.tsv
@@ -145,8 +164,13 @@ tshoot(){ say "[TSHOOT] $*" >&2; [ -w "$LOG" ] && printf '[%s] [TSHOOT] %s\n' "$
 
 [ "$(id -u)" -ne 0 ] && { echo "ERROR: run with sudo"; exit 1; }
 
+# a CWD that gets deleted/renamed mid-run (staging moved aside under the
+# shell, a remounted volume) makes every child process spam getcwd errors
+cd / || { echo "ERROR: cannot cd /"; exit 1; }
+
 # ── resolve TM volume + device (mount table; df lies about .timemachine) ─────
 TMVOL="${TMVOL:-}"
+TMVOL_PINNED=0; [ -n "$TMVOL" ] && TMVOL_PINNED=1
 mntline=$(mount | grep -F " on /Volumes/.timemachine/" | head -1)
 if echo "$mntline" | grep -q '@'; then
     TMDEV=$(echo "$mntline" | sed -E 's|^[^@]*@([^ ]+) on .*|\1|')
@@ -168,11 +192,18 @@ if [ -z "${TMVOL:-}" ]; then
         say "auto-detected TM volume via TM-Restored: $TMVOL"
     fi
 fi
+# an explicit TMVOL= pins the device as well — an auto-mounted snapshot of a
+# DIFFERENT TM disk must not steer the snapshot list
+[ "$TMVOL_PINNED" = "1" ] && TMDEV=$(mount | grep " on $TMVOL " | head -1 | awk '{print $1}')
 [ -z "$TMDEV" ] && [ -n "${TMVOL:-}" ] && \
     TMDEV=$(mount | grep " on $TMVOL " | head -1 | awk '{print $1}')
 [ -z "${TMVOL:-}" ] && { say "ERROR: cannot find live TM volume. Pass TMVOL=/Volumes/<name>"; exit 1; }
 [ -z "$TMDEV" ] && { say "ERROR: cannot find TM device"; exit 1; }
 say "TM device: $TMDEV   live volume: $TMVOL"
+
+# default staging lives on the TM volume itself: that is the disk with the
+# free space, and same-volume staging enables clonefile copies + rename commits
+[ "$STAGE_PINNED" = "0" ] && STAGE="$TMVOL/TM-Restore-staging"
 
 list_snapshots() {  # oldest first
     diskutil apfs listSnapshots "$TMDEV" 2>/dev/null \
@@ -232,6 +263,31 @@ fix_perms() {
     chmod -R u+rwX "$1" 2>/dev/null
 }
 
+# A TM destination locks its own root: "group:everyone deny add_file,delete,
+# add_subdirectory,delete_child,writeattr,writeextattr,chown" (inherited down
+# the backup tree) — nothing, not even root, can create TM-Restored or staging
+# until that ACL is stripped. $1=soft: warn instead of dying (read-only modes).
+unlock_tmvolume() {
+    chflags nouchg "$TMVOL" 2>/dev/null
+    chmod -N "$TMVOL" 2>/dev/null
+    chown "$USER_NAME":staff "$TMVOL" 2>/dev/null
+    chmod u+rwx "$TMVOL" 2>/dev/null
+    [ -d "$TMVOL/TM-Restored" ] && chmod -N "$TMVOL/TM-Restored" 2>/dev/null
+    if ! can_write_tree "$TMVOL"; then
+        tshoot "TM volume root not writable — trying mount -uw $TMVOL"
+        mount -uw "$TMVOL" 2>>"$LOG"
+        chmod -N "$TMVOL" 2>/dev/null
+    fi
+    if can_write_tree "$TMVOL"; then
+        say "TM volume unlocked for writing: $TMVOL"
+    elif [ "${1:-}" = "soft" ]; then
+        tshoot "$TMVOL still not writable after ACL/flag unlock — registry writes may fail"
+    else
+        say "ERROR: $TMVOL is not writable even after ACL/flag unlock (needs Full Disk Access?)"
+        exit 1
+    fi
+}
+
 # ── in-place fast path (v6) ─────────────────────────────────────────────────
 # access(W_OK) can lie for root; a real create+delete is the only reliable
 # writability test.
@@ -253,6 +309,7 @@ mountpoint_of() {  # $1=path -> longest mount point containing it (df lies about
 }
 tree_full_perms() {  # $1=dir -> rc 0 if USER_NAME owns EVERY item and top dir is rwx
     [ -r "$1" ] && [ -w "$1" ] && [ -x "$1" ] || return 1
+    noowners_volume "$1" && return 0   # ownership ignored: access is inherent
     [ -z "$(find "$1" ! -user "$USER_NAME" -print -quit 2>/dev/null)" ]
 }
 try_inplace_root() {  # $1=root -> rc 0 if the backup tree is writable in place
@@ -318,9 +375,18 @@ acquire_lock() {  # one run at a time — concurrent runs would share $STAGE
     echo $$ > "$LOCK"
 }
 
-adopt_staging() {  # fold a crashed v4 run's timestamped staging dir into $STAGE
+adopt_staging() {  # fold a crashed run's leftover staging into $STAGE
     [ "$STAGE_PINNED" = "1" ] && return 0
-    local d
+    local d legacy="$USER_HOME/Desktop/TM-Restore-staging"
+    # legacy default (v7 and earlier): the fixed staging dir on the Desktop —
+    # move it onto the TM volume so the half-copied folder still resumes
+    if [ "$STAGE" != "$legacy" ] && [ -d "$legacy" ] && [ -n "$(ls -A "$legacy" 2>/dev/null)" ]; then
+        if [ ! -d "$STAGE" ] || rmdir "$STAGE" 2>/dev/null; then
+            mv "$legacy" "$STAGE" && say "resuming: moved legacy Desktop staging to $STAGE"
+        else
+            say "note: legacy Desktop staging not adopted — $STAGE already has content; delete it manually when no longer needed"
+        fi
+    fi
     for d in "$USER_HOME"/Desktop/TM-Restore-[0-9]*/; do
         [ -d "$d" ] || continue
         if [ -z "$(ls -A "$d" 2>/dev/null)" ]; then rmdir "$d" 2>/dev/null; continue; fi
@@ -550,7 +616,13 @@ scan_restored() {  # scan Mac Desktop + all mounted volumes for already-restored
     return 0
 }
 
-copy_tree() { # engine ladder: rsync -> ditto -> cp
+copy_tree() { # engine ladder: clonefile (same APFS volume) -> rsync -> ditto -> cp
+    if [ "${CLONE_OK:-0}" = "1" ] && [ ! -e "$2" ]; then
+        # cp -c = copy-on-write clone: instant, near-zero extra space; a
+        # partial clone is topped up by the rsync fallback below
+        cp -Rcp "$1" "$2" >> "$LOG" 2>&1 && return 0
+        tshoot "clone copy failed on $1 — falling back to rsync"
+    fi
     rsync -a --stats "$1/" "$2/" >> "$LOG" 2>&1
     local rc=$?
     [ $rc -eq 0 ] && return 0
@@ -588,7 +660,15 @@ process_folder() {  # $1=SRC  $2=DEST_ROOT  $3=idx  $4=total  $5=root
     fi
 
     local need_kb free_kb dst_stage s_cnt d_cnt stage_kb dfree_kb have_kb=0 eff_need=0
+    local sdev tdev bdev
     dst_stage="$STAGE/$name"
+    # same APFS volume end-to-end? then clonefile does the copy (data blocks
+    # are shared, ~zero extra space) and the commit is a rename — the disk
+    # guards below only matter when bytes really cross devices
+    sdev=$(stat -f %d "$SRC" 2>/dev/null)
+    tdev=$(stat -f %d "$STAGE" 2>/dev/null)
+    CLONE_OK=0
+    [ -n "$sdev" ] && [ -n "$tdev" ] && [ "$sdev" = "$tdev" ] && CLONE_OK=1
     # a half-copied staging dir from an interrupted run counts toward what is
     # already done — both for the disk guard below and for rsync (which only
     # transfers what is missing/different)
@@ -596,7 +676,7 @@ process_folder() {  # $1=SRC  $2=DEST_ROOT  $3=idx  $4=total  $5=root
     have_kb=${have_kb:-0}
     need_kb=$(du -sk "$SRC" 2>/dev/null | awk '{print $1}')
     free_kb=$(df -k "$STAGE" | tail -1 | awk '{print $4}')
-    if [ -n "$need_kb" ] && [ "$need_kb" -gt 0 ] 2>/dev/null; then
+    if [ "$CLONE_OK" != "1" ] && [ -n "$need_kb" ] && [ "$need_kb" -gt 0 ] 2>/dev/null; then
         eff_need=$(( need_kb - have_kb )); [ "$eff_need" -lt 0 ] && eff_need=0
         if [ $((eff_need + eff_need/10)) -ge "$free_kb" ]; then
             log "[$i/$total] SKIP too-large: $SRC (~$((eff_need/1024))MB still needed, $((free_kb/1024))MB free)"
@@ -637,6 +717,20 @@ process_folder() {  # $1=SRC  $2=DEST_ROOT  $3=idx  $4=total  $5=root
         tshoot "still mismatched — see $DEST_ROOT/MISSING-$name.txt; staging kept"
     fi
     fix_perms "$dst_stage"
+
+    # staging and destination on the same volume: the commit is a rename,
+    # not a re-copy (only when the dest name is free — otherwise merge below)
+    bdev=$(stat -f %d "$DEST_ROOT" 2>/dev/null)
+    if [ -n "$tdev" ] && [ -n "$bdev" ] && [ "$tdev" = "$bdev" ] && [ ! -e "$DEST_ROOT/$name" ]; then
+        log "[$i/$total] COMMIT (rename, same volume) -> $DEST_ROOT/$name"
+        if mv "$dst_stage" "$DEST_ROOT/$name"; then
+            fix_perms "$DEST_ROOT/$name"
+            touch "$(marker_name "$DEST_ROOT" "$SRC" "$root")"
+            log "[$i/$total] done ($d_cnt files verified, moved into place)"
+            return 0
+        fi
+        tshoot "rename failed — falling back to rsync copy-back"
+    fi
 
     stage_kb=$(du -sk "$dst_stage" 2>/dev/null | awk '{print $1}')
     dfree_kb=$(df -k "$DEST_ROOT" | tail -1 | awk '{print $4}')
@@ -764,9 +858,18 @@ process_snapshot() {  # $1=snapname  $2=mode("all"|explicit)  rest=folders
 MODE="${1:-}"
 case "$MODE" in
   --list-snapshots|""|--status) ;;                  # read-only: no lock needed
-  *) acquire_lock; adopt_staging ;;
+  --scan-restored) unlock_tmvolume soft ;;          # writes only the registry
+  *) acquire_lock; unlock_tmvolume; adopt_staging ;;
 esac
-mkdir -p "$STAGE" "$MNT_BASE"
+mkdir -p "$MNT_BASE"
+if ! mkdir -p "$STAGE" 2>/dev/null; then
+    case "$MODE" in
+      --list-snapshots|""|--status|--scan-restored) ;;
+      *) say "WARNING: cannot create staging on $TMVOL — falling back to Desktop staging"
+         STAGE="$USER_HOME/Desktop/TM-Restore-staging"
+         mkdir -p "$STAGE" || { echo "ERROR: no usable staging directory"; exit 1; } ;;
+    esac
+fi
 rmdir "$MNT_BASE"/* 2>/dev/null                     # stale EMPTY mount dirs from a dead run
 caffeinate -dims & CAFF=$!
 trap 'kill $CAFF 2>/dev/null; rm -f "$LOCK"; for m in "${UMOUNTS[@]:-}"; do [ -n "$m" ] && umount "$m" 2>/dev/null; done' EXIT

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Complete Little Snitch rule analysis.
 Usage: sudo /path/to/littlesnitch export-model /tmp/ls-full.json && python3 ls-full-analysis.py /tmp/ls-full.json [prev-model.json]
+Default prev-model: newest scan-*/ls-model.json in this repo other than the analyzed one.
 """
 import json, sys, os
 from collections import defaultdict, Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 # error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
 try:
@@ -26,6 +27,10 @@ except ImportError:
     def throw(msg): raise GuardError(str(msg))
 
 W = 70
+
+# Repo root = this script's directory, so paths resolve the same whether the
+# caller is the user (HOME=/Users/evw) or the root daemon (HOME=/var/root).
+SEC = os.path.dirname(os.path.abspath(__file__))
 
 def section(title):
     print(f'\n{"─"*W}')
@@ -55,17 +60,31 @@ def load_model(path):
 
 def save_model_copy(src, dst):
     import shutil
-    dst = os.path.expanduser(dst)
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy(src, dst)
+    os.chmod(dst, 0o644)
+    if os.geteuid() == 0:  # keep the repo user-owned when run as root
+        try:
+            st = os.stat(SEC)
+            os.chown(dst, st.st_uid, st.st_gid)
+            os.chown(os.path.dirname(dst), st.st_uid, st.st_gid)
+        except OSError:
+            pass
     return True
+
+def default_prev_model(current):
+    import glob
+    cur = os.path.realpath(current)
+    cands = [p for p in glob.glob(os.path.join(SEC, 'scan-*', 'ls-model.json'))
+             if os.path.realpath(p) != cur]
+    return max(cands) if cands else None
 
 def main():
     MODEL_PATH = sys.argv[1] if len(sys.argv) > 1 else '/tmp/ls-check-now.json'
-    PREV_PATH  = sys.argv[2] if len(sys.argv) > 2 else \
-        os.path.expanduser('~/dev/security/scan-2026-06-03/ls-model.json')
-    SAVE_PATH  = os.path.expanduser(
-        f'~/dev/security/scan-{datetime.utcnow().strftime("%Y-%m-%d")}/ls-model.json')
+    PREV_PATH  = sys.argv[2] if len(sys.argv) > 2 else default_prev_model(MODEL_PATH)
+    SAVE_PATH  = os.path.join(
+        SEC, 'scan-{}'.format(datetime.now(timezone.utc).strftime('%Y-%m-%d')),
+        'ls-model.json')
 
     model = guard_run("load-model", load_model, MODEL_PATH)
     if model is None or model is SKIP:
@@ -80,7 +99,7 @@ def main():
     print('='*W)
     print('LITTLE SNITCH — COMPLETE RULE ANALYSIS')
     print(f'Model: {MODEL_PATH}')
-    print(f'Date:  {datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}')
+    print(f'Date:  {datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}')
     print('='*W)
     print(f'  Total rules : {len(rules)}')
     print(f'  Deny        : {len(deny)}')
@@ -202,14 +221,23 @@ def main():
     # ── 7. Recently added deny rules (since prev scan) ───────────────────────────
     section('7. DENY RULE DIFF vs PREVIOUS MODEL')
 
-    IGNORE = {'lastUsed', 'useCount', 'modificationDate'}
+    # creationDate ignored: LS regenerates factory rules daily with a fresh
+    # timestamp; without this they'd show as drop+add noise every day.
+    IGNORE = {'lastUsed', 'useCount', 'modificationDate', 'creationDate'}
 
     def stable_key(r):
         return json.dumps({k: v for k, v in sorted(r.items()) if k not in IGNORE})
 
-    try:
-        with open(PREV_PATH) as f:
-            prev_model = json.load(f)
+    prev_model = None
+    if PREV_PATH:
+        try:
+            with open(PREV_PATH) as f:
+                prev_model = json.load(f)
+        except FileNotFoundError:
+            pass
+    if prev_model is None:
+        print(f'  (no previous model at {PREV_PATH or "<none found>"} — skipping diff)')
+    else:
         prev_deny_keys = set(stable_key(r) for r in prev_model.get('rules',[]) if r.get('action')=='deny')
         curr_deny_keys = set(stable_key(r) for r in deny)
         prev_allow_keys = set(stable_key(r) for r in prev_model.get('rules',[]) if r.get('action')=='allow')
@@ -229,8 +257,10 @@ def main():
 
         if dropped_deny:
             print(f'\n  ⚠️  DENY RULES DROPPED ({len(dropped_deny)}):')
-            for r in dropped_deny:
+            for r in sorted(dropped_deny, key=proc_label)[:50]:
                 print(f'    proc={proc_label(r):<45} remote={remote_label(r)}')
+            if len(dropped_deny) > 50:
+                print(f'    ... and {len(dropped_deny)-50} more')
         else:
             print('\n  ✅ No deny rules dropped')
 
@@ -247,8 +277,6 @@ def main():
             print(f'\n  New allow rules ({len(added_allow)}):')
             for r in sorted(added_allow, key=proc_label)[:20]:
                 print(f'    proc={proc_label(r):<45} remote={remote_label(r)}')
-    except FileNotFoundError:
-        print(f'  (no previous model at {PREV_PATH})')
 
     # ── 8. Rules by origin ────────────────────────────────────────────────────────
     section('8. DENY RULES BY ORIGIN')
@@ -267,9 +295,12 @@ def main():
     print(f'{"="*W}\n')
 
     # ── Save model ────────────────────────────────────────────────────────────────
-    if not guard_run("save-model-copy", save_model_copy, MODEL_PATH, SAVE_PATH):
+    if os.path.realpath(MODEL_PATH) == os.path.realpath(SAVE_PATH):
+        print(f'Model already at {SAVE_PATH}')
+    elif not guard_run("save-model-copy", save_model_copy, MODEL_PATH, SAVE_PATH):
         return 1
-    print(f'Model saved to {SAVE_PATH}')
+    else:
+        print(f'Model saved to {SAVE_PATH}')
 
 if __name__ == '__main__':
     sys.exit(main())

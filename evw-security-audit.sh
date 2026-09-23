@@ -90,7 +90,19 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -vE "127\.0\.0\.1|\[::1\]|^COMMAN
 } > "$SCAN/kexts-sysexts.txt" 2>&1
 
 # ── 5. guarded processes must not accumulate ─────────────────────────────────
-pgrep -q replayd && note "[!!] replayd RUNNING (guard should have killed it)"
+# replayd respawns every few seconds and the guard reaps within ~5s, so a
+# single pgrep sample fires constantly (2026-09-21: both audits findings=1 on
+# transient sightings). Flag only when the SAME PID survives a 10s recheck —
+# that means the guard is not reaping.
+RPID=$(pgrep -x replayd | head -1)
+if [ -n "$RPID" ]; then
+    sleep 10
+    if ps -p "$RPID" >/dev/null 2>&1; then
+        note "[!!] replayd PID=$RPID alive >10s — guard not reaping?"
+    else
+        info "[..] replayd PID=$RPID reaped within 10s (routine respawn)"
+    fi
+fi
 pgrep -q studentd && info "[..] studentd alive at audit time (guard reaps ≤5 min — routine)"
 
 # ── 5b. wazuh agent (if installed) ───────────────────────────────────────────
@@ -104,10 +116,18 @@ if pkgutil --pkg-info com.wazuh.pkg.wazuh-agent >/dev/null 2>&1; then
 fi
 
 # ── 6. user TCC (screen/accessibility/listen/post) ───────────────────────────
-TCCROWS=$(sqlite3 "/Users/evw/Library/Application Support/com.apple.TCC/TCC.db" \
-    "SELECT COUNT(*) FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent','kTCCServicePostEvent') AND auth_value=2;" 2>/dev/null || echo "?")
+# TCC.db is FDA-protected even for root; the signed helper holds the FDA grant
+# (scoped to this one read). Direct sqlite3 only works from FDA'd shells.
+TCC_READER=/usr/local/bin/evw-tcc-reader
+if [ -x "$TCC_READER" ] && TCCOUT=$("$TCC_READER" user 2>/dev/null); then
+    TCCROWS=$(printf '%s\n' "$TCCOUT" | awk -F'|' \
+        '$1 ~ /kTCCService(ScreenCapture|Accessibility|ListenEvent|PostEvent)/ && $4==2' | wc -l | tr -d ' ')
+else
+    TCCROWS=$(sqlite3 "/Users/evw/Library/Application Support/com.apple.TCC/TCC.db" \
+        "SELECT COUNT(*) FROM access WHERE service IN ('kTCCServiceScreenCapture','kTCCServiceAccessibility','kTCCServiceListenEvent','kTCCServicePostEvent') AND auth_value=2;" 2>/dev/null || echo "?")
+fi
 if [ "$TCCROWS" = "?" ]; then
-    info "[..] user TCC db unreadable without FDA — interactive check 2026-09-08: 0 sensitive grants"
+    info "[..] user TCC db unreadable (no FDA on helper/shell) — interactive check 2026-09-08: 0 sensitive grants"
 elif [ "$TCCROWS" != "0" ]; then
     note "[!!] sensitive TCC grants present (count=$TCCROWS)"
 fi

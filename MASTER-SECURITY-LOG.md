@@ -1179,3 +1179,113 @@ KeepAlive. Built the finish-install + integration:
 - ⚠️ Manager 10.0.0.2 UNREACHABLE: not on this Mac's LAN (10.247.120.0/24);
   ping + tcp 1514/1515/55000 all time out. Confirm the real manager address
   (or bring the manager up) — the agent retries until it appears.
+
+## SESSION 2026-09-21 — Shopify-in-Brave fix + replayd audit false positive fixed
+
+- **Root cause "LS blocks Shopify"**: the 2026-09-18 whitelist scoped the
+  shopify-domains allow to WebKit.Networking only. Brave carries a catch-all
+  `deny com.brave.Browser -> anywhere` (per-site-approval posture; only 4
+  narrow allows), so Shopify was dead in Brave while Safari worked. No deny
+  rules touch Shopify domains/23.227.32.0/20; sentinel org-exclude holds
+  (0 stale sentinel rules). Fix: ls-shopify-whitelist.py now also plants
+  `allow com.brave.Browser -> {shopify.com, myshopify.com, shopifycdn.com,
+  shopifysvc.com, shopifyapps.com, shopifycloud.com, shopifyinc.com, shop.app}
+  tcp:443` (idempotent; domain rule beats the catch-all which stays in place).
+  Apply-script post-import verify extended to require both browser rules.
+- **Audit false positive fixed**: evw-security-audit.sh flagged `replayd
+  RUNNING` on any transient sighting, but replayd respawns every ~10s and the
+  guard reaps each within ~5s (guard log confirms) — both today's audits
+  reported findings=1 on noise. Now rechecks the SAME PID after 10s: still
+  alive → finding (guard broken); reaped → info. Repo copy fixed; installed
+  /usr/local/bin copy needs the setup re-run.
+- **Tightening dry-run on live model**: ls-tighten-all.py fully held (all
+  SKIP, 0 changes); ls-dedup finds 12 duplicate allows to remove.
+- Scan posture clean: SIP/FileVault/firewall block-all+stealth/GK on, only
+  loopback listeners (postgres), wazuh agent+guard+monitor running, all
+  critical LS denies present. replayd LS deny + launchctl-disabled hold.
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh` — Shopify in Brave (type APPLY)
+- `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −12 rules (type APPLY)
+- `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — install fixed audit script for boot/login runs
+
+## SESSION 2026-09-16 — Full root scan + LS analysis pipeline de-noised (backfill)
+
+- Full root security scan (scan-2026-09-16, findings=1 — artifact): posture all
+  green (SIP / FileVault / firewall block-all+stealth / Gatekeeper), DNS
+  1.1.1.1/1.0.0.1/8.8.8.8/9.9.9.9, loopback-only listeners (postgres, cupsd),
+  only LS network extension, TCC clean, wazuh running, no remote-access
+  processes. Hash delta vs 09-11: own tooling only (security-menu.sh,
+  ls-sentinel-deny.py mod; ls-scope-key-resources.* new). LS model 2,856 rules
+  (1,677A/1,142D): all 15 critical denies present, 15/15 RemoteManagement XPC
+  subscribers blocked, deep audit all zeros, KnockKnock clean, Lynis HI=78.
+- **ls-full-analysis.py fixed** (root causes of the two recurring artifacts):
+  - `[!!] ls-full-analysis failed`: save step copied ls-model.json onto itself
+    when the audit passed the scan-dir model → SameFileError, exit 1. Now
+    detects same-path, prints "Model already at …", exit 0.
+  - `DENY RULES DROPPED (1348)` false alarm: diff baseline was hardcoded
+    scan-2026-06-03 → schema drift made every rule look dropped (incl. rules
+    verifiably present). Baseline now auto-selects newest other
+    scan-*/ls-model.json → true day-over-day diff. Dropped list sorted+capped.
+  - Hidden bug found via daemon reports: paths used `~`, which is /var/root
+    under the root daemon — daemon never saw the baseline AND wrote stray
+    model copies to /var/root/dev/security. Paths now anchored to the script's
+    own dir (SEC). Stray tree (10 orphaned daily models, nothing else) removed
+    via sudo.
+  - `creationDate` added to diff-ignore set: LS regenerates factory rules
+    daily with fresh timestamps → would re-create drop/add noise every diff.
+  - save_model_copy: chmod 0644 + chown to repo owner when root (scan dir
+    stays user-owned). `datetime.utcnow()` → timezone-aware (kills
+    DeprecationWarnings polluting report headers).
+  - Verified: compiles under python3 (3.14) and /usr/bin/python3 (CLT 3.9);
+    both caller shapes (audit: scan-dir model; daemon: /tmp model) exit 0.
+- Manual-scan mechanism established: osascript askpass GUI prompt →
+  `SUDO_ASKPASS=/tmp/evw-sudo-askpass.sh sudo -A bash
+  /usr/local/bin/evw-security-audit.sh` (helper deleted after use; password
+  goes straight to sudo, never to the agent).
+
+## SESSION 2026-09-23 — scan-hashes LaunchDaemon fix; first fully-clean root scan in weeks
+
+- Week review (boot-audit.log 09-17→09-21): 09-16 LS fixes held — every root
+  scan "LS critical denies" OK, zero recurrences. Remaining recurring finding
+  was `[!!] scan-hashes failed` on every boot audit since ≥09-14. Transients
+  self-recovered by guards: replayd alive 09-17, wazuh-agentd down 09-18.
+- **scan-hashes.sh fixed**: derived paths from `$HOME` (`$HOME/dev/security`);
+  LaunchDaemon HOME is /var/root or unset → `cd "$SECURITY_DIR"` failed under
+  `set -e` (latent for weeks; hard failure after the 09-16 /var/root/dev
+  cleanup). Now: SECURITY_DIR anchored to the script's own dir; user-profile
+  files (Claude config, pyenv, LaunchAgents) read from OWNER_HOME derived from
+  the repo location; delta baseline = newest scan dir that ACTUALLY has a hash
+  file (skips hash-less days like 09-22). Verified: rc=0 under
+  `env -i HOME=/nonexistent` (worst-case daemon env), 103 files hashed, delta
+  produced.
+- Full root scan (scan-2026-09-23, findings=1 — REAL item): `[ok] hashes`
+  under root for the first time in weeks; delta vs 09-21 = own LS tooling
+  (gmail/shopify/outlook fix scripts, ls-sentinel-deny.py, security-menu.sh,
+  scan-hashes.sh) — no system binaries touched. LS model 3,465 rules
+  (2,187A/1,236D, +609/+94 over the week): baseline auto-picked scan-2026-09-22
+  (daemon now archives models into the real repo daily), ✅ no deny rules
+  dropped, 18 new = sentinel-deny auto-closures. Posture green; KnockKnock,
+  Lynis, TCC clean; /var/root/dev still absent (no regrowth).
+- **FINDING — user decision needed**: `node dist/index.js` (adaapp API dev
+  server, pid 43316, started 09-22 15:26) listening on `*:4000` all
+  interfaces. Own dev process; firewall block-all mitigates inbound. Options:
+  rebind 127.0.0.1 / leave / kill. Left running untouched.
+- **memory/*.csmem — HMAC MISMATCH on BOTH stores** (files dated Jun 5):
+  short_term + long_term fail integrity verify. Most likely orphaned by a
+  Keychain key change (May 15 migration aftermath) but tampering not excluded.
+  NOT overwritten — needs explicit user decision (investigate vs re-init via
+  security-memory-manager.py write-short/append-long).
+- Scan-archive gap: memory/scans/ latest blob is scan-2026-09-02.enc;
+  archived scan-2026-09-23 today. 09-03→09-22 plaintext scans remain in
+  scan-*/ (gitignored) unarchived.
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — install
+  fixed audit script (replayd transient-recheck fix from 09-21 still repo-only)
+- `sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh` — Shopify
+  in Brave (type APPLY)
+- `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −12 rules
+  (type APPLY)
+- Decide on node `*:4000` (adaapp dev server bind)
+- Decide on .csmem stores (HMAC mismatch — investigate or re-initialize)

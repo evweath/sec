@@ -119,7 +119,9 @@ def save_model(model, dst):
 
 
 def write_report(path, text):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    d = os.path.dirname(path)
+    if d:
+        os.makedirs(d, exist_ok=True)
     with open(path, "w") as f:
         f.write(text)
     return True
