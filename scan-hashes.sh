@@ -176,7 +176,11 @@ h() {
     guard_run "h" h "$f"
   done
 
-} > "$OUT"
+} > "$OUT.tmp.$$"
+# Atomic rename: two audits racing (boot+login, or debounce miss) can interleave
+# a direct write and splice the baseline — a corrupted baseline either masks
+# real changes or floods the next delta with phantom MODIFIED/NEW entries.
+mv -f "$OUT.tmp.$$" "$OUT"
 
 TOTAL=$(grep -c "^[a-f0-9]" "$OUT" || true)
 echo "Hashed $TOTAL files → $OUT"

@@ -93,6 +93,17 @@ def _get_or_create_key() -> bytes:
         capture_output=True, text=True)
     if r.returncode == 0:
         return bytes.fromhex(r.stdout.strip())
+    # Creating a fresh key orphans every existing .csmem/.enc file (they stay
+    # encrypted with the lost key). Happened 2026-09-02: the item vanished, a
+    # new key was silently minted, and the Jun-5 stores surfaced as "HMAC
+    # MISMATCH" weeks later. Loud warning is cheaper than that confusion.
+    if os.path.exists(SHORT_TERM_FILE) or os.path.exists(LONG_TERM_FILE):
+        print('WARNING: Keychain item missing but encrypted memory files exist.',
+              file=sys.stderr)
+        print('  Minting a NEW key orphans them (HMAC MISMATCH on read).',
+              file=sys.stderr)
+        print('  If this is unexpected, use import-recovery-key (paper key).',
+              file=sys.stderr)
     raw = os.urandom(32)
     subprocess.run(
         ['security','add-generic-password','-a',KEYCHAIN_ACCOUNT,

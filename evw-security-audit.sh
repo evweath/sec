@@ -40,7 +40,10 @@ if [ $((now - last)) -lt $DEBOUNCE ]; then
     echo "$(date -Iseconds) skip (debounce: ran $((now - last))s ago)"
     exit 0
 fi
-{ echo "$now" > "$STAMP"; } 2>/dev/null || true
+# World-writable stamp: boot (root) and login (user) runs share this file;
+# 0666 lets either EUID rewrite it — otherwise the loser never debounces and
+# concurrent audits can race the scan artifacts.
+{ echo "$now" > "$STAMP" && chmod 666 "$STAMP"; } 2>/dev/null || true
 
 mkdir -p "$SCAN" "$LOGDIR"
 MODE=user; [ "$EUID" -eq 0 ] && MODE=root

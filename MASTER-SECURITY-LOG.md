@@ -818,7 +818,7 @@ L5 OpenTimestamps artifacts:
 Encrypted memory:
 - `memory/short_term.csmem` — AES-256, HMAC-verified; key in Keychain `claude-security-memory-v1 / claude-ai`
 - `memory/long_term.csmem` — AES-256, HMAC chain of 13 entries
-- Recovery key fingerprint: `56830115...2205b9` (paper, desk)
+- Recovery key fingerprint: `56830115...2205b9` (paper, desk) — SUPERSEDED 2026-09-24: this is the ORIGINAL key (K1), lost when the Keychain item was silently recreated 2026-09-02T19:41:04Z; paper lost. Jun-5 stores orphaned and re-initialized with the current key (K2, no paper export yet — pending). Old ciphertext recoverable from git commit 93809a9 if K1 resurfaces. See SESSION 2026-09-24.
 
 ---
 
@@ -1289,3 +1289,49 @@ KeepAlive. Built the finish-install + integration:
   (type APPLY)
 - Decide on node `*:4000` (adaapp dev server bind)
 - Decide on .csmem stores (HMAC mismatch — investigate or re-initialize)
+
+## SESSION 2026-09-24 — Hash-baseline race fixed; tightening verified; csmem key-loss root-caused + re-initialized
+
+- Boot audit 08:36 **findings=0** — first fully clean root scan on record.
+  Manual runs 09:16 (user findings=1 transient scan-hashes during agent edit
+  window; root 09:16:34 findings=0) — no corruption this time: fixes held.
+- **Hash-baseline corruption found + fixed**: two audits 15s apart on 09-23
+  14:00 (user + root) raced writing scan-2026-09-23/file-hashes.txt (spliced
+  lines, 89 vs 133 lines) → 09-24 delta was ~74 phantom entries. Race slipped
+  past debounce: stamp file root-owned, user run couldn't rewrite it
+  (silently). Fixes: scan-hashes.sh writes tmp + atomic `mv`;
+  evw-security-audit.sh chmods stamp 0666. Corrupted baseline quarantined
+  (file-hashes.CORRUPT.txt), 09-24 delta regenerated vs 09-21 (8 mod own
+  tooling, 3 new, 0 removed). Verified all phantom-"MODIFIED" system binaries
+  (replayd, searchpartyuseragent, wifivelocityd, KnockKnock) hash-identical
+  to 09-21 baseline — no real tampering.
+- **Verified applied**: audit-setup re-run (installed script current, stamp
+  fix live — stamp now -rw-rw-rw-); Shopify Brave allow rule live;
+  ls-apply-tightening.sh run — LS duplicates 87→0, model 3,750 rules, all
+  critical denies intact. adaapp node :4000 gone (self-resolved).
+- **csmem HMAC mismatch ROOT-CAUSED — not tampering**: stores bit-identical
+  to git commit 93809a9; they fail because the Keychain item
+  claude-security-memory-v1 was silently recreated 2026-09-02T19:41:04Z
+  (original key K1 lost, plausibly post-migration keychain damage) and
+  _get_or_create_key() auto-minted K2 without a word. All memory/scans/*.enc
+  were re-encrypted with K2 in the same window (verify ✓ today); only the
+  Jun-5 .csmem stores were never re-encrypted. Crypto scheme unchanged since
+  May 28 — confirmed via git archaeology + direct AES/HMAC experiments.
+  Paper recovery key (fingerprint 56830115...2205b9) = K1, paper lost.
+- **Option B executed**: stores re-initialized with K2. short_term = current
+  pending + next-scan checklist; long_term chain restarted (seq 1, genesis)
+  with the key-rotation event as entry #1. `verify short|long` → HMAC ✓,
+  chain ✓. Manager hardened: loud stderr warning + import-recovery-key
+  pointer whenever it would mint a new key over existing files.
+- Old K1 ciphertext preserved in git history (commit 93809a9); recovery
+  procedure if paper resurfaces: git show 93809a9:memory/<file>.csmem, then
+  decrypt with K1 and re-chain onto current key.
+
+### Pending (user, sudo)
+- `python3 security-memory-manager.py export-recovery-key` → paper; then
+  update the fingerprint note at MASTER-SECURITY-LOG.md:821 with the NEW
+  (K2) fingerprint
+- Commit + push: 5 commits ahead of origin + today's fixes (scan-hashes
+  atomic write, audit stamp 0666, memory-manager key-loss warning, csmem
+  re-init, this log)
+- Watch tomorrow's login user-mode audit: expect scan-hashes rc=0
