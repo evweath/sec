@@ -84,6 +84,10 @@ h() {
   for f in *.sh *.py; do
     [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
   done
+  # subdirs holding operational code (scripts/ installs to /usr/local/bin)
+  for f in scripts/*.sh scripts/*.py lib/*.sh lib/*.py; do
+    [ -f "$f" ] && echo "$(shasum -a 256 "$f" | awk '{print $1}')  $f"
+  done
 
   echo ""
   echo "# ── Security project — docs and manifests ───────────────────"

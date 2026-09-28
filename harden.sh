@@ -181,7 +181,9 @@ ok "AirDrop/Handoff/Universal Clipboard)"
 # ────────────────────────────────────────────────────────────────────────────
 section "4. Application firewall (alf)"
 SFW=/usr/libexec/ApplicationFirewall/socketfilterfw
-try sudo "$SFW" --setglobalstate on
+# --setblockall on (not bare --setglobalstate on = State=1, which downgrades
+# the audited block-all posture); block-all implies the firewall is enabled.
+try sudo "$SFW" --setblockall on
 try sudo "$SFW" --setstealthmode on
 try sudo "$SFW" --setallowsigned off
 try sudo "$SFW" --setallowsignedapp off

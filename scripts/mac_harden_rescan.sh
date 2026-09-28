@@ -118,12 +118,20 @@ enforce_firewall() {
     section "3. Application Firewall (ALF)"
 
     FW_STATE=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null)
-    if echo "$FW_STATE" | grep -q "State = 2\|enabled"; then
-        pass "Firewall is active."
+    if echo "$FW_STATE" | grep -q "State = 2"; then
+        pass "Firewall is in block-all mode."
     else
-        action "Enabling Application Firewall..."
-        /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
-        pass "Firewall enabled."
+        action "Restoring block-all mode (was: ${FW_STATE:-unknown})..."
+        # Never use bare --setglobalstate on: that is State=1 (per-app rules)
+        # and DOWNGRADES the audited block-all posture. --setblockall on both
+        # enables the firewall and blocks all non-essential incoming.
+        /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on
+        FW_STATE=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate 2>/dev/null)
+        if echo "$FW_STATE" | grep -q "State = 2"; then
+            pass "Block-all mode restored."
+        else
+            warn "Block-all restore FAILED (state now: ${FW_STATE:-unknown})"
+        fi
     fi
 
     STEALTH=$(/usr/libexec/ApplicationFirewall/socketfilterfw --getstealthmode 2>/dev/null)
@@ -135,9 +143,7 @@ enforce_firewall() {
         pass "Stealth mode enabled."
     fi
 
-    # Enforce block-all incoming
-    /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall on 2>/dev/null || true
-    pass "Block-all incoming connections enforced."
+    # Block-all is enforced above (never bare --setglobalstate on = State=1).
 
     # Audit firewall exceptions
     FW_APPS=$(/usr/libexec/ApplicationFirewall/socketfilterfw --listapps 2>/dev/null)

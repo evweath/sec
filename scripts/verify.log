@@ -1142,3 +1142,441 @@ The domain/default pair of (/Library/Preferences/com.apple.loginwindow, LoginHoo
 ==========================================
  VERIFY COMPLETE  2026-09-11T19:38:20Z
 ==========================================
+==========================================
+ VERIFY  2026-09-24T17:03:12Z
+==========================================
+
+===== 1. /bin /sbin /usr/bin /usr/sbin /usr/libexec — hash diff vs baseline =====
+DRIFT: 1636 added/changed, 1496 removed/changed
+--- first 40 changed lines ---
+1,8d0
+< 
+< # Generated 2026-05-18T17:47:48Z
+< # SHA-256 baseline of system binaries
+< 001f7e61c5efbe036c11967f79615f3eb393dd0d0d8e398502c72e55e7bd6d26  /usr/bin/tsort
+< 002c045850dfbf166a47f12fa4973f33a96191f8ac6e102a6a462801d41a550e  /usr/sbin/languagesetup
+< 002de0312cb7317c321da7b3f826b7f154c215647822fb414143b4776a5eda0e  /usr/libexec/nesessionmanager
+< 003172459ae3ac9fe556101596ca823f5d115ea6a6d5c63f6dbb64c22970841e  /usr/sbin/htdbm
+< 0032ae3f29df098cd2a6721d1b6eef17c1ab9bdc5337b8d6901505125d7030c3  /usr/sbin/setquota
+10c2
+< 0046a65909d1ab037dfc477460332344eaf2c77cae692a67007a637ff06b7810  /usr/bin/funzip
+---
+> 0041bb732aefe3ab7a430e441dc90aa84bf716f37ee15e00fdfeac988407686b  /usr/sbin/setkey
+13,35c5,30
+< 009ce961193cff0a92e8e0c73e50559bf8c8ec3cd1c9f6e1a3bf91a22519fac9  /bin/link
+< 009ce961193cff0a92e8e0c73e50559bf8c8ec3cd1c9f6e1a3bf91a22519fac9  /bin/ln
+< 00a1fd92064ad7273cf4c657edd4cabd4f264e43bf5b06d10a407917f1e48cce  /usr/bin/parldyn5.34
+< 00c4d7870295e050335e6b98372d9bb5ae54e04186dc5f6ea9d2684c7a59e7d0  /usr/bin/mdimport
+< 00eed730124d9c23ab8ef12d771d21cfcdd4b1ee771907e52380ffd7295ca131  /usr/libexec/apache2/mod_usertrack.so
+< 01030799ba820c88f70187e1d1e491f0213e6e30a08681b41817297f2971b789  /usr/bin/searchdiagnose
+< 010eb39fb8262343ed95819e0e4bc438b4a88a7c6e57004526f996e847d8723d  /usr/libexec/apache2/mod_allowmethods.so
+< 014c148cd6887cc0cde9f9a66845e01f5cb2a5424a29f067a56d7758b5c88bc0  /usr/bin/wall
+< 015e1567cb6d17ebca05eee3f1318db34c40c1af3ce8ea2fb68244bf25c7cbc1  /usr/libexec/powerexperienced
+< 01cfcfac9267586bf8fd97c69ee9a88463f892be16f2f8d62895df086a084380  /usr/libexec/TouchBarServer
+< 01db452e0abcc0796b3e3bd8967be4b4d91fc2dca101cee2498368e6a307277e  /usr/bin/umtool
+< 02adab263e3d33474a838ff7700f62ca289f80cc7bc5bbe9305e2660d85aa26c  /sbin/mount_devfs
+< 03340846f8ea2bdae6ba2710d08a8f81803ffe8c4689a06632f519bdadcdc487  /usr/bin/kmutil
+< 038d74f9b9b1ef097137b3fd3b01a6a967018a977ea4c67af2468aeb71dbf14b  /usr/libexec/natpmpd
+< 03e530e5ec4230553cc8728f352a3aa60a676d24ed7ff7d07363af6f697aa0f9  /usr/bin/afhash
+< 04060f67decb0201e8decbc7d14ce47c4c3dddbbec05b98771242c8e12793f88  /usr/bin/gktool
+< 043384f1825337fb638f6d13fb519ce03807135ae5a14baac634a4dfceaec3ac  /usr/bin/dirname
+< 047103d4b23873c71bdf5149626e81d6001e9006bd0e14647f5c788bdf4b54d0  /usr/libexec/apache2/mod_authz_user.so
+< 049b632dac6f933c7d3af9ea7f0de449cf85686071ec323bed4c7e7ac6245529  /usr/bin/bc
+< 049b632dac6f933c7d3af9ea7f0de449cf85686071ec323bed4c7e7ac6245529  /usr/bin/dc
+< 04aa3e77884fbc1e02095810382176d0faf0fbcbf0c9369c6e6aa9024882c245  /usr/libexec/testmanagerd
+< 04c1ec2d5939843c9a89a26791020d2017a50ff97a2d5b380af69d5fcdae5a63  /usr/bin/vm_stat
+< 0513a5032404793e6dbf9701f39b58e7ba8cc6798493b36474c58ee6c6ed9029  /usr/bin/dserr
+---
+> 00b03be453d447790ed26813082cba6b4673ed37da53d50126554e958217ed06  /usr/libexec/dirs_cleaner
+> 00ecd8db6e3eaa8959bc776efa74c77afbebbb11315043c860648c8b736c9e49  /usr/libexec/atcrtcomm
+
+===== 2. Listening TCP sockets (expect: empty) =====
+UNEXPECTED:
+COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+postgres 2350  evw    7u  IPv6 0x9cf828cd0c409e52      0t0  TCP [::1]:5432 (LISTEN)
+postgres 2350  evw    8u  IPv4 0x79a9e45c7fee6976      0t0  TCP 127.0.0.1:5432 (LISTEN)
+cupsd    2841 root    5u  IPv6 0xb704709b4913f7f2      0t0  TCP [::1]:631 (LISTEN)
+cupsd    2841 root    6u  IPv4 0xace867c9ca1f0078      0t0  TCP 127.0.0.1:631 (LISTEN)
+
+===== 2b. Listening UDP sockets (non-link-local) =====
+COMMAND     PID           USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+airportd    430           root    3u  IPv4 0x673ca7aa4a394ea7      0t0  UDP *:*
+airportd    430           root    9u  IPv6 0x80c44e056320a1fe      0t0  UDP *:*
+airportd    430           root   12u  IPv4 0x6d50ff98761eac5c      0t0  UDP *:*
+airportd    430           root   13u  IPv4 0xea6d32db35c243e7      0t0  UDP *:*
+airportd    430           root   14u  IPv4 0x7d6b8cc476bad45e      0t0  UDP *:*
+airportd    430           root   15u  IPv4 0x5ce8ebdf1d72f2f6      0t0  UDP *:*
+airportd    430           root   18u  IPv4 0x307fe9e2b14a8e2c      0t0  UDP *:*
+airportd    430           root   20u  IPv4 0xba7de35104834318      0t0  UDP *:*
+airportd    430           root   21u  IPv4 0x553318ceae41c1ce      0t0  UDP *:*
+airportd    430           root   23u  IPv4 0x2081280ea40bfffa      0t0  UDP *:*
+airportd    430           root   25u  IPv4 0x6311dc927a9811c8      0t0  UDP *:*
+mDNSRespo   456 _mdnsresponder    6u  IPv4 0x743a70d8cac19633      0t0  UDP *:5353
+mDNSRespo   456 _mdnsresponder    7u  IPv6 0x78bc7da48bec5ff8      0t0  UDP *:5353
+symptomsd   520      _networkd   22u  IPv4  0x964829454b79d20      0t0  UDP *:*
+at.obdev.   579           root   12u  IPv6 0x347e9f8275fd7824      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:61139->[2600:100b:b007:5bb1::c5]:53
+at.obdev.   579           root   13u  IPv4 0x295e98ce14347591      0t0  UDP 10.225.81.150:60282->1.1.1.1:53
+wifip2pd   1390           root    4u  IPv4 0x7f62e940566d8e3e      0t0  UDP *:*
+wifip2pd   1390           root    6u  IPv4 0xd44dd0cd03e024ac      0t0  UDP *:*
+wifip2pd   1390           root    9u  IPv4 0x2e15f54246810e65      0t0  UDP *:*
+replicato  1461            evw    8u  IPv6 0xb82958c33ef804d5      0t0  UDP *:61816
+parsecd    1524            evw    8u  IPv4 0xe146c54c2de94056      0t0  UDP 10.225.81.150:62355->17.248.185.168:443
+com.apple 73929            evw   18u  IPv6   0xec6c963211553a      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:56246->[2620:127:f00f:e::]:443
+com.apple 73929            evw   36u  IPv6 0x7568cbcb1244dc54      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:60471->[2606:4700:3030::6815:c5f]:443
+com.apple 73929            evw   52u  IPv6  0x71f086b3dc2f251      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:59558->[2001:4860:4827:7700::]:443
+com.apple 73929            evw   55u  IPv4 0xff6c81b8eca9b238      0t0  UDP 10.225.81.150:55074->34.128.177.21:443
+com.apple 73929            evw   56u  IPv6 0x146e7a830f223067      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:51577->[2606:4700:3037::ac43:83f9]:443
+com.apple 73929            evw   61u  IPv6 0xec0f66a8ad521085      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:53659->[2600:1901:0:b257::]:443
+com.apple 73929            evw   64u  IPv6 0x3493bb217da392a7      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:54440->[2600:1901:0:658b::]:443
+com.apple 73929            evw   69u  IPv4 0x27b4a9b93c05cb2d      0t0  UDP 10.225.81.150:58174->34.149.34.106:443
+
+===== 3. Services that should remain DISABLED =====
+  OK     com.openssh.sshd
+  OK     com.apple.screensharing
+  DRIFT  com.apple.screensharing.agent  (NOT disabled)
+  DRIFT  com.apple.screensharing.menuextra  (NOT disabled)
+  DRIFT  com.apple.screensharing.MessagesAgent  (NOT disabled)
+  DRIFT  com.apple.RemoteDesktop.agent  (NOT disabled)
+  DRIFT  com.apple.RemoteDesktop.PrivilegeProxy  (NOT disabled)
+  DRIFT  com.apple.InternetSharing  (NOT disabled)
+  DRIFT  com.apple.AppleFileServer  (NOT disabled)
+  OK     com.apple.smbd
+  OK     com.apple.netbiosd
+  OK     com.apple.AirPlayXPCHelper
+  OK     com.apple.mediasharingd
+
+===== 4. Process scan for remote-access daemons (expect: none) =====
+UNEXPECTED:
+root              2313  16.8  0.0 435314432   6800   ??  Rs    8:36AM  28:24.86 /usr/bin/log stream --style syslog --type activity --type log --type trace --level info --predicate (process == "sudo") or (process == "sessionlogoutd" and message contains "logout is complete.") or (process == "sshd") or (process == "tccd" and message contains "Update Access Record") or (message contains "SessionAgentNotificationCenter") or (process == "screensharingd" and message contains "Authentication") or (process == "securityd" and eventMessage contains "Session" and subsystem == "com.apple.securityd")
+
+===== 5. Apple firewall state (expect: enabled, stealth on, block-all on) =====
+Firewall is blocking all non-essential incoming connections. (State = 2)
+Firewall stealth mode is on
+Firewall is blocking all non-essential incoming connections.
+
+===== 6. Bluetooth ControllerPowerState (expect: 0) =====
+0
+
+===== 7. awdl0 interface (expect: down or no inet6 address) =====
+awdl0: flags=8822<BROADCAST,SMART,SIMPLEX,MULTICAST> mtu 1500
+	options=6460<TSO4,TSO6,CHANNEL_IO,PARTIAL_CSUM,ZEROINVERT_CSUM>
+	ether 1a:23:3e:e3:a1:44
+
+===== 8. System extensions (expect: only Little Snitch) =====
+1 extension(s)
+--- com.apple.system_extension.network_extension (Go to 'System Settings > General > Login Items & Extensions > Network Extensions' to modify these system extension(s))
+enabled	active	teamID	bundleID (version)	name	[state]
+*	*	MLZF7K7B5R	at.obdev.littlesnitch.networkextension (6.4.1/7212)	Little Snitch Network Extension	[activated enabled]
+
+===== 9. Config profiles (expect: none) =====
+There are no configuration profiles installed in the system domain
+
+===== 10. LaunchDaemons / LaunchAgents on /Library (expect: only Little Snitch + local.awdl-down) =====
+/Library/LaunchAgents:
+total 8
+drwxr-xr-x   3 root  wheel    96 Aug 31 10:15 .
+drwxr-xr-x  68 root  wheel  2176 Sep  4 18:13 ..
+-rw-r--r--   1 root  wheel   543 Aug 31 10:15 at.obdev.littlesnitch.agent.plist
+
+/Library/LaunchDaemons:
+total 224
+drwxr-xr-x  30 root  wheel   960 Sep 24 08:36 .
+drwxr-xr-x  68 root  wheel  2176 Sep  4 18:13 ..
+-rw-r--r--   1 root  wheel   621 Aug 31 10:15 at.obdev.littlesnitch.daemon.plist
+-rw-r--r--@  1 root  wheel   778 Sep 11 15:13 com.evw.audit-monitor.plist
+-rw-r--r--   1 root  wheel   804 Sep  1 12:38 com.evw.auto-conn-guard.plist
+-rw-r--r--@  1 root  wheel   728 Sep 11 15:13 com.evw.dns-guard.plist
+-rw-r--r--   1 root  wheel   783 Sep  1 12:17 com.evw.file-vault.plist
+-rw-r--r--@  1 root  wheel   763 Sep  4 09:37 com.evw.integrity-full.plist
+-rw-r--r--@  1 root  wheel   710 Sep  4 09:37 com.evw.integrity-pulse.plist
+-rw-r--r--@  1 root  wheel   689 Sep  4 09:37 com.evw.integrity-sweep.plist
+-rw-r--r--@  1 root  wheel   803 Sep  4 09:37 com.evw.integrity-verify.plist
+-rw-r--r--   1 root  wheel   714 Sep 10 11:41 com.evw.ls-hourly-cleanup.plist
+-rw-r--r--   1 root  wheel   731 Sep  1 15:41 com.evw.ls-hygiene-guard.plist
+-rw-r--r--@  1 root  wheel   752 Sep 11 14:42 com.evw.ls-watchdog-monitor.plist
+-rw-r--r--@  1 root  wheel   736 Sep 11 14:42 com.evw.ls-watchdog.plist
+-rw-r--r--@  1 root  wheel   855 Sep 11 15:14 com.evw.mac-sentinel.plist
+-rw-r--r--@  1 root  wheel   674 Sep 11 15:13 com.evw.plist-monitor.plist
+-rw-r--r--@  1 root  wheel   717 Sep 11 15:13 com.evw.replayd-guard.plist
+-rw-r--r--@  1 root  wheel   691 Sep 24 09:16 com.evw.security-audit.plist
+-rw-r--r--@  1 root  wheel   724 Sep  3 14:55 com.evw.security-system.plist
+-rw-r--r--   1 root  wheel   723 Sep  1 11:56 com.evw.studentd-guard.plist
+-rw-r--r--@  1 root  wheel   709 Sep 11 15:13 com.evw.wazuh-guard.plist
+-rw-r--r--@  1 root  wheel   724 Sep 11 15:13 com.evw.wazuh-monitor.plist
+-rw-r--r--@  1 root  wheel   610 Sep 11 15:13 com.ew.binding-monitor.plist
+-rw-r--r--@  1 root  wheel   665 Sep 11 15:13 com.ew.file-sentinel.plist
+-rw-r--r--@  1 root  wheel   574 Sep 24 08:36 com.ew.lockdown.plist
+-rw-r--r--@  1 root  wheel   541 Sep 11 15:13 com.ew.pf-devports.plist
+-rw-r--r--   1 root  wheel   461 Sep  4 18:13 com.wazuh.agent.plist
+-rw-r--r--@  1 root  wheel   622 Sep 11 14:43 local.awdl-down.plist
+-rw-r--r--@  1 root  wheel   963 Sep 11 15:13 local.security.harden.plist
+
+===== 10b. ~/Library/LaunchAgents (expect: empty) =====
+total 72
+drwxr-xr-x@ 11 evw  staff   352 Sep 23 10:20 .
+drwx------+ 86 evw  staff  2752 Sep 23 10:15 ..
+-rw-r--r--@  1 evw  staff   756 Sep  3 14:55 com.evw.alert-center.plist
+-rw-r--r--@  1 evw  staff   737 Sep  3 18:43 com.evw.ls-resource-guard.plist
+-rw-r--r--@  1 evw  staff   674 Sep 24 09:16 com.evw.security-audit-login.plist
+-rw-r--r--   1 evw  staff   807 Sep  1 16:28 com.evw.sentinel-alert-term.plist
+-rw-r--r--@  1 evw  staff   675 Sep 11 14:44 com.ew.config-sentinel.plist
+-rw-r--r--@  1 evw  staff   870 Sep 23 10:20 com.google.GoogleUpdater.wake.plist
+-rw-r--r--@  1 evw  staff   181 Sep 23 10:15 com.google.keystone.agent.plist
+-rw-r--r--@  1 evw  staff   181 Sep 23 10:15 com.google.keystone.xpcservice.plist
+-rw-r--r--@  1 evw  staff  1078 Aug 31 16:31 homebrew.mxcl.postgresql@16.plist
+
+===== 11. Cron + login hooks (expect: none) =====
+crontab: no crontab for evw
+2026-09-24 12:03:16.246 defaults[80381:1193763] 
+The domain/default pair of (/var/root/Library/Preferences/com.apple.loginwindow, LoginHook) does not exist
+2026-09-24 12:03:16.250 defaults[80382:1193766] 
+The domain/default pair of (/Library/Preferences/com.apple.loginwindow, LoginHook) does not exist
+
+===== 12. /etc/hosts contents =====
+##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1	localhost
+255.255.255.255	broadcasthost
+::1             localhost
+127.0.0.1  mbp.local.local mbp.local
+
+127.0.0.1  MacBook-Pro.local MacBook-Pro
+
+127.0.0.1  Pixel-9.local Pixel-9
+
+127.0.0.1  WORKSTATION-9828.local WORKSTATION-9828
+
+127.0.0.1  LAPTOP-A4A640.local LAPTOP-A4A640
+
+===== 13. TCC system DB: screen-capture/accessibility/input grants (expect: empty) =====
+com.moonshot.kimichat|kTCCServicePostEvent|0|2026-09-21 19:31:47
+
+===== 13b. TCC user DB =====
+
+==========================================
+ VERIFY COMPLETE  2026-09-24T17:03:16Z
+==========================================
+==========================================
+ VERIFY  2026-09-25T16:21:33Z
+==========================================
+
+===== 1. /bin /sbin /usr/bin /usr/sbin /usr/libexec — hash diff vs baseline =====
+DRIFT: 1636 added/changed, 1496 removed/changed
+--- first 40 changed lines ---
+1,8d0
+< 
+< # Generated 2026-05-18T17:47:48Z
+< # SHA-256 baseline of system binaries
+< 001f7e61c5efbe036c11967f79615f3eb393dd0d0d8e398502c72e55e7bd6d26  /usr/bin/tsort
+< 002c045850dfbf166a47f12fa4973f33a96191f8ac6e102a6a462801d41a550e  /usr/sbin/languagesetup
+< 002de0312cb7317c321da7b3f826b7f154c215647822fb414143b4776a5eda0e  /usr/libexec/nesessionmanager
+< 003172459ae3ac9fe556101596ca823f5d115ea6a6d5c63f6dbb64c22970841e  /usr/sbin/htdbm
+< 0032ae3f29df098cd2a6721d1b6eef17c1ab9bdc5337b8d6901505125d7030c3  /usr/sbin/setquota
+10c2
+< 0046a65909d1ab037dfc477460332344eaf2c77cae692a67007a637ff06b7810  /usr/bin/funzip
+---
+> 0041bb732aefe3ab7a430e441dc90aa84bf716f37ee15e00fdfeac988407686b  /usr/sbin/setkey
+13,35c5,30
+< 009ce961193cff0a92e8e0c73e50559bf8c8ec3cd1c9f6e1a3bf91a22519fac9  /bin/link
+< 009ce961193cff0a92e8e0c73e50559bf8c8ec3cd1c9f6e1a3bf91a22519fac9  /bin/ln
+< 00a1fd92064ad7273cf4c657edd4cabd4f264e43bf5b06d10a407917f1e48cce  /usr/bin/parldyn5.34
+< 00c4d7870295e050335e6b98372d9bb5ae54e04186dc5f6ea9d2684c7a59e7d0  /usr/bin/mdimport
+< 00eed730124d9c23ab8ef12d771d21cfcdd4b1ee771907e52380ffd7295ca131  /usr/libexec/apache2/mod_usertrack.so
+< 01030799ba820c88f70187e1d1e491f0213e6e30a08681b41817297f2971b789  /usr/bin/searchdiagnose
+< 010eb39fb8262343ed95819e0e4bc438b4a88a7c6e57004526f996e847d8723d  /usr/libexec/apache2/mod_allowmethods.so
+< 014c148cd6887cc0cde9f9a66845e01f5cb2a5424a29f067a56d7758b5c88bc0  /usr/bin/wall
+< 015e1567cb6d17ebca05eee3f1318db34c40c1af3ce8ea2fb68244bf25c7cbc1  /usr/libexec/powerexperienced
+< 01cfcfac9267586bf8fd97c69ee9a88463f892be16f2f8d62895df086a084380  /usr/libexec/TouchBarServer
+< 01db452e0abcc0796b3e3bd8967be4b4d91fc2dca101cee2498368e6a307277e  /usr/bin/umtool
+< 02adab263e3d33474a838ff7700f62ca289f80cc7bc5bbe9305e2660d85aa26c  /sbin/mount_devfs
+< 03340846f8ea2bdae6ba2710d08a8f81803ffe8c4689a06632f519bdadcdc487  /usr/bin/kmutil
+< 038d74f9b9b1ef097137b3fd3b01a6a967018a977ea4c67af2468aeb71dbf14b  /usr/libexec/natpmpd
+< 03e530e5ec4230553cc8728f352a3aa60a676d24ed7ff7d07363af6f697aa0f9  /usr/bin/afhash
+< 04060f67decb0201e8decbc7d14ce47c4c3dddbbec05b98771242c8e12793f88  /usr/bin/gktool
+< 043384f1825337fb638f6d13fb519ce03807135ae5a14baac634a4dfceaec3ac  /usr/bin/dirname
+< 047103d4b23873c71bdf5149626e81d6001e9006bd0e14647f5c788bdf4b54d0  /usr/libexec/apache2/mod_authz_user.so
+< 049b632dac6f933c7d3af9ea7f0de449cf85686071ec323bed4c7e7ac6245529  /usr/bin/bc
+< 049b632dac6f933c7d3af9ea7f0de449cf85686071ec323bed4c7e7ac6245529  /usr/bin/dc
+< 04aa3e77884fbc1e02095810382176d0faf0fbcbf0c9369c6e6aa9024882c245  /usr/libexec/testmanagerd
+< 04c1ec2d5939843c9a89a26791020d2017a50ff97a2d5b380af69d5fcdae5a63  /usr/bin/vm_stat
+< 0513a5032404793e6dbf9701f39b58e7ba8cc6798493b36474c58ee6c6ed9029  /usr/bin/dserr
+---
+> 00b03be453d447790ed26813082cba6b4673ed37da53d50126554e958217ed06  /usr/libexec/dirs_cleaner
+> 00ecd8db6e3eaa8959bc776efa74c77afbebbb11315043c860648c8b736c9e49  /usr/libexec/atcrtcomm
+
+===== 2. Listening TCP sockets (expect: empty) =====
+UNEXPECTED:
+COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+postgres 2350  evw    7u  IPv6 0x9cf828cd0c409e52      0t0  TCP [::1]:5432 (LISTEN)
+postgres 2350  evw    8u  IPv4 0x79a9e45c7fee6976      0t0  TCP 127.0.0.1:5432 (LISTEN)
+cupsd    2841 root    5u  IPv6 0xb704709b4913f7f2      0t0  TCP [::1]:631 (LISTEN)
+cupsd    2841 root    6u  IPv4 0xace867c9ca1f0078      0t0  TCP 127.0.0.1:631 (LISTEN)
+
+===== 2b. Listening UDP sockets (non-link-local) =====
+COMMAND     PID           USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+airportd    430           root    3u  IPv4 0x673ca7aa4a394ea7      0t0  UDP *:*
+airportd    430           root    9u  IPv6 0x80c44e056320a1fe      0t0  UDP *:*
+airportd    430           root   12u  IPv4 0x6d50ff98761eac5c      0t0  UDP *:*
+airportd    430           root   13u  IPv4 0xea6d32db35c243e7      0t0  UDP *:*
+airportd    430           root   14u  IPv4 0x7d6b8cc476bad45e      0t0  UDP *:*
+airportd    430           root   15u  IPv4 0x5ce8ebdf1d72f2f6      0t0  UDP *:*
+airportd    430           root   18u  IPv4 0x307fe9e2b14a8e2c      0t0  UDP *:*
+airportd    430           root   20u  IPv4 0xba7de35104834318      0t0  UDP *:*
+airportd    430           root   21u  IPv4 0x553318ceae41c1ce      0t0  UDP *:*
+airportd    430           root   23u  IPv4 0x2081280ea40bfffa      0t0  UDP *:*
+airportd    430           root   25u  IPv4 0x6311dc927a9811c8      0t0  UDP *:*
+mDNSRespo   456 _mdnsresponder    6u  IPv4 0x743a70d8cac19633      0t0  UDP *:5353
+mDNSRespo   456 _mdnsresponder    7u  IPv6 0x78bc7da48bec5ff8      0t0  UDP *:5353
+symptomsd   520      _networkd   22u  IPv4  0x964829454b79d20      0t0  UDP *:*
+at.obdev.   579           root   11u  IPv4 0xe2ad3cbc17f8db9e      0t0  UDP 10.164.211.244:51282->1.1.1.1:53
+at.obdev.   579           root   12u  IPv6 0x347e9f8275fd7824      0t0  UDP [2600:100b:b007:5bb1:3909:2296:5135:8c3]:61139->[2600:100b:b007:5bb1::c5]:53
+at.obdev.   579           root   14u  IPv6 0x79753a06974d6509      0t0  UDP [2600:100b:b01a:b01:249b:4617:25ae:f0f1]:52189->[2600:100b:b01a:b01::ad]:53
+wifip2pd   1390           root    4u  IPv4 0x7f62e940566d8e3e      0t0  UDP *:*
+wifip2pd   1390           root    6u  IPv4 0xd44dd0cd03e024ac      0t0  UDP *:*
+wifip2pd   1390           root    9u  IPv4 0x2e15f54246810e65      0t0  UDP *:*
+parsecd    1524            evw   10u  IPv6 0xdbb32182f6c2fff3      0t0  UDP [2600:100b:b01a:b01:249b:4617:25ae:f0f1]:52605->[2620:149:1361:3::7]:443
+wifianaly  1604           root    3u  IPv4 0x2aeb561a8ca5a720      0t0  UDP *:*
+sharingd  16967            evw    4u  IPv4 0xb2c1dc2bfe004d37      0t0  UDP *:*
+identitys 16982            evw    7u  IPv4  0x402091f576a6512      0t0  UDP *:*
+identitys 16982            evw   15u  IPv4 0x934d7a6c7a4d1b04      0t0  UDP *:*
+identitys 16982            evw   20u  IPv4 0x49373965059fb56e      0t0  UDP *:*
+wifiveloc 24317           root    3u  IPv4 0x39e0d88c95484026      0t0  UDP *:*
+com.apple 97130            evw   25u  IPv6 0x698b1318b2d4264e      0t0  UDP [2600:100b:b01a:b01:249b:4617:25ae:f0f1]:56639->[2607:f8b0:4023:100b::66]:443
+com.apple 97130            evw   35u  IPv6 0xa651f12125004577      0t0  UDP [2600:100b:b01a:b01:249b:4617:25ae:f0f1]:62140->[2600:1901:0:b257::]:443
+
+===== 3. Services that should remain DISABLED =====
+  OK     com.openssh.sshd
+  OK     com.apple.screensharing
+  DRIFT  com.apple.screensharing.agent  (NOT disabled)
+  DRIFT  com.apple.screensharing.menuextra  (NOT disabled)
+  DRIFT  com.apple.screensharing.MessagesAgent  (NOT disabled)
+  DRIFT  com.apple.RemoteDesktop.agent  (NOT disabled)
+  OK     com.apple.RemoteDesktop.PrivilegeProxy
+  DRIFT  com.apple.InternetSharing  (NOT disabled)
+  DRIFT  com.apple.AppleFileServer  (NOT disabled)
+  OK     com.apple.smbd
+  OK     com.apple.netbiosd
+  OK     com.apple.AirPlayXPCHelper
+  OK     com.apple.mediasharingd
+
+===== 4. Process scan for remote-access daemons (expect: none) =====
+UNEXPECTED:
+root             23720  46.0  0.0 435318864   6912   ??  Rs    1:02PM 312:51.53 /usr/bin/log stream --style syslog --type activity --type log --type trace --level info --predicate (process == "sudo") or (process == "sessionlogoutd" and message contains "logout is complete.") or (process == "sshd") or (process == "tccd" and message contains "Update Access Record") or (message contains "SessionAgentNotificationCenter") or (process == "screensharingd" and message contains "Authentication") or (process == "securityd" and eventMessage contains "Session" and subsystem == "com.apple.securityd")
+
+===== 5. Apple firewall state (expect: enabled, stealth on, block-all on) =====
+Firewall is blocking all non-essential incoming connections. (State = 2)
+Firewall stealth mode is on
+Firewall is blocking all non-essential incoming connections.
+
+===== 6. Bluetooth ControllerPowerState (expect: 0) =====
+0
+
+===== 7. awdl0 interface (expect: down or no inet6 address) =====
+awdl0: flags=8822<BROADCAST,SMART,SIMPLEX,MULTICAST> mtu 1500
+	options=6460<TSO4,TSO6,CHANNEL_IO,PARTIAL_CSUM,ZEROINVERT_CSUM>
+	ether 1a:23:3e:e3:a1:44
+
+===== 8. System extensions (expect: only Little Snitch) =====
+1 extension(s)
+--- com.apple.system_extension.network_extension (Go to 'System Settings > General > Login Items & Extensions > Network Extensions' to modify these system extension(s))
+enabled	active	teamID	bundleID (version)	name	[state]
+*	*	MLZF7K7B5R	at.obdev.littlesnitch.networkextension (6.4.1/7212)	Little Snitch Network Extension	[activated enabled]
+
+===== 9. Config profiles (expect: none) =====
+There are no configuration profiles installed in the system domain
+
+===== 10. LaunchDaemons / LaunchAgents on /Library (expect: only Little Snitch + local.awdl-down) =====
+/Library/LaunchAgents:
+total 8
+drwxr-xr-x   3 root  wheel    96 Aug 31 10:15 .
+drwxr-xr-x  68 root  wheel  2176 Sep  4 18:13 ..
+-rw-r--r--   1 root  wheel   543 Aug 31 10:15 at.obdev.littlesnitch.agent.plist
+
+/Library/LaunchDaemons:
+total 224
+drwxr-xr-x  30 root  wheel   960 Sep 24 13:02 .
+drwxr-xr-x  68 root  wheel  2176 Sep  4 18:13 ..
+-rw-r--r--   1 root  wheel   621 Aug 31 10:15 at.obdev.littlesnitch.daemon.plist
+-rw-r--r--@  1 root  wheel   778 Sep 24 13:02 com.evw.audit-monitor.plist
+-rw-r--r--   1 root  wheel   804 Sep  1 12:38 com.evw.auto-conn-guard.plist
+-rw-r--r--@  1 root  wheel   728 Sep 24 13:02 com.evw.dns-guard.plist
+-rw-r--r--   1 root  wheel   783 Sep  1 12:17 com.evw.file-vault.plist
+-rw-r--r--@  1 root  wheel   763 Sep  4 09:37 com.evw.integrity-full.plist
+-rw-r--r--@  1 root  wheel   710 Sep  4 09:37 com.evw.integrity-pulse.plist
+-rw-r--r--@  1 root  wheel   689 Sep  4 09:37 com.evw.integrity-sweep.plist
+-rw-r--r--@  1 root  wheel   803 Sep  4 09:37 com.evw.integrity-verify.plist
+-rw-r--r--   1 root  wheel   714 Sep 10 11:41 com.evw.ls-hourly-cleanup.plist
+-rw-r--r--   1 root  wheel   731 Sep  1 15:41 com.evw.ls-hygiene-guard.plist
+-rw-r--r--@  1 root  wheel   752 Sep 24 12:11 com.evw.ls-watchdog-monitor.plist
+-rw-r--r--@  1 root  wheel   736 Sep 24 12:11 com.evw.ls-watchdog.plist
+-rw-r--r--@  1 root  wheel   855 Sep 24 13:04 com.evw.mac-sentinel.plist
+-rw-r--r--@  1 root  wheel   674 Sep 24 13:02 com.evw.plist-monitor.plist
+-rw-r--r--@  1 root  wheel   717 Sep 24 13:02 com.evw.replayd-guard.plist
+-rw-r--r--@  1 root  wheel   691 Sep 24 12:25 com.evw.security-audit.plist
+-rw-r--r--@  1 root  wheel   724 Sep  3 14:55 com.evw.security-system.plist
+-rw-r--r--   1 root  wheel   723 Sep  1 11:56 com.evw.studentd-guard.plist
+-rw-r--r--@  1 root  wheel   709 Sep 24 13:02 com.evw.wazuh-guard.plist
+-rw-r--r--@  1 root  wheel   724 Sep 24 13:02 com.evw.wazuh-monitor.plist
+-rw-r--r--@  1 root  wheel   610 Sep 24 13:02 com.ew.binding-monitor.plist
+-rw-r--r--@  1 root  wheel   665 Sep 24 13:02 com.ew.file-sentinel.plist
+-rw-r--r--@  1 root  wheel   574 Sep 24 12:21 com.ew.lockdown.plist
+-rw-r--r--@  1 root  wheel   541 Sep 24 13:02 com.ew.pf-devports.plist
+-rw-r--r--   1 root  wheel   461 Sep  4 18:13 com.wazuh.agent.plist
+-rw-r--r--@  1 root  wheel   622 Sep 24 12:20 local.awdl-down.plist
+-rw-r--r--@  1 root  wheel   963 Sep 24 13:02 local.security.harden.plist
+
+===== 10b. ~/Library/LaunchAgents (expect: empty) =====
+total 72
+drwxr-xr-x@ 11 evw  staff   352 Sep 23 10:20 .
+drwx------+ 86 evw  staff  2752 Sep 23 10:15 ..
+-rw-r--r--@  1 evw  staff   756 Sep  3 14:55 com.evw.alert-center.plist
+-rw-r--r--@  1 evw  staff   737 Sep  3 18:43 com.evw.ls-resource-guard.plist
+-rw-r--r--@  1 evw  staff   674 Sep 24 12:25 com.evw.security-audit-login.plist
+-rw-r--r--   1 evw  staff   807 Sep  1 16:28 com.evw.sentinel-alert-term.plist
+-rw-r--r--@  1 evw  staff   675 Sep 24 12:21 com.ew.config-sentinel.plist
+-rw-r--r--@  1 evw  staff   870 Sep 23 10:20 com.google.GoogleUpdater.wake.plist
+-rw-r--r--@  1 evw  staff   181 Sep 23 10:15 com.google.keystone.agent.plist
+-rw-r--r--@  1 evw  staff   181 Sep 23 10:15 com.google.keystone.xpcservice.plist
+-rw-r--r--@  1 evw  staff  1078 Aug 31 16:31 homebrew.mxcl.postgresql@16.plist
+
+===== 11. Cron + login hooks (expect: none) =====
+crontab: no crontab for evw
+2026-09-25 11:21:36.623 defaults[17692:8052146] 
+The domain/default pair of (/var/root/Library/Preferences/com.apple.loginwindow, LoginHook) does not exist
+2026-09-25 11:21:36.628 defaults[17693:8052149] 
+The domain/default pair of (/Library/Preferences/com.apple.loginwindow, LoginHook) does not exist
+
+===== 12. /etc/hosts contents =====
+##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1	localhost
+255.255.255.255	broadcasthost
+::1             localhost
+127.0.0.1  mbp.local.local mbp.local
+
+127.0.0.1  MacBook-Pro.local MacBook-Pro
+
+127.0.0.1  Pixel-9.local Pixel-9
+
+127.0.0.1  WORKSTATION-9828.local WORKSTATION-9828
+
+127.0.0.1  LAPTOP-A4A640.local LAPTOP-A4A640
+
+127.0.0.1  ThinkPad-X1.local ThinkPad-X1
+
+===== 13. TCC system DB: screen-capture/accessibility/input grants (expect: empty) =====
+com.moonshot.kimichat|kTCCServicePostEvent|0|2026-09-21 19:31:47
+
+===== 13b. TCC user DB =====
+
+==========================================
+ VERIFY COMPLETE  2026-09-25T16:21:36Z
+==========================================

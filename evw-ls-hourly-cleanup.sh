@@ -55,6 +55,16 @@ fi
 
 log "--- hourly cleanup tick ---"
 
+# Filesystem churn retention — scan dirs grow ~40 MB/day unbounded (sentinel
+# reports every 5 min, timestamped analyses every 20 min, daily model
+# exports). Keep recent history, reap the rest. Runs on every tick,
+# independent of the LS chain below.
+find /Users/evw/dev/security/scan-* -name 'ls-sentinel-deny-*.md'   -mtime +3  -delete 2>/dev/null || true
+find /Users/evw/dev/security/scan-* -name 'ls-full-analysis-2*.txt' -mtime +7  -delete 2>/dev/null || true
+find /Users/evw/dev/security/scan-* -name 'ls-model*.json'          -mtime +14 -delete 2>/dev/null || true
+find /Users/evw/dev/security/security-system/reports -type f        -mtime +30 -delete 2>/dev/null || true
+log "fs-retention sweep done"
+
 if [[ ! -x "$LSCLI" ]]; then
     log "ERROR: Little Snitch CLI not found at $LSCLI"
     exit 1
