@@ -22,6 +22,13 @@ Operations:
      front-end IPs are shared by arbitrary sites, like any CDN).
      ls-sentinel-deny.py now excludes (Google LLC, browser processes) via
      EXCLUDED_ORG_PROCS, so they stay gone.
+  1c. DELETE every ANY-PROCESS rule (allow or deny, any age) whose remote
+     addresses all sit in the Shopify anycast ranges (23.227.32.0/20,
+     2620:127:f00::/48). 2026-09-28: ls-week-review flipped the conn-guard's
+     23.227.39.20/.200 allows to any-process DENIES — an exact-IP any-process
+     deny outranks the scoped domain allow and broke Shopify again. The
+     domain rules govern browser access; evw-auto-conn-guard.py now protects
+     these ranges, so per-IP rules stay gone.
   2. TIGHTEN any [AUTO-EVW] auto-conn-guard IP allow whose note carries the
      guard's own "D5-plain-on-443" evidence (connection observed on 443) to
      tcp:443 — e.g. the 23.227.39.200 Shopify any-port allow.
@@ -43,6 +50,7 @@ Operations:
   5. VERIFY invariants post-edit; aborts (no output written) if any fail:
        - factory/protected rule counts unchanged
        - no Shopify or GCP-LB sentinel rule survives
+       - no any-process rule on a Shopify anycast IP survives
        - a scoped shopify domain rule exists for every SCOPED_PROCS process
        - the scoped WebKit gmail/github domain rules are still present
 
@@ -51,6 +59,7 @@ process-scoped shopify allows (python3, iterm2) — are never touched.
 Python 3.9 compatible. Read-only except for the output/report files.
 """
 import json, sys
+import ipaddress
 from datetime import datetime, timezone
 
 # error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
@@ -62,10 +71,11 @@ try:
             _sys.path.insert(0, str(_d / "lib"))
             break
         _d = _d.parent
-    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+    from error_guard import guard_run, guard_main, guarded, SKIP, throw, GuardError
 except ImportError:
     SKIP = object()
     def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guard_main(_l, fn, *a, **kw): return fn(*a, **kw)
     def guarded(_l=None):
         def deco(fn): return fn
         return deco
@@ -105,6 +115,26 @@ def is_shopify_sentinel(r):
 def is_gcp_lb_sentinel(r):
     n = str(r.get("notes", ""))
     return n.startswith(TAG) and GCP_PTR_MARKER in n
+
+SHOPIFY_NETS = [ipaddress.ip_network("23.227.32.0/20"),
+                ipaddress.ip_network("2620:127:f00::/48")]
+
+def is_anyproc_shopify_ip(r):
+    """any-process rule whose every remote address is a Shopify anycast IP —
+    per-IP whack-a-mole artifact (the scoped domain rules govern instead)."""
+    if r.get("process"):
+        return False
+    addrs = [a.strip() for a in str(r.get("remote-addresses") or "").split(",")
+             if a.strip()]
+    if not addrs:
+        return False
+    for a in addrs:
+        try:
+            if not any(ipaddress.ip_address(a) in n for n in SHOPIFY_NETS):
+                return False
+        except ValueError:
+            return False
+    return True
 
 def host_under(host, doms):
     h = (host or "").lower().rstrip(".")
@@ -160,6 +190,22 @@ def main():
         report("  - {} {} {}".format(r.get("action"),
                r.get("remote-addresses"), str(r.get("notes", ""))[:110]))
     doomed = doomed + gcp
+
+    # 1c. delete any-process rules on Shopify anycast IPs (any action, any
+    #     age) — 2026-09-28: ls-week-review flipped the conn-guard's
+    #     23.227.39.20/.200 allows to any-process denies, and an exact-IP
+    #     any-process deny outranks the scoped domain allow — Shopify broke
+    #     again. Domain rules govern; the conn-guard now protects the ranges.
+    axp = [r for r in kept if is_anyproc_shopify_ip(r)]
+    kept = [r for r in kept if not is_anyproc_shopify_ip(r)]
+    report("DELETE {} any-process shopify-IP rules (allow={}, deny={})".format(
+        len(axp),
+        sum(1 for r in axp if r.get("action") == "allow"),
+        sum(1 for r in axp if r.get("action") == "deny")))
+    for r in axp:
+        report("  - {} {} ({})".format(r.get("action"),
+               r.get("remote-addresses"), str(r.get("notes", ""))[:90]))
+    doomed = doomed + axp
 
     # 2. tighten auto-conn-guard IP allows with on-443 evidence -> tcp:443
     #    (guard's own D5 marker proves the connection runs on 443, so the
@@ -226,6 +272,8 @@ def main():
         throw("VERIFY failed: shopify sentinel rule survived")
     if any(is_gcp_lb_sentinel(r) for r in kept):
         throw("VERIFY failed: GCP-LB sentinel rule survived")
+    if any(is_anyproc_shopify_ip(r) for r in kept):
+        throw("VERIFY failed: any-process shopify-IP rule survived")
     for proc in SCOPED_PROCS:
         if not any(covers_shopify(r, proc) for r in kept):
             throw("VERIFY failed: scoped shopify rule missing for " + proc)
@@ -248,4 +296,4 @@ def main():
     print(REPORT_LINES[-1])
 
 if __name__ == "__main__":
-    guard_run("ls-shopify-whitelist", main)
+    guard_main("ls-shopify-whitelist", main)

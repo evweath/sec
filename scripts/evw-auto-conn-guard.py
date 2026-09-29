@@ -22,7 +22,9 @@
 #     Command Line Tool Access). LS model restore is debounced >= 10 min.
 #
 # Protections (never killed/blocked): RFC1918/loopback/link-local/reserved,
-# default gateway, system DNS servers, TRUSTED_IPS, Apple 17.0.0.0/8,
+#   - default gateway, system DNS servers, TRUSTED_IPS, Apple 17.0.0.0/8,
+#   - Shopify anycast (23.227.32.0/20, 2620:127:f00::/48) — browsers use scoped
+#     domain rules (ls-shopify-whitelist.py); per-IP rules = whack-a-mole
 # api.moonshot.cn (Kimi CLI lifeline), SAFE_PROCS (browsers + core system +
 # python so the guard never kills itself).
 #
@@ -148,6 +150,17 @@ def is_protected_ip(ip, never):
         return True
     if ip.startswith("17."):          # Apple 17.0.0.0/8
         return True
+    # Shopify anycast (23.227.32.0/20, 2620:127:f00::/48): every shop shares
+    # these IPs, so per-IP blocks/LS rules caused the approve-whack-a-mole
+    # loop that kept breaking active sessions (2026-09-18 + 2026-09-28).
+    # Browsers get scoped domain rules via ls-shopify-whitelist.py instead.
+    try:
+        import ipaddress as _ipa
+        if any(_ipa.ip_address(ip) in _ipa.ip_network(n)
+               for n in ("23.227.32.0/20", "2620:127:f00::/48")):
+            return True
+    except ValueError:
+        pass
     return False
 
 

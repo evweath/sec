@@ -126,6 +126,30 @@ def guard_run(label, fn, *args, **kwargs):
     return result
 
 
+def guard_main(label, fn, *args, **kwargs):
+    """Entry-point form of guard_run, for `if __name__ == "__main__":` blocks.
+
+    guard_run deliberately swallows failures (returns None / SKIP) so daemons
+    can continue their loop — but at the top level that makes a failed script
+    exit 0, and callers like security-menu.sh then report a false success
+    (2026-09-28: shopify/gmail/outlook fixes "succeeded" without running).
+    guard_main raises SystemExit(1) whenever fn did not run to completion;
+    fn's result is returned otherwise.
+    """
+    completed = [False]
+
+    @functools.wraps(fn)
+    def probe(*a, **kw):
+        result = fn(*a, **kw)
+        completed[0] = True
+        return result
+
+    result = guard_run(label, probe, *args, **kwargs)
+    if not completed[0]:
+        raise SystemExit(1)
+    return result
+
+
 def guarded(label=None):
     """Decorator form of guard_run: @guarded('step-name') def step(...): ..."""
 

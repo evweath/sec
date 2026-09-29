@@ -1335,3 +1335,117 @@ KeepAlive. Built the finish-install + integration:
   atomic write, audit stamp 0666, memory-manager key-loss warning, csmem
   re-init, this log)
 - Watch tomorrow's login user-mode audit: expect scan-hashes rc=0
+
+## SESSION 2026-09-28 — Weekly scan review: all changes accounted for, findings=0
+
+- **Fresh audit (user mode): findings=0** — replayd recheck fix verified live
+  ("reaped within 10s, routine"). The 11:19 findings=1 was the last run of the
+  OLD installed copy: fixed script was installed 11:25:19 via the setup re-run.
+- **Shopify whitelist confirmed live**: Brave + WebKit scoped domain allows
+  present, Brave catch-all deny intact, 0 stale sentinel rules. Model now
+  4150 rules after morning consolidation (gmail −54 per-host Safari allows,
+  outlook −3, key-resources −35 unscoped IP allows; dedup + tighten all SKIP).
+- **Week-over-week changes reviewed, all self-inflicted/committed**: toolkit
+  edits (harden.sh, scan-hashes.sh baseline expansion → scripts/+lib/ NEW
+  entries in hash diff) are git-committed; fs-baselines OTS-stamped
+  (09-24/25/28). Persistence: plist reinstalls only, no new launchd entries.
+- **Network/posture clean**: SIP/FileVault/FW block-all+stealth/GK on;
+  loopback-only listeners (postgres, cupsd — on-demand, no default printer).
+- **Lynis**: 1 warning NETW-2705 (single-resolver pinned DNS — by design);
+  remaining items are suggestions/N-A (Apache off).
+- No unresolved items. Nothing required fixing beyond verification.
+
+## SESSION 2026-09-28 (pm) — Screenshot breakage root-caused, 1048 doubt-approved LS rules denied, menu false-clean fixed, process audit clean
+
+### Screenshot tool broken = own replayd guard (by design, now grace-capped)
+- `/usr/sbin/screencapture` failed with "could not create image from display":
+  the guard killed replayd within ~5s of every spawn (98,880 kills logged),
+  and ScreenCaptureKit needs replayd ~1-2s per shot.
+- Guard redesigned (repo evw-replayd-guard.sh): each replayd instance may live
+  GRACE=20s (stateless, via ps etimes), then kill+context-log as before.
+  Screenshots work; any rogue capture is hard-capped at ~20s (incident #14 was
+  8.5h). LS network deny + TCC zero-grant + launchctl-disable all unchanged.
+- Audit §5 aligned: flags replayd only when an instance exceeds 40s (guard
+  broken), no more sleep-recheck.
+- The iTerm screen-record prompt the user saw was MY screencapture diagnostic
+  (this CLI runs under iTerm2; TCC attributes the attempt to iTerm). Prompt was
+  NOT approved — no grant exists, no capture happened, no remote session
+  (screensharingd/ARD off, no listeners).
+
+### "Approved too many rules last week" — measured, then denied per directive
+- 09-21→09-28: +776 allows (746 alert-origin, 30 frontend). Holes:
+  35 any-process allows (32 sentinel-deny flips + 3 auto-conn-guard) to shared
+  AWS/Cloudflare/Google IPs:443 — C2-shaped. 1013 window approvals total
+  (per-IP whack-a-mole incl. Safari 327 / iterm2 320 / parsecd 65).
+- New ls-week-review.py + ls-apply-week-review.sh: DENY all 35 any-proc holes
+  + all 1013 window approvals; KEEP the 13 scripted [ls-] scoped domain rules
+  (gmail/outlook/shopify×3/github×5/kimi); zero conflicts with kept domains.
+  Dry-run verified (4151→4151 rules, 1048 stamped denies). APPLY needs sudo.
+- ls-hole-audit (11:25): 0 holes by its patterns — it didn't cover flip rules;
+  this session's review does.
+
+### Menu false-clean root causes (all fixed + verified)
+- 4 LS fix scripts (shopify/gmail/outlook + new week-review) exited 0 when
+  their main() failed: guard_run swallows exceptions by design (daemon loop
+  semantics). Added guard_main() to lib/error_guard.py — SystemExit(1) unless
+  main ran to completion. All 4 now exit 1 on failure, 0 on success.
+- evw-security-audit.sh debounce printed one skip line and exited 0 → menu
+  showed "succeeded" with no scan run. Added --force (menu entry passes it);
+  skip line now screams NO SCAN PERFORMED.
+- LS analysis menu entries had no way to receive the model path → tagged
+  [ARGS] with hints. Menu now 87 entries incl. process-audit + week-review.
+- security-menu.sh --check: 87 entries, 0 problems; live --run verified.
+
+### Process + daemon sweep: clean
+- New process-audit.py (menu + scan-2026-09-28/process-audit.txt): every
+  running executable classified + codesign-verified, every launchd plist target
+  checked, loaded jobs enumerated. 4 flags, all benign: LibreOffice broken seal
+  = runtime __pycache__ .pyc in bundle (valid Document Foundation signature),
+  Homebrew python3.14 framework quirk, postgres adhoc (normal Homebrew),
+  wazuh "MISSING" = root-only /Library/Ossec (daemons verified running).
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/ls-apply-week-review.sh` (type APPLY; --dry-run first to inspect)
+- `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/evw-replayd-guard.sh /usr/local/bin/ && sudo launchctl kickstart -k system/com.evw.replayd-guard` (screenshots start working)
+- `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` (install --force/age-check audit for boot+login)
+- optional: `sudo bash /usr/local/bin/evw-security-audit.sh --force` (fresh full root audit)
+
+## SESSION 2026-09-29 — Shopify re-block root-caused (week-review IP denies), CRITICAL guard regression found + fixed
+
+### Shopify blocked again (user report) — root cause + durable fix
+- The 2026-09-28 week-review flipped the conn-guard's two any-process Shopify
+  allows (23.227.39.20, 23.227.39.200) to any-process DENIES. An exact-IP
+  any-process deny outranks the scoped domain allows → Shopify dead in all
+  browsers (all 3 scoped browser rules were intact).
+- Fix: ls-shopify-whitelist.py op 1c — DELETE any-process rules on the Shopify
+  anycast ranges (23.227.32.0/20, 2620:127:f00::/48), any age/action; dry-run
+  on the live model also removed 1 stale GCP-LB sentinel + 8 covered per-host
+  Safari allows (4251→4240). Apply-script verify extended (anyproc-shopify-ip=0).
+- Durability: evw-auto-conn-guard.py is_protected_ip now protects the Shopify
+  anycast ranges (it planted the original per-IP rules; sentinel already had
+  the org-exclude). The flip cycle cannot restart.
+
+### CRITICAL self-inflicted regression: replayd uncapped ~21h
+- Yesterday's grace-window guard used `ps -o etimes=` — macOS has only `etime`.
+  ps dumped its keyword list, the numeric -ge test failed every tick, and the
+  guard logged ZERO kills after its 12:43 install: replayd ran uncapped
+  (boot instance reached 1h03m before manual kill). The audit's new age check
+  had the same bug and masked it as "routine".
+- Verified idle, not capturing: no .mov/.mp4/IOSurface handles, nothing on
+  Desktop; killed PID 1380 manually (user-owned). LS network deny + TCC
+  zero-grant held throughout.
+- Fix: portable pid_age_s() (parses [[dd-]hh:]mm:ss, 10# octal-safe) added to
+  both evw-replayd-guard.sh and evw-security-audit.sh; validated against
+  processes of known age. Needs sudo reinstall + kickstart (below).
+
+### Scan + tightening
+- Fresh --force audit: findings=0 (hashes ok, wazuh ok, posture clean).
+- ls-dedup: −5 duplicate rules; ls-tighten-all: all SKIP (posture holds).
+- security-menu.sh --check: 87 entries, 0 problems.
+
+### Pending (user, sudo) — in priority order
+- `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/evw-replayd-guard.sh /usr/local/bin/ && sudo launchctl kickstart -k system/com.evw.replayd-guard` — CRITICAL: restores the 20s replayd cap (currently uncapped)
+- `sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh` — Shopify un-block (type APPLY)
+- `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — install fixed audit (pid_age_s)
+- `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −5 (type APPLY)
+- optional: `sudo bash /usr/local/bin/evw-security-audit.sh --force` — fresh root audit

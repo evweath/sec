@@ -46,10 +46,11 @@ try:
             _sys.path.insert(0, str(_d / "lib"))
             break
         _d = _d.parent
-    from error_guard import guard_run, guarded, SKIP, throw, GuardError
+    from error_guard import guard_run, guard_main, guarded, SKIP, throw, GuardError
 except ImportError:
     SKIP = object()
     def guard_run(_l, fn, *a, **kw): return fn(*a, **kw)
+    def guard_main(_l, fn, *a, **kw): return fn(*a, **kw)
     def guarded(_l=None):
         def deco(fn): return fn
         return deco
@@ -183,4 +184,4 @@ def main():
     print(REPORT_LINES[-1])
 
 if __name__ == "__main__":
-    guard_run("ls-gmail-fix", main)
+    guard_main("ls-gmail-fix", main)

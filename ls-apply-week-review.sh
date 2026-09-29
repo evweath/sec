@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
 # =============================================================================
-# ls-apply-shopify-whitelist.sh — apply the shopify scoping fix to the LIVE
-# Little Snitch model
+# ls-apply-week-review.sh — deny last week's doubt-approved LS rules (live model)
 #
-# Run:  sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh [--dry-run]
-#       --dry-run exports, runs ls-shopify-whitelist.py and shows the report,
+# Run:  sudo bash /Users/evw/dev/security/ls-apply-week-review.sh [--dry-run]
+#       --dry-run exports, runs ls-week-review.py and shows the report,
 #       imports nothing
 #
-# Flow (mirrors ls-apply-gmail-fix.sh):
+# Flow (mirrors ls-apply-shopify-whitelist.sh):
 #   1. export the LIVE model (root) — never edits a stale snapshot
-#   2. ls-shopify-whitelist.py — delete Shopify sentinel per-IP rules (allow
-#      AND deny), add scoped browser -> shopify-domains tcp:443 allows
-#      (WebKit.Networking + Brave — Brave's catch-all deny blocks Shopify)
-#   3. show the full change report, require typing APPLY
+#   2. ls-week-review.py — deny any-process sentinel/auto holes, delete
+#      alert approvals redundant with the scripted [ls-] domain rules, and
+#      flip every other allow approved since 2026-09-21 to deny
+#   3. show the report, require typing APPLY
 #   4. restore-model; keep a backup of the pre-change model
-#   5. re-export and verify: scoped shopify rule present, Shopify sentinel
-#      rules gone
+#   5. re-export and verify: no any-process sentinel/auto allow survives,
+#      scripted [ls-] rules intact
 # =============================================================================
 
 set -euo pipefail
@@ -30,8 +29,8 @@ command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: t
 SEC_DIR="/Users/evw/dev/security"
 LSCLI="/Applications/Little Snitch.app/Contents/Components/littlesnitch"
 SCAN_DIR="$SEC_DIR/scan-$(date +%F)"
-REPORT="$SCAN_DIR/ls-shopify-whitelist-report.txt"
-BACKUP="$SCAN_DIR/ls-model-pre-shopify-whitelist-$(date +%s).json"
+REPORT="$SCAN_DIR/ls-week-review-report.txt"
+BACKUP="$SCAN_DIR/ls-model-pre-week-review-$(date +%s).json"
 
 if [[ $EUID -ne 0 ]]; then
     echo "[!] Must be run as root: sudo bash $0" >&2
@@ -39,7 +38,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 mkdir -p "$SCAN_DIR"
-WORK=$(mktemp -d /var/tmp/ls-shopify-whitelist.XXXXXX)
+WORK=$(mktemp -d /var/tmp/ls-week-review.XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 
 echo "[1/5] Exporting live model..."
@@ -48,13 +47,13 @@ cp "$WORK/model.json" "$BACKUP"
 chmod 600 "$BACKUP"   # root-written file in a user dir — keep it owner-only
 echo "      backup saved: $BACKUP"
 
-echo "[2/5] Running shopify whitelist..."
-guard_run "ls-shopify-whitelist" python3 "$SEC_DIR/ls-shopify-whitelist.py" "$WORK/model.json" "$WORK/fixed.json" --report "$REPORT" || true
-[ -f "$REPORT" ] && chmod 600 "$REPORT"   # root-written report in a user dir — owner-only
+echo "[2/5] Running week review..."
+guard_run "ls-week-review" python3 "$SEC_DIR/ls-week-review.py" "$WORK/model.json" "$WORK/fixed.json" --report "$REPORT" || true
+[ -f "$REPORT" ] && chmod 600 "$REPORT"
 
 echo "[3/5] Change report ($REPORT):"
 echo "----------------------------------------------------------------------"
-head -40 "$REPORT"
+head -60 "$REPORT"
 echo "  ... (full list in report file)"
 tail -3 "$REPORT"
 echo "----------------------------------------------------------------------"
@@ -82,30 +81,16 @@ if python3 -c "
 import json, sys
 m = json.load(open('$WORK/verify.json'))
 rules = m['rules']
-def has_scoped(proc):
-    return any(r.get('action')=='allow' and r.get('process')==proc
-               and 'myshopify.com' in (r.get('remote-domains') or []) for r in rules)
-webkit = has_scoped('identifier.APPLE/com.apple.WebKit.Networking')
-brave = has_scoped('identifier.KL8N8XSYF4/com.brave.Browser')
-safari = has_scoped('identifier.APPLE/com.apple.Safari')
-stale = sum(1 for r in rules if str(r.get('notes','')).startswith('[AUTO-EVW-LS] sentinel-deny')
-            and ('Shopify' in str(r.get('notes',''))
-                 or 'bc.googleusercontent.com' in str(r.get('notes',''))))
-import ipaddress
-nets = [ipaddress.ip_network('23.227.32.0/20'), ipaddress.ip_network('2620:127:f00::/48')]
-def shop_ip_rule(r):
-    if r.get('process'): return False
-    addrs = [a.strip() for a in str(r.get('remote-addresses') or '').split(',') if a.strip()]
-    if not addrs: return False
-    try:
-        return all(any(ipaddress.ip_address(a) in n for n in nets) for a in addrs)
-    except ValueError:
-        return False
-axp = sum(1 for r in rules if shop_ip_rule(r))
-print('webkit-rule=%s brave-rule=%s safari-rule=%s stale-sentinel=%d anyproc-shopify-ip=%d'
-      % (webkit, brave, safari, stale, axp))
-sys.exit(0 if webkit and brave and safari and stale == 0 and axp == 0 else 1)"; then
-    echo "[✓] Shopify whitelist applied and verified. Report: $REPORT"
+holes = sum(1 for r in rules if r.get('action')=='allow' and not r.get('process')
+            and (str(r.get('notes','')).startswith('[AUTO-EVW-LS] sentinel-deny')
+                 or str(r.get('notes','')).startswith('[AUTO-EVW] auto-')))
+keeps = sum(1 for r in rules if str(r.get('notes','')).startswith(
+            ('[ls-shopify-whitelist]','[ls-gmail-fix]','[ls-outlook-fix]','[ls-scope-key-resources]')))
+denied = sum(1 for r in rules if r.get('action')=='deny'
+             and '[ls-week-review]' in str(r.get('notes','')))
+print('any-proc-allow-holes=%d scripted-keeps=%d week-review-denies=%d' % (holes, keeps, denied))
+sys.exit(0 if holes == 0 and keeps >= 10 and denied > 0 else 1)"; then
+    echo "[✓] Week review applied and verified. Report: $REPORT"
 else
     echo "[!] Verification incomplete — check Little Snitch → Rules. Backup: $BACKUP" >&2
     exit 1

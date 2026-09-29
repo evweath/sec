@@ -34,10 +34,13 @@ STAMP=/var/tmp/evw-security-audit.last
 DEBOUNCE=600   # seconds
 
 # ── debounce (boot + login fire seconds apart) ───────────────────────────────
+# --force bypasses: the security-menu.sh entry passes it, because a human
+# choosing the audit means "run now". Without it a debounce skip printed one
+# line and exited 0, which the menu reported as a successful (clean) scan.
 now=$(date +%s)
 last=$(cat "$STAMP" 2>/dev/null || echo 0)
-if [ $((now - last)) -lt $DEBOUNCE ]; then
-    echo "$(date -Iseconds) skip (debounce: ran $((now - last))s ago)"
+if [[ "${1:-}" != "--force" && $((now - last)) -lt $DEBOUNCE ]]; then
+    echo "$(date -Iseconds) SKIP (debounce: ran $((now - last))s ago — NO SCAN PERFORMED; use --force to override)"
     exit 0
 fi
 # World-writable stamp: boot (root) and login (user) runs share this file;
@@ -93,17 +96,29 @@ lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | grep -vE "127\.0\.0\.1|\[::1\]|^COMMAN
 } > "$SCAN/kexts-sysexts.txt" 2>&1
 
 # ── 5. guarded processes must not accumulate ─────────────────────────────────
-# replayd respawns every few seconds and the guard reaps within ~5s, so a
-# single pgrep sample fires constantly (2026-09-21: both audits findings=1 on
-# transient sightings). Flag only when the SAME PID survives a 10s recheck —
-# that means the guard is not reaping.
+# replayd respawns constantly and (since 2026-09-28) the guard lets each
+# instance live GRACE=20s so the Screenshot tool works, then kills it. Flag
+# only when an instance is older than 40s (grace + guard interval + margin) —
+# that means the guard is not reaping. (macOS ps has etime, not etimes.)
+pid_age_s() {
+    local et d=0 h=0 m=0 s=0
+    et=$(ps -p "$1" -o etime= 2>/dev/null | tr -d ' ')
+    [ -n "$et" ] || return 1
+    case "$et" in *-*) d=${et%%-*}; et=${et#*-} ;; esac
+    case "$et" in
+        *:*:*) IFS=: read -r h m s <<< "$et" ;;
+        *:*)   IFS=: read -r m s <<< "$et" ;;
+        *)     s=$et ;;
+    esac
+    echo $(( 10#$d * 86400 + 10#${h:-0} * 3600 + 10#${m:-0} * 60 + 10#${s:-0} ))
+}
 RPID=$(pgrep -x replayd | head -1)
 if [ -n "$RPID" ]; then
-    sleep 10
-    if ps -p "$RPID" >/dev/null 2>&1; then
-        note "[!!] replayd PID=$RPID alive >10s — guard not reaping?"
+    RAGE=$(pid_age_s "$RPID")
+    if [ -n "$RAGE" ] && [ "$RAGE" -gt 40 ]; then
+        note "[!!] replayd PID=$RPID alive ${RAGE}s — beyond guard grace (20s), guard not reaping?"
     else
-        info "[..] replayd PID=$RPID reaped within 10s (routine respawn)"
+        info "[..] replayd PID=$RPID age ${RAGE:-?}s within guard grace window (≤20s cap — routine)"
     fi
 fi
 pgrep -q studentd && info "[..] studentd alive at audit time (guard reaps ≤5 min — routine)"
