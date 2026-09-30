@@ -1495,3 +1495,31 @@ KeepAlive. Built the finish-install + integration:
   `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/scripts/mac-sentinel.py /usr/local/lib/mac-sentinel/ && sudo launchctl kickstart -k system/com.evw.mac-sentinel`
 - Known pending unchanged: wazuh manager 10.0.0.2 unreachable (477 events —
   manager not on this LAN), opentimestamps-client absent.
+
+## SESSION 2026-09-30 (eve) — Network diagnostics: CLI API timeout bursts root-caused
+
+- Symptom (kimi debug bundle): bursts of APITimeoutError on moonshot-ai/kimi-k3
+  — 12 retries over 349s at 20:20-20:26 (turn 6 failed), plus 18:38 singleton.
+- **Prime cause — conn-guard pf-blocks of the CLI's API edge IPs**: the CLI's
+  LLM streams are long-lived non-browser 443 connections to Moonshot edge IPs
+  (103.143.17.156 IRT-HIDDOS-CN, 107.151.158.226 ZENLA-1, Cloudflare
+  104.18.x) that rotate. Score math: D1-no-ptr(+1) + D4-long-lived(+2) +
+  D5-probe(+2) = 5 = ACT_THRESHOLD → kill + 1h pf block. "kimi" was NOT in
+  SAFE_PROCS and never_block_ips only dug api.moonshot.cn (≠ the actual
+  api.moonshot.ai edge). pf DROP = connection hangs = exactly APITimeoutError;
+  recovery when the client lands on an unblocked edge. Fixes committed:
+  SAFE_PROCS += {kimi, node}; never_block_ips digs both moonshot hosts.
+  Effective after: sudo install conn-guard + kickstart (already pending).
+- **Ruled out**: LS denies (0 on the CLI's edge IPs; CLI has no process
+  rules), DNS (4 pinned resolvers healthy, 2ms lookups), baseline latency
+  (connect 45ms, TLS 100ms, TTFB 380ms, expected 401), ICMP loss = stealth
+  firewall (cosmetic).
+- **utun churn**: 860 interface events/month, utun2 ~16/day — iCloud Private
+  Relay flapping. Third-party app traffic (CLI) bypasses the relay, but
+  Safari traffic rides it → user-perceived web stalls correlate with relay
+  reconnects. No local fix; noted for pattern-watching.
+- **Side finding**: com.moonshot.kimichat (desktop app) is FULLY blocked —
+  26 any-where:443 denies from the 09-28 week-review. If the desktop app is
+  wanted, delete those 26 rules (they're stamped [ls-week-review]).
+- Remaining suspect if bursts continue post-fix: API-side slowness on
+  kimi-k3 at peak (the 09-28 22:09 401 was a separate one-off auth blip).

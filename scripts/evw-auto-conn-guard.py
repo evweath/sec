@@ -78,6 +78,9 @@ SAFE_PROCS = {   # never auto-killed (user-facing / core system / self)
     "Little Snitch", "Little Snitch Agent", "Little Snitch Network Monitor",
     "kernel_task", "launchd", "UserEventAgent", "cfprefsd", "distnoted",
     "python3", "Python",
+    # the admin CLI's LLM streams are exactly D4-long-lived-nonbrowser on 443
+    # (2026-09-30: 12x APITimeoutError bursts — pf-blocked edge IPs mid-turn)
+    "kimi", "node",
 }
 DNSCHECK_DOMAINS = ["apple.com", "icloud.com", "github.com",
                     "api.moonshot.cn", "cloudflare.com"]
@@ -141,6 +144,9 @@ def never_block_ips():
         if "nameserver[" in line:
             out.add(line.split(":")[-1].strip())
     ans = _run(["dig", "+time=1", "+tries=1", "+short", "api.moonshot.cn", "@1.1.1.1"], 3)
+    out.update(l.strip() for l in ans.splitlines() if l.strip())
+    # the CLI actually dials api.moonshot.ai (Cloudflare front) — protect both
+    ans = _run(["dig", "+time=1", "+tries=1", "+short", "api.moonshot.ai", "@1.1.1.1"], 3)
     out.update(l.strip() for l in ans.splitlines() if l.strip())
     return out
 
