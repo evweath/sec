@@ -1842,7 +1842,8 @@ class MacHardeningWorker(threading.Thread):
 
     def _check_ossec_installed(self):
         if not (os.path.exists("/var/ossec/bin/ossec-control")
-                or os.path.exists("/Library/Ossec/bin/ossec-control")):
+                or os.path.exists("/Library/Ossec/bin/ossec-control")
+                or os.path.exists("/Library/Ossec/bin/wazuh-control")):  # Wazuh ≥4.8 rename
             write_log("hardening", {
                 "event":      "HARDENING_FINDING",
                 "finding":    "IDS_NOT_INSTALLED",

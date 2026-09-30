@@ -1471,3 +1471,27 @@ KeepAlive. Built the finish-install + integration:
 - `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/scripts/evw-auto-conn-guard.py /usr/local/bin/ && sudo launchctl kickstart -k system/com.evw.auto-conn-guard` — stops the re-planting
 - `sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh` — removes the 2 denies + pf blocks (type APPLY)
 - `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −5 (type APPLY)
+
+## SESSION 2026-09-30 (pm) — Remote-connection + sentinel-feed investigation: all clean
+
+- **Live connections**: all accounted for — ssh→github (git-receive-pack
+  evweath/bw-webmaint), WebKit→Shopify/Google (browsing; the 23.227.39.20
+  flow predates the deny — LS evaluates at connect time, existing flows
+  persist), kimi→Cloudflare (this CLI). No listeners beyond loopback.
+- **Sentinel alert-feed (month of Sep, 6,735 events, 1,165 connections)**:
+  0 CRITICAL; 95% tcp:443; ports otherwise NTP/DNS/OCSP-80/ssh-22/APNS-5223;
+  orgs are the expected set (Google/Apple/MS/Amazon/Cloudflare/Akamai/GitHub/
+  Shopify); ZERO hits on deny-listed orgs (tiktok/bytedance/datadog/zoho/
+  influxdata/found.io); no beaconing (top repeats = timed→Apple NTP).
+  Sentinel report today: ADD=0 (everything already deny-covered or excluded);
+  OPTIONAL=46 all iCloud Private Relay infra (correctly deferred).
+- **Persistence watch**: 6 NEW_LAUNCH_PERSISTENCE in the window — 5 are
+  com.evw.*; the one third-party addition is com.google.keystone.xpcservice
+  (GoogleUpdater, 09-23) — its network is already week-review-denied; remove
+  the agent if Chrome/Google apps aren't wanted.
+- **Fixed**: mac-sentinel _check_ossec_installed now accepts wazuh-control —
+  the daily "IDS_NOT_INSTALLED (High)" was a false finding (Wazuh ≥4.8
+  renamed ossec-* → wazuh-*; agent verified running). Needs sudo reinstall:
+  `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/scripts/mac-sentinel.py /usr/local/lib/mac-sentinel/ && sudo launchctl kickstart -k system/com.evw.mac-sentinel`
+- Known pending unchanged: wazuh manager 10.0.0.2 unreachable (477 events —
+  manager not on this LAN), opentimestamps-client absent.
