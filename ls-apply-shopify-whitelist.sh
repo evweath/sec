@@ -111,3 +111,17 @@ else
     exit 1
 fi
 echo "    Pre-change backup: $BACKUP"
+
+echo "[*] Clearing any live pf auto-blocks on Shopify IPs (conn-guard table)..."
+pf_now=$(pfctl -a com.ew.autoblock -t auto_evw_block -T show 2>/dev/null \
+         | grep -E "^(23\.227\.|2620:127:)") || true
+if [[ -z "$pf_now" ]]; then
+    echo "    none present"
+else
+    while IFS= read -r ip; do
+        [[ -z "$ip" ]] && continue
+        pfctl -a com.ew.autoblock -t auto_evw_block -T delete "$ip" 2>/dev/null \
+            && echo "    pf block removed: $ip" \
+            || echo "    [!] could not remove pf block: $ip" >&2
+    done <<< "$pf_now"
+fi

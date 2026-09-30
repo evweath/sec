@@ -1449,3 +1449,25 @@ KeepAlive. Built the finish-install + integration:
 - `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — install fixed audit (pid_age_s)
 - `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −5 (type APPLY)
 - optional: `sudo bash /usr/local/bin/evw-security-audit.sh --force` — fresh root audit
+
+## SESSION 2026-09-30 — Shopify re-block #3: conn-guard was running pre-protection code
+
+- Audit --force: findings=0. replayd guard capping verified live (kills at
+  age=20-21s, ~4.7k/day; audit reads ages correctly via pid_age_s).
+- Shopify blocked AGAIN: the two any-process denies (23.227.39.20/.200)
+  reappeared with fresh auto IDs, created 09-29 16:20/18:20 — AFTER the
+  whitelist apply. Root cause: the running conn-guard (PID 558, started at
+  09-29 09:03 boot) executes /usr/local/bin/evw-auto-conn-guard.py — the OLD
+  copy without the Shopify anycast protection committed 09-29. It re-planted
+  per-IP denies (D4-long-lived-nonbrowser scoring) which outrank the scoped
+  domain allows. useCounts 2.2k/2.6k — the denies are actively blocking
+  long-lived non-browser Shopify flows (backend tooling, not just browsers).
+- Fixes: ls-apply-shopify-whitelist.sh now also evicts Shopify IPs from the
+  conn-guard pf table post-import; repo conn-guard already protects the
+  ranges. Installed copy needs sudo install + kickstart (below).
+- ls-dedup: −5 dupes pending; ls-tighten-all: all SKIP.
+
+### Pending (user, sudo) — in priority order
+- `sudo install -m 755 -o root -g wheel /Users/evw/dev/security/scripts/evw-auto-conn-guard.py /usr/local/bin/ && sudo launchctl kickstart -k system/com.evw.auto-conn-guard` — stops the re-planting
+- `sudo bash /Users/evw/dev/security/ls-apply-shopify-whitelist.sh` — removes the 2 denies + pf blocks (type APPLY)
+- `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −5 (type APPLY)
