@@ -173,6 +173,7 @@ add "$S" "scripts/ls-hygiene.py"                       "[MOD,SUDO]"  "[AUTO-EVW-
 add "$S" "scripts/evw-ls-hygiene-guard.sh"             "[SVC,DAEMON,SUDO]" "[AUTO-EVW-LS] LS rule hygiene every 5 min, persistent (backup+undo always)"
 add "$S" "scripts/evw-sentinel-alert-display.sh"       "[SVC]"       "Live sentinel alert terminal (auto-opens each boot; numbered entries + display log)"
 add "$S" "evw-wazuh-status.sh"                         "[RO]"       "Wazuh agent status: version, daemons, manager reachability, guard state"
+add "$S" "evw-wazuh-local-manager.sh"                  "[SVC,ARGS]" "Local Wazuh MANAGER (colima/docker, loopback-only): pass setup | start | stop | status"
 add "$S" "evw-wazuh-setup.sh"                          "[SVC,SUDO]" "Finish Wazuh install: set manager IP, start agent, install keep-alive guard"
 add "$S" "evw-wazuh-guard.sh"                          "[SVC,DAEMON,SUDO]" "Keep Wazuh agent daemons alive; log manager connect/disconnect transitions"
 add "$S" "evw-wazuh-monitor.py"                        "[SVC,DAEMON,SUDO]" "Feed Wazuh alerts into sentinel display + alert-center (CRITICAL persists)"

@@ -1558,3 +1558,29 @@ KeepAlive. Built the finish-install + integration:
 - ls-apply-tightening applied 09:44 (backup ls-model-pre-tighten-1790865882);
   report root-readable only, dedup effect confirms at next hourly root export.
 - closing audit run: findings=0.
+
+## SESSION 2026-10-01 (pm) — Wazuh MANAGER now runs ON this Mac (agent + manager, both local)
+
+- **Deployed**: wazuh-docker v4.14.7 single-node (manager + indexer +
+  dashboard, exact agent version match) inside colima (Apple vz VM, 4 CPU /
+  8 GB / 60 GB — brew-installed with docker CLI). Every published port binds
+  127.0.0.1: 1514/1515 (agent), 55000 (API), 9200 (indexer), 443 (dashboard),
+  514/udp. Nothing on the LAN — block-all firewall posture preserved.
+- **Verified live**: indexer cluster green with GENERATED admin password
+  (stock SecretPassword now fails), dashboard https://127.0.0.1 (302 → login,
+  admin + generated 24-hex in wazuh-stack/.credentials chmod 600), manager
+  API 401-healthy, agent ports 1514/1515/55000 OPEN on loopback.
+- **Deploy fixes encoded into evw-wazuh-local-manager.sh** (setup/start/stop/
+  status, self-fetching): pipefail-safe password gen (openssl), root-ca-
+  manager.pem synthesis, internal_users.yml bcrypt re-hash (the indexer takes
+  NO password env), fresh-volume security reinit note, loopback port binding.
+- **Persistence**: com.evw.colima LaunchAgent (user domain) starts the VM at
+  every login; containers are restart:always. wazuh-stack/ gitignored
+  (runtime secrets); the setup script re-fetches it from wazuh-docker v4.14.7.
+- **Menu**: evw-wazuh-local-manager.sh added (88 entries, 0 problems).
+- Remaining step (user, sudo): `sudo bash /Users/evw/dev/security/evw-wazuh-setup.sh 127.0.0.1`
+  repoints the agent from the dead 10.0.0.2 to the local manager. After it:
+  agent registers → alerts flow → evw-wazuh-monitor pipeline picks them up,
+  and WAZUH_MANAGER_UNREACHABLE feed noise stops.
+- Note: Wazuh API account (wazuh-wui/MyS3cr37P450r14- stock) is loopback-only;
+  change it via Dashboard → Server management → API when convenient.

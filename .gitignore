@@ -25,3 +25,6 @@ memory/scans/*-pcap-full.enc
 rebuild/logs/
 rebuild/state/ls-registration.xpl
 rebuild/LAST-RUN-MANUAL-STEPS.txt
+
+# Wazuh local manager runtime (redeployable via evw-wazuh-local-manager.sh; contains generated certs + credentials)
+wazuh-stack/
