@@ -1523,3 +1523,30 @@ KeepAlive. Built the finish-install + integration:
   wanted, delete those 26 rules (they're stamped [ls-week-review]).
 - Remaining suspect if bursts continue post-fix: API-side slowness on
   kimi-k3 at peak (the 09-28 22:09 401 was a separate one-off auth blip).
+
+## SESSION 2026-10-01 — "Scan just reprints the previous output" root-caused for real
+
+- Mechanism: the audit's 10-min debounce applied to EVERY invocation. A manual
+  run within 10 min of the boot/login/my-run printed one skip line and exited
+  0 — callers (menu, terminal) then saw the previous scan's artifacts as if
+  fresh. The 09-28 --force patch only helped if you knew to pass it.
+- Real fix (debounce inverted): debounce now applies ONLY to --auto, which the
+  boot LaunchDaemon + login LaunchAgent plists pass (setup rewrites them).
+  Every manual/menu invocation runs a REAL scan, every time. Verified: two
+  back-to-back manual runs both scanned (25 artifacts each), --auto skips.
+- Audit now prints a visibility line: "scan complete: N artifacts written to
+  scan-YYYY-MM-DD [mode=...]" — a scan that ran is always obvious.
+- Menu entry updated (no more --force preset needed).
+- Installed audit script needs the setup re-run to receive the new logic +
+  plists: `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh`
+
+### Daily trio status
+- Scan: root boot audit 09:10 findings=0; two verification runs findings=0.
+- Shopify: FIXED and holding — 0 any-process denies on Shopify IPs, all 3
+  scoped browser rules present, conn-guard installed=repo (Shopify + kimi
+  protections live, daemon started 09:10 with new code).
+- Tighten: ls-dedup finds 9 duplicates on today's model (4615 rules).
+
+### Pending (user, sudo)
+- `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — new debounce logic + --auto plists
+- `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −9 (type APPLY)

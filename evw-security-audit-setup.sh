@@ -64,6 +64,7 @@ guard_run "write-daemon-plist" cat > "$DAEMON_PLIST" << 'PLIST'
     <array>
         <string>/bin/bash</string>
         <string>/usr/local/bin/evw-security-audit.sh</string>
+        <string>--auto</string>
     </array>
 
     <key>RunAtLoad</key>
@@ -97,6 +98,7 @@ guard_run "write-agent-plist" cat > "$AGENT_PLIST" << 'PLIST'
     <array>
         <string>/bin/bash</string>
         <string>/usr/local/bin/evw-security-audit.sh</string>
+        <string>--auto</string>
     </array>
 
     <key>RunAtLoad</key>

@@ -108,7 +108,7 @@ add "$S" "imported/scripts/mac_harden_rescan.sh"     "[RO,SUDO]" "Daily audit: S
 add "$S" "scripts/verify.sh"                         "[RO,SUDO]" "Drift audit: binary hashes, listeners, disabled services, firewall, TCC"
 add "$S" "imported/scripts/dump-connections.sh"      "[RO,SUDO]" "Dump all network connections, netstat, nettop, LS logs to a file"
 add "$S" "scan-2026-05-21/hunt-osascript-parent.sh"  "[RO,SUDO]" "Trace parent processes of osascript executions for 120 seconds"
-add "$S" "evw-security-audit.sh"                     "[RO]"      "Full audit now (--force bypasses the 10-min boot/login debounce); root adds LS export + TCC" "--force"
+add "$S" "evw-security-audit.sh"                     "[RO]"      "Full audit now — manual runs ALWAYS scan (debounce applies only to automated boot/login); root adds LS export + TCC"
 add "$S" "lynis-audit.sh"                            "[RO]"      "Lynis system audit (full when root) into scan dir: lynis.log + lynis-report.dat"
 add "$S" "knockknock-scan.sh"                        "[RO]"      "KnockKnock persistence scan (CLI, no VirusTotal) into scan dir: knockknock.json"
 add "$S" "process-audit.py"                          "[RO]"      "Audit every running process + launchd item: signature status, missing targets, flags"

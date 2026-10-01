@@ -9,8 +9,8 @@
 #                      analyses + system TCC audit (tcc-audit.sh).
 #
 # Output: scan-YYYY-MM-DD/ artifacts (same layout as the manual audits) plus
-# one status line appended to logs/boot-audit.log. Debounced: a second run
-# within 10 min (boot immediately followed by login) is a no-op.
+# one status line appended to logs/boot-audit.log. Debounce applies only to
+# --auto runs (boot immediately followed by login); manual runs always scan.
 #
 # Install: sudo bash ~/dev/security/evw-security-audit-setup.sh
 # Manual:  bash ~/dev/security/evw-security-audit.sh        (user subset)
@@ -33,14 +33,16 @@ LOGDIR="$SEC/logs"
 STAMP=/var/tmp/evw-security-audit.last
 DEBOUNCE=600   # seconds
 
-# ── debounce (boot + login fire seconds apart) ───────────────────────────────
-# --force bypasses: the security-menu.sh entry passes it, because a human
-# choosing the audit means "run now". Without it a debounce skip printed one
-# line and exited 0, which the menu reported as a successful (clean) scan.
+# ── debounce — AUTOMATED invocations only ────────────────────────────────────
+# The boot LaunchDaemon and login LaunchAgent fire seconds apart; --auto is
+# what they pass, and only --auto is debounced. Every manual/menu invocation
+# runs a real scan, every time. Previously any run within 10 min of another
+# exited 0 after one line, so callers (menu, user) saw the STALE previous
+# scan reported as a fresh clean result (2026-09-28 + 2026-10-01 complaints).
 now=$(date +%s)
 last=$(cat "$STAMP" 2>/dev/null || echo 0)
-if [[ "${1:-}" != "--force" && $((now - last)) -lt $DEBOUNCE ]]; then
-    echo "$(date -Iseconds) SKIP (debounce: ran $((now - last))s ago — NO SCAN PERFORMED; use --force to override)"
+if [[ "${1:-}" == "--auto" && $((now - last)) -lt $DEBOUNCE ]]; then
+    echo "$(date -Iseconds) SKIP (debounce: auto run $((now - last))s after the previous run — NO SCAN PERFORMED)"
     exit 0
 fi
 # World-writable stamp: boot (root) and login (user) runs share this file;
@@ -190,5 +192,7 @@ LINE="$(date -Iseconds) [$MODE] findings=$FINDINGS scan=$SCAN"
 echo "$LINE" >> "$LOGDIR/boot-audit.log"
 [ "$MODE" = root ] && chown evw:staff "$LOGDIR/boot-audit.log" 2>/dev/null || true
 echo "$LINE"
+ARTIFACTS=$(ls "$SCAN" 2>/dev/null | wc -l | tr -d ' ')
+echo "scan complete: $ARTIFACTS artifacts written to $SCAN [mode=$MODE]"
 [ "$FINDINGS" -gt 0 ] && echo "review: $SCAN (and logs/boot-audit.log)"
 exit 0
