@@ -1550,3 +1550,11 @@ KeepAlive. Built the finish-install + integration:
 ### Pending (user, sudo)
 - `sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh` — new debounce logic + --auto plists
 - `sudo bash /Users/evw/dev/security/ls-apply-tightening.sh` — dedup −9 (type APPLY)
+
+### 2026-10-01 (pm) — handoffs verified complete
+- audit setup re-run: /usr/local/bin/evw-security-audit.sh == repo; both
+  plists (boot daemon + login agent) now pass --auto. Manual scans can never
+  stale-skip again; automated double-fire still debounces.
+- ls-apply-tightening applied 09:44 (backup ls-model-pre-tighten-1790865882);
+  report root-readable only, dedup effect confirms at next hourly root export.
+- closing audit run: findings=0.
