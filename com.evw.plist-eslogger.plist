@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.evw.plist-eslogger</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/eslogger</string>
+        <string>write</string>
+        <string>unlink</string>
+        <string>rename</string>
+        <string>create</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>/private/var/log/evw-eslogger-stream.jsonl</string>
+    <key>StandardErrorPath</key>
+    <string>/private/var/log/evw-eslogger-err.log</string>
+    <key>UserName</key>
+    <string>root</string>
+    <key>AbandonProcessGroup</key>
+    <false/>
+</dict>
+</plist>

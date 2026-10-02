@@ -1584,3 +1584,120 @@ KeepAlive. Built the finish-install + integration:
   and WAZUH_MANAGER_UNREACHABLE feed noise stops.
 - Note: Wazuh API account (wazuh-wui/MyS3cr37P450r14- stock) is loopback-only;
   change it via Dashboard → Server management → API when convenient.
+
+## SESSION 2026-10-02 (am) — panic postmortem + memory/network hardening sweep
+
+- **Restart diagnosed**: Oct 1 18:00:29 watchdog-timeout kernel panic (bug_type
+  210) — watchdogd starved 93+ s during a swap storm: 14 MB free, 64 swapfiles,
+  compressor at segment limit. Drivers: iTerm2 ~120 GB resident (jetsam),
+  colima VM 8 GB, fs_usage 3.7–4.5 GB. Panic log only flushed to disk Oct 2
+  09:32 (filename date ≠ panic date). Earlier Oct 1 09:09 boot was also unclean
+  (no panic file; preceded by Sep 30 17:16 shutdown_stall → likely forced
+  power-off). Not malicious — resource exhaustion.
+- **evw-plist-monitor.sh**: fs_usage cap 2 GB → 512 MB, interval 60 s → 30 s.
+  (fs_usage had regrown to 2 GB within 10 min of boot — recurring since Sep 2.)
+- **evw-ls-resource-guard.sh**: added iTerm2 target (4 GB RSS / 20% CPU
+  sustained, 2 breaches → TERM + notify); kill message now only claims
+  "filtering unaffected" for Little Snitch targets.
+- **Wildcard listeners**: likecostco docker-compose.override.yml now
+  `127.0.0.1:55432:5432` (was `55432:5432` wildcard despite localhost intent;
+  container recreated). Residual limactl [::]:53/[::]:443 = lima 2.2
+  pseudoloopback forwarder quirk (ignores hostIP rules) — covered at packet
+  layer instead: scripts/pf-devports.conf +53/443/3100/55432/1514/1515/55000/
+  9200 (+udp 514); apply with `sudo bash /usr/local/bin/setup-pf.sh`.
+- **colima VM 8 GB → 4 GB** (~/.colima/default/colima.yaml — the _lima copy is
+  regenerated, edit the profile). Verified: 3904 MB total, wazuh stack healthy
+  (API 401, dashboard 302), likecostco db healthy.
+- **fs-baseline 2026-10-02**: 2057 files; delta vs 09-28 all benign churn
+  (LS traffic logs, system plists). OTS client missing — stamp skipped.
+- **Pending (user, sudo)**: `sudo bash evw-wazuh-setup.sh 127.0.0.1` (repoint
+  agent off dead 10.0.0.2); `sudo launchctl kickstart -k
+  system/com.evw.plist-monitor` (new fs_usage cap now); `sudo bash
+  /usr/local/bin/setup-pf.sh` (updated PF anchor).
+
+## SESSION 2026-10-02 (am2) — LS ruleset scan + dedup preview
+
+- **Scanned**: deep audit + hole audit + permissive + domain audit on the 09:33
+  export (4767 rules: 2241 allow / 2463 deny). Posture holds: guarded daemons
+  all deny-only, 0 monitor-origin allows, 0 unsigned allows, 0 stale paths,
+  0 holes (DELETE=0 REPLANT=0 REVIEW=0). Domain flags all benign (moonshot/kimi
+  = own CLI, wpscdn, ravm.tv, dns.google, esm.sh).
+- **"ANY→any" rules are factory ICMP** (factoryID 302/413, protected) — not a
+  hole; the 10-01 duplicate was a factory-group re-import artifact.
+- **Found**: 9 identical [AUTO-EVW] denies for 185.125.190.58 planted 10-01
+  22:18:20 (sentinel idempotency bug — same second, notes -1053..-1061);
+  duplicate factory pairs (trustd, apple-421, icloud-420, local-net, ICMP-302)
+  from the 10-01 re-import; 1 github-via pair (curl vs gh, same fingerprint).
+- **Preview (user-level, no root)**: ls-dedup.py 4767→4753 (−14); tighten-all
+  0 further changes (yesterday's tighten already complete). Artifacts:
+  scan-2026-10-02/ls-model-{deduped,tightened}.json, ls-tighten-preview.txt.
+- **Apply (needs sudo)**: `sudo bash ls-apply-tightening.sh` — re-exports the
+  LIVE model, backups up, same pipeline, interactive APPLY, verifies.
+- 8 new alert-origin rules since 09:33 — all benign (NTP, googlevideo, iCloud,
+  nsurlsessiond, gh api, 1 sentinel deny of a Cloudflare IP).
+
+## SESSION 2026-10-02 (pm1) — iTerm2 blowout postmortem, eslogger pipeline, ES deny-client
+
+- **Incident**: iTerm2 hit 7 cores (~10:08-10:13) then 5.4 GB RSS and was
+  SIGTERM'd by evw-ls-resource-guard at 10:33:22 (rule added ~20 min earlier
+  in the am session, after iTerm2's ~120 GB jetsam-largestProcess blowout
+  caused the 10-01 18:00 watchdog panic). Root cause of the bloat: iTerm2
+  3.6.11-internal retention during a heavy agentic TUI session, NOT output
+  volume (wire.jsonl: max tool output ~17 KB).
+- **Guard diagnostics**: evw-ls-resource-guard.sh now captures
+  heap/vmmap/sample/ps to logs/guard-diag/<ts>-<name>-pidN/ on first breach
+  (14-day prune). Healthy baseline: logs/guard-diag/baseline-healthy-iTerm2-pid22701/.
+- **fs_usage retired from plist-watch**: growth measured ~40-100 MB/s under
+  load — every RSS cap (512 MB, then 1536 MB) just cycled the pipeline every
+  ~30-120 s. Replaced by /usr/bin/eslogger (write unlink rename create) as its
+  own LaunchDaemon com.evw.plist-eslogger (TCC FDA attributes to eslogger
+  itself, not /bin/bash); evw-plist-monitor.sh now tail-greps the stream,
+  snapshots debounced 60 s, stream rotated at 50 MB. Read visibility dropped
+  by design — use short fs_usage bursts for read forensics.
+- **PENDING (user)**: grant Full Disk Access to /usr/bin/eslogger
+  (System Settings → Privacy & Security → Full Disk Access) — daemon is
+  error-looping on TCC until then. Verify: tail /var/log/evw-plist-monitor.log.
+- **ES deny-client built**: dev/security/es-plist-guard/ (C AUTH client that
+  DENIES open-for-write/create/truncate/rename/unlink/setattrlist on
+  disabled.501.plist, freezing the uid-501 disabled-state DB). Compiles, runs,
+  es_new_client refused (5) as expected pre-entitlement. Gates: paid Apple
+  Developer + Endpoint Security capability approval + FDA. Zero-signing
+  alternative documented: sudo chflags schg (freeze) / noschg (unfreeze).
+- **tmux habit**: tmux 3.7c installed; ~/.zshrc auto-attaches every
+  interactive local window to a per-tty session (win-ttysNNN, EVW_NO_TMUX=1
+  to skip); ~/.tmux.conf history 50k + mouse. Guard kills no longer lose
+  sessions — tmux ls / tmux attach -t win-... to recover.
+
+## SESSION 2026-10-02 (pm) — kimi.ai autoblock root-caused + fixed (ls-kimi-fix)
+
+- **Symptom**: Little Snitch "autoblocking" the Kimi CLI repeatedly — CLI
+  broke, recovered, broke again with no alert and no obvious rule.
+- **Root cause**: on 09-03 mac-sentinel warned a com.apple.WebKit.Networking
+  flow to 104.18.16.93:443 (user browsing kimi.ai — a Cloudflare edge) and
+  ls-sentinel-deny.py planted an ANY-PROCESS deny on that IP. api.kimi.ai
+  rotates across 104.18.16.93/17.93 (+ 2606:4700::6812:105d/115d twins);
+  every rotation onto the denied IP silently killed the CLI. The CLI's
+  existing allows were per-host Terminal/iTerm2 via-kimi rules for the OLD
+  endpoints (api.kimi.com, api.moonshot.ai, cdn/code.kimi.com) — nothing
+  covered *.kimi.ai, and nothing covered kimi under tmux (responsible
+  process = kimi itself, so terminal via-rules don't match).
+- **Fix — ls-kimi-fix.py (ls-gmail-fix pattern, in→out + invariants)**:
+  resolved the live kimi endpoint family (23 IPs), deleted **14**
+  [AUTO-EVW-LS] sentinel artifacts on those edge IPs (Cloudflare,
+  CDN77/Datacamp, Byteplus, Zenlayer — denies + stale allow flips), added
+  scoped tcp:443 allows kimi.ai+moonshot.ai+moonshot.cn for all 3 CLI
+  process shapes (identifier.2J9472RW75/kimi direct; Terminal via kimi;
+  iTerm2 via kimi) + auth.kimi.com per-host on the direct shape. Whole
+  kimi.com domain deliberately NOT allowed: the [AUDIT 2026-09-02]
+  telemetry-logs.kimi.com any-process deny keeps biting. Rules 4794 → 4784.
+  Applied via export-model → fix → restore-model (configuration6.xpl 13:33).
+  Undo: `sudo littlesnitch restore-model ls-model-live.json`.
+- **Why it can't recur**: process-scoped domain allows outrank any-process
+  per-IP denies (specificity), so Cloudflare rotation is irrelevant now; and
+  ls-sentinel-deny.py EXCLUDED_ORG_PROCS += Cloudflare ×
+  WebKit.Networking/Safari (same shared-CDN doctrine as the Google/GCP
+  entries) — browser flows to Cloudflare edges no longer plant any-process
+  denies. Non-browser Cloudflare flows remain deny-eligible.
+- Artifacts: ls-kimi-fix.py, ls-kimi-fix-report.md, ls-model-live.json
+  (pre-fix, = undo), ls-model-fixed.json (restored). This CLI session kept
+  working through the apply.

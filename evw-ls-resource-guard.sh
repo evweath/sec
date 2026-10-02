@@ -46,6 +46,9 @@ if [[ -f "$LOG" ]] && (( $(wc -c < "$LOG") > 1048576 )); then
     guard_run "log-rotate" mv "$LOG" "${LOG}.1"
 fi
 
+# Diag captures: prune sets older than 14 days (bounded disk use)
+find "$LOG_DIR/guard-diag" -mindepth 1 -maxdepth 1 -type d -mtime +14 -exec rm -rf {} + 2>/dev/null
+
 notify() {
     /usr/bin/osascript -e 'display notification "'"$1"'" with title "LS RESOURCE GUARD" sound name "Basso"' \
         >/dev/null 2>&1 || true
@@ -63,10 +66,13 @@ now=$(date +%s)
 report=""
 
 # name|pgrep-pattern|max_rss_mb
+# iTerm2 joined the list 2026-10-02: it hit ~120 GB resident (jetsam accounting)
+# on 2026-10-01 and was the largest contributor to that day's watchdog panic.
 TARGETS=(
     "LS config app|/Applications/Little Snitch.app/Contents/MacOS/Little Snitch|$MAX_RSS_MB"
     "LS Network Monitor|Little Snitch Network Monitor.app/Contents/MacOS|$MAX_RSS_MB"
     "LS Agent|Little Snitch Agent.app/Contents/MacOS|512"
+    "iTerm2|/Applications/iTerm.app/Contents/MacOS/iTerm2|4096"
 )
 
 for entry in "${TARGETS[@]}"; do
@@ -96,6 +102,18 @@ for entry in "${TARGETS[@]}"; do
     if (( breach )); then
         breaches=$(( breaches + 1 ))
         log "breach $breaches/$BREACHES_NEEDED: $name (pid $pid) $why"
+        # First breach: snapshot what the process is retaining so the next
+        # blowout comes with a diagnosis, not just a corpse. Backgrounded —
+        # heap/sample can take tens of seconds on a multi-GB process.
+        if (( breaches == 1 )); then
+            diag="$LOG_DIR/guard-diag/$(date +%Y%m%d-%H%M%S)-$(echo "$name" | tr ' /' '--')-pid$pid"
+            mkdir -p "$diag"
+            ps -p "$pid" -o pid,etime,time,%cpu,rss,vsz,command > "$diag/ps.txt" 2>&1
+            ( /usr/bin/heap "$pid" > "$diag/heap.txt" 2>&1 ) &
+            ( /usr/bin/vmmap --summary "$pid" > "$diag/vmmap-summary.txt" 2>&1 ) &
+            ( /usr/bin/sample "$pid" 5 -file "$diag/sample.txt" >/dev/null 2>&1 ) &
+            log "diag capture started in $diag (heap/vmmap/sample run in background)"
+        fi
     else
         breaches=0
     fi
@@ -104,8 +122,10 @@ for entry in "${TARGETS[@]}"; do
 
     if (( breaches >= BREACHES_NEEDED )); then
         if kill -TERM "$pid" 2>/dev/null; then
-            log "KILLED $name (pid $pid) after $breaches consecutive breaches ($why) — filtering unaffected (daemon+networkext untouched)"
-            notify "$name was hogging resources ($why) and was quit. Little Snitch filtering is unaffected."
+            extra=""
+            [[ "$name" == LS* ]] && extra=" — Little Snitch filtering unaffected (daemon+networkext untouched)"
+            log "KILLED $name (pid $pid) after $breaches consecutive breaches ($why)$extra"
+            notify "$name was hogging resources ($why) and was quit.$extra"
         else
             log "KILL FAILED for $name (pid $pid)"
         fi

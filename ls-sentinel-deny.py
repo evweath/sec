@@ -93,6 +93,17 @@ EXCLUDED_ORG_PROCS = [
     ("Google LLC",
      "com.apple.Safari",
      "same GCP load-balancer front-end case — Safari-attributed flows"),
+    ("Cloudflare",
+     "com.apple.WebKit.Networking",
+     "Cloudflare front-ends serve a large share of the web incl. api.kimi.ai — "
+     "a WebKit flow to 104.18.16.93 (user browsing kimi.ai) planted an "
+     "any-process deny on 2026-09-03 that silently blocked the Kimi CLI on "
+     "every DNS rotation until 2026-10-02; scoped CLI domain allows "
+     "(ls-kimi-fix.py) replace shared-CDN per-IP denies. Cloudflare endpoints "
+     "reached by non-browser processes remain deny-eligible"),
+    ("Cloudflare",
+     "com.apple.Safari",
+     "same Cloudflare front-end case — Safari-attributed flows"),
 ]
 
 # applied would degrade system networking in ways the user may not intend;
