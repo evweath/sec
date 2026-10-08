@@ -172,8 +172,16 @@ if [ "$MODE" = root ]; then
         note "[!!] LS export-model failed (CLI access disabled?)"
     fi
     # Lynis full audit + KnockKnock persistence scan (root sees everything)
-    if command -v lynis >/dev/null 2>&1; then
-        lynis audit system --quick --no-colors \
+    # launchd PATH is minimal, so command -v misses the homebrew install and
+    # root boot audits silently skipped lynis (seen 2026-10-08) — resolve
+    # absolute candidates first, PATH lookup last.
+    LYNIS=""
+    for _lynis in /opt/homebrew/bin/lynis /usr/local/bin/lynis; do
+        [ -x "$_lynis" ] && LYNIS="$_lynis" && break
+    done
+    [ -z "$LYNIS" ] && LYNIS="$(command -v lynis 2>/dev/null || true)"; unset _lynis
+    if [ -n "$LYNIS" ]; then
+        "$LYNIS" audit system --quick --no-colors \
             --log-file "$SCAN/lynis.log" --report-file "$SCAN/lynis-report.dat" \
             >/dev/null 2>&1 && info "[ok] lynis" || note "[!!] lynis failed"
     fi
