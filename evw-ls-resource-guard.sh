@@ -66,13 +66,15 @@ now=$(date +%s)
 report=""
 
 # name|pgrep-pattern|max_rss_mb
-# iTerm2 joined the list 2026-10-02: it hit ~120 GB resident (jetsam accounting)
-# on 2026-10-01 and was the largest contributor to that day's watchdog panic.
+# iTerm2 was on this list 2026-10-02..05 (added after it hit ~120 GB resident in
+# the 10-01 panic) but was removed: the 0.20-core CPU threshold false-fired on
+# normal terminal rendering and the guard kept killing every terminal session
+# (2026-10-02, 2026-10-05). A terminal's CPU/memory is user workload, not a
+# runaway daemon — do not re-add without an RSS-only ceiling well above 16 GB.
 TARGETS=(
     "LS config app|/Applications/Little Snitch.app/Contents/MacOS/Little Snitch|$MAX_RSS_MB"
     "LS Network Monitor|Little Snitch Network Monitor.app/Contents/MacOS|$MAX_RSS_MB"
     "LS Agent|Little Snitch Agent.app/Contents/MacOS|512"
-    "iTerm2|/Applications/iTerm.app/Contents/MacOS/iTerm2|4096"
 )
 
 for entry in "${TARGETS[@]}"; do

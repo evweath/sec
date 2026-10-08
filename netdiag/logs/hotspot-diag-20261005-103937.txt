@@ -1,0 +1,219 @@
+# hotspot-diag — 2026-10-05T15:39:37Z local 2026-10-05T10:39:37-05:00
+
+== current Wi-Fi network (system_profiler) ==
+          Current Network Information:
+            <redacted>:
+              PHY Mode: 802.11n
+              Channel: 6 (2GHz, 20MHz)
+              Country Code: US
+              Network Type: Infrastructure
+              Security: WPA2 Personal
+              Signal / Noise: -20 dBm / -89 dBm
+              Transmit Rate: 28
+              MCS Index: 4
+          Other Local Wi-Fi Networks:
+          Current Network Information:
+              Network Type: Infrastructure
+
+
+== ipconfig getsummary en0 (DHCP lease) ==
+<dictionary> {
+  BSSID : <redacted>
+  ConnectionID : 7
+  IPv4 : <array> {
+    0 : <dictionary> {
+      Addresses : <array> {
+        0 : 10.195.101.68
+      }
+      ChildServiceID : LINKLOCAL-en0
+      ConfigMethod : DHCP
+      DHCP : <dictionary> {
+        LeaseExpirationTime : 10/05/2026 11:39:24
+        LeaseStartTime : 10/05/2026 10:39:25
+        Packet : op = BOOTREPLY
+htype = 1
+flags = 0x0
+hlen = 6
+hops = 0
+xid = 0x9486417a
+secs = 0
+ciaddr = 0.0.0.0
+yiaddr = 10.195.101.68
+siaddr = 10.195.101.159
+giaddr = 0.0.0.0
+chaddr = e:7a:f5:e7:b4:2c
+sname = 
+file = 
+options:
+Options count is 11
+dhcp_message_type (uint8): ACK 0x5
+server_identifier (ip): 10.195.101.159
+lease_time (uint32): 0xe0f
+renewal_t1_time_value (uint32): 0x707
+rebinding_t2_time_value (uint32): 0xc4d
+subnet_mask (ip): 255.255.255.0
+broadcast_address (ip): 10.195.101.255
+router (ip_mult): {10.195.101.159}
+domain_name_server (ip_mult): {10.195.101.159}
+vendor_specific (opaque): 
+0000  41 4e 44 52 4f 49 44 5f  4d 45 54 45 52 45 44     ANDROID_METERED 
+
+end (none): 
+
+        State : BOUND
+      }
+      IsPublished : TRUE
+      Router : 10.195.101.159
+      RouterARPVerified : TRUE
+      ServiceID : 92FEBE65-6F2D-4DBF-AB48-D4A4459AE4D2
+      SubnetMasks : <array> {
+        0 : 255.255.255.0
+      }
+    }
+    1 : <dictionary> {
+      ConfigMethod : LinkLocal
+      IsPublished : TRUE
+      ParentServiceID : 92FEBE65-6F2D-4DBF-AB48-D4A4459AE4D2
+      ServiceID : LINKLOCAL-en0
+    }
+  }
+  IPv6 : <array> {
+    0 : <dictionary> {
+      ConfigMethod : Automatic
+      DHCPv6 : <dictionary> {
+        Mode : None
+        State : Inactive
+      }
+      IsPublished : TRUE
+      RTADV : <dictionary> {
+        RouterAdvertisement : from fe80::c0dc:ffff:fee7:fb1b, length 88, hop limit 63, lifetime 7200s, reachable 0ms, retransmit 0ms, flags 0x8=[ ], pref=high
+	source link-address option (1), length 8 (1): c2:dc:ff:e7:fb:1b
+	mtu option (5), length 8 (1): 00:00:00:00:05:94
+	prefix info option (3), length 32 (4):  2600:100b:b029:c6c7::/64, flags [ onlink auto ], valid time 7200s, pref. time 7200s
+	rdnss option (25), length 24 (3):  lifetime 7200s, addr: 2600:100b:b029:c6c7::23
+
+        State : Acquired
+      }
+      ServiceID : 92FEBE65-6F2D-4DBF-AB48-D4A4459AE4D2
+    }
+  }
+  InterfaceType : WiFi
+  LinkStatusActive : TRUE
+  NetworkID : <redacted>
+  SSID : <redacted>
+  Security : WPA2_PSK
+}
+
+== ipconfig getpacket en0 (raw DHCP options: router, mask, lease) ==
+op = BOOTREPLY
+htype = 1
+flags = 0x0
+hlen = 6
+hops = 0
+xid = 0x9486417a
+secs = 0
+ciaddr = 0.0.0.0
+yiaddr = 10.195.101.68
+siaddr = 10.195.101.159
+giaddr = 0.0.0.0
+chaddr = e:7a:f5:e7:b4:2c
+sname = 
+file = 
+options:
+Options count is 11
+dhcp_message_type (uint8): ACK 0x5
+server_identifier (ip): 10.195.101.159
+lease_time (uint32): 0xe0f
+renewal_t1_time_value (uint32): 0x707
+rebinding_t2_time_value (uint32): 0xc4d
+subnet_mask (ip): 255.255.255.0
+broadcast_address (ip): 10.195.101.255
+router (ip_mult): {10.195.101.159}
+domain_name_server (ip_mult): {10.195.101.159}
+vendor_specific (opaque): 
+0000  41 4e 44 52 4f 49 44 5f  4d 45 54 45 52 45 44     ANDROID_METERED 
+
+end (none): 
+
+== ifconfig en0 ==
+en0: flags=8863<UP,BROADCAST,SMART,RUNNING,SIMPLEX,MULTICAST> mtu 1500
+	options=6460<TSO4,TSO6,CHANNEL_IO,PARTIAL_CSUM,ZEROINVERT_CSUM>
+	ether 0e:7a:f5:e7:b4:2c
+	inet6 fe80::420:a749:b3de:10b%en0 prefixlen 64 secured scopeid 0xf 
+	inet6 2600:100b:b029:c6c7:1cf5:b740:c96c:6630 prefixlen 64 autoconf secured 
+	inet6 2600:100b:b029:c6c7:6d0f:9c97:e0c7:9da6 prefixlen 64 autoconf temporary 
+	inet 10.195.101.68 netmask 0xffffff00 broadcast 10.195.101.255
+	nd6 options=201<PERFORMNUD,DAD>
+	media: autoselect
+	status: active
+
+== netstat -rn -f inet (default route present?) ==
+Routing tables
+
+Internet:
+Destination        Gateway            Flags               Netif Expire
+default            10.195.101.159     UGScg                 en0       
+10.195.101/24      link#15            UCS                   en0      !
+10.195.101.68/32   link#15            UCS                   en0      !
+10.195.101.159/32  link#15            UCS                   en0      !
+10.195.101.159     c2:dc:ff:e7:fb:1b  UHLWIir               en0   1183
+127                127.0.0.1          UCS                   lo0       
+127.0.0.1          127.0.0.1          UH                    lo0       
+169.254            link#15            UCS                   en0      !
+224.0.0/4          link#15            UmCS                  en0      !
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI                en0       
+255.255.255.255/32 link#15            UCS                   en0      !
+
+== route -n get default ==
+   route to: default
+destination: default
+       mask: default
+    gateway: 10.195.101.159
+  interface: en0
+      flags: <UP,GATEWAY,DONE,STATIC,PRCLONING,GLOBAL>
+ recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
+       0         0         0         0         0         0      1500         0 
+
+== route -n get 1.1.1.1 ==
+   route to: 1.1.1.1
+destination: 1.1.1.1
+    gateway: 10.195.101.159
+  interface: en0
+      flags: <UP,GATEWAY,HOST,DONE,WASCLONED,IFSCOPE,IFREF,GLOBAL>
+ recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire
+       0         0         0         0         0         0      1500         0 
+
+== arp -an (is the gateway resolving?) ==
+? (10.195.101.159) at c2:dc:ff:e7:fb:1b on en0 ifscope [ethernet]
+? (224.0.0.251) at 1:0:5e:0:0:fb on en0 ifscope permanent [ethernet]
+
+== gateway guess: 10.195.101.159 ==
+-- ping -c3 -t5 gateway 10.195.101.159 --
+PING 10.195.101.159 (10.195.101.159): 56 data bytes
+64 bytes from 10.195.101.159: icmp_seq=0 ttl=64 time=8.002 ms
+64 bytes from 10.195.101.159: icmp_seq=1 ttl=64 time=5.983 ms
+64 bytes from 10.195.101.159: icmp_seq=2 ttl=64 time=5.145 ms
+
+--- 10.195.101.159 ping statistics ---
+3 packets transmitted, 3 packets received, 0.0% packet loss
+round-trip min/avg/max/stddev = 5.145/6.377/8.002/1.199 ms
+
+== ping -c3 -t5 1.1.1.1 (raw IP, no DNS) ==
+PING 1.1.1.1 (1.1.1.1): 56 data bytes
+Request timeout for icmp_seq 0
+Request timeout for icmp_seq 1
+
+--- 1.1.1.1 ping statistics ---
+3 packets transmitted, 0 packets received, 100.0% packet loss
+
+== scutil --dns (first resolvers) ==
+  nameserver[0] : 1.1.1.1
+  nameserver[1] : 1.0.0.1
+  nameserver[2] : 8.8.8.8
+  nameserver[3] : 9.9.9.9
+
+== pf autoblock table (needs sudo; skipped if unavailable) ==
+sudo: a password is required
+
+== self-assigned check ==
+IP is not link-local: 10.195.101.68
