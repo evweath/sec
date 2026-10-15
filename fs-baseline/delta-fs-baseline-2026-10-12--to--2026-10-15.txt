@@ -1,0 +1,93 @@
+# Delta: fs-baseline-2026-10-12.txt → fs-baseline-2026-10-15.txt
+# 2026-10-15T13:29:34Z
+
+=== MODIFIED ===
+MODIFIED /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-2-3d-10m-20260928-160700 
+  prev: 62fdde56362d1458f749323be9cfc8387870f68917254f0bba0fc9636d69203e 
+  curr: cdb18485c7784ffd016f9a7c5dedf860b73286808d65ad1277eea92da38b5631
+MODIFIED /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20261008-133920 
+  prev: 01f0440d3702086de5c6ae32f954218ece5122c88039719d0d6f3730a81c7464 
+  curr: f37b07fb4bb48cef48190d8f3f184dd32378c66741484210a932a082164ad56b
+MODIFIED /Library/Preferences/Audio/com.apple.audio.SystemSettings.plist 
+  prev: b2d4e98ec5ca0056bddb089d6c788a5de48f03b1c78125c7870d116794e73756 
+  curr: 4fa88664cbc3d396f2e7bc02cb92205021151a9964775b0a0ed82cf9c6c75ff7
+MODIFIED /Library/Preferences/com.apple.biometrickitd.plist 
+  prev: bf556bc398bf7e3a64413ddff050c875cebe7933cd2b69c4910752f0b7df0ab5 
+  curr: d53585b22f787763df0a82a860331b57a72b4a8b8d3e9bd62d662832ce2bfdc2
+MODIFIED /Library/Preferences/com.apple.MCX.plist 
+  prev: 17bac9d6e7737a716b29907a0bdc722164d8bfb5a42dc6f28f550ee9bd70e064 
+  curr: dad27f357d73f11c87cc571da620af00ab2bcc67cedeceeb8e5c0c3730c95db2
+MODIFIED /Library/Preferences/com.apple.networkd.networknomicon.plist 
+  prev: 9c5286825a6c65b404fa7a3107b61f2fc616b9836b91137d8c243d543a9a2553 
+  curr: ef3172d290d6bc134ad28e9e6ad426fed536178a9ef3d9b6593b36cd44161897
+MODIFIED /Library/Preferences/com.apple.networkextension.plist 
+  prev: 3a94168ad25d4bfe5e7a0216dd7b4123e57775ac38ad74dc6380fb461e2855be 
+  curr: 0371d1b4820cc6fc0d506964aa2a611cb120c3f4c52aeb4fb66157deb7c9b4e4
+MODIFIED /Library/Preferences/com.apple.networkextension.uuidcache.plist 
+  prev: 7273581aa97fcaa1e9416feec9d8ed51c1477a394010daf65ca569eaf6df2e64 
+  curr: ece7de5db33a693c68e8faad90233630e362bcbc45e092af3741e8ebe91db56e
+MODIFIED /Library/Preferences/com.apple.powerlogd.plist 
+  prev: 1917e4b3b27fb0343f791c848914ff7a524d96de66589109d2d19ba1fa2daafd 
+  curr: 02966d7b0f87a94d85c14aa0980cad0363bf8ff3acb081c43bbb0de01bc0d2b6
+MODIFIED /Library/Preferences/com.apple.powerlogHelperd.plist 
+  prev: 2ae91dfb902fa39dee1a84611d7b6c45329f330cb672e5ef413db05ecf4fc00f 
+  curr: dcd26788d2fb95c5d64a612e02962d8cc6a2d70de48af5b280aeb57dfef41f75
+MODIFIED /Library/Preferences/com.apple.PowerManagement.9CAE4E59-D3A4-597D-93AF-3176799DCAA1.plist 
+  prev: 45fbed54f88a01d9cd2440ac002f1630e22e25b72bd9684646cc6b14e6940fe7 
+  curr: ce1632a7852e21d3e75135315ba4a8fc52f94363ef6acaa34d57104c2ec7ec31
+MODIFIED /Library/Preferences/com.apple.SoftwareUpdate.plist 
+  prev: 6e0dc7048b794610cea47d28ad468e9c3dd5804a9df804f8f204ff29a75345da 
+  curr: 736e28c0a883b3f09bdc8b7fab514a23cdcb6e93fe8a324b3f5a72b974d68eec
+MODIFIED /Library/Preferences/SystemConfiguration/com.apple.airport.preferences.plist 
+  prev: 02b210163294d04b38ab47f421603324a3d98972f2a0ec703e709bae0dcb4a4b 
+  curr: 52da43d5668599212ce6aaaad64e207e7ad07ec272574a9005fd6aa11f696b82
+MODIFIED /Library/Preferences/SystemConfiguration/NetworkInterfaces.plist 
+  prev: 007172de4c494a3e31653f8cf7c94a1c231a694b3aa2f1929cc6097d8a0afb21 
+  curr: eed93de7f17b6a9988f4967e38d2216186ee43196a07fe21399482056daea57c
+MODIFIED /private/etc/hosts 
+  prev: 6f25eb991c94b9c833bb719e9501f824e7ebc5c835108407af303d110a90dc9d 
+  curr: fbc826450397927ffe91cbcd1bb7febb01073651c1bf50efb7f4924b9ceef73b
+
+=== NEW ===
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-2-3d-10m-20261001-171000
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20261012-151730
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20261013-151710
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261013-181720
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-132236
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-142237
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-152237
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-162252
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-172312
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-182336
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-192356
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261014-202418
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261014-210934
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-124520
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-125026
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-125526
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-130026
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-130526
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-131026
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-131526
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-132026
+NEW      /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261015-132526
+
+=== REMOVED ===
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20260930-170320
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20261001-171030
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-3-1d-1m-20261002-173300
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261008-193936
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-4-1h-10s-20261012-151731
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-152732
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-153233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-153733
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-154233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-154733
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-155233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-155733
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-160233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-160733
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-161233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-161733
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-162233
+REMOVED  /Library/Application Support/Objective Development/Little Snitch/TrafficLog/traffic-5-5m-1s-20261012-162733
