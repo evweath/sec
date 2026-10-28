@@ -33,6 +33,14 @@ ALLOWLIST=(
     "symptomsd:*"      # Apple network-quality diagnostics daemon — uses random high ports on all interfaces
     "ControlCe:*"      # Apple Control Center helper
     "rapportd:*"       # Apple Handoff/AirDrop coordination daemon
+    # lima 2.2 pseudoloopback quirk (2026-10-21): limactl hostagent binds the
+    # colima guest's own DNS resolver (*:53) and the wazuh dashboard forward
+    # (*:443) on wildcard despite loopback-only intent. No lima upgrade fixes
+    # it (2.2.1 is latest). Contained by pf anchor com.ew.devports, which
+    # blocks inbound to 53/443 on physical interfaces — keep these entries
+    # only while `sudo pfctl -a com.ew.devports -sr` shows those block rules.
+    "limactl:53"       # colima guest DNS resolver via lima pseudoloopback — pf-contained
+    "limactl:443"      # wazuh dashboard forward via lima pseudoloopback — pf-contained
 )
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

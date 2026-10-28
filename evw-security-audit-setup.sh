@@ -2,6 +2,8 @@
 # evw-security-audit-setup.sh — one-time install of the unattended audit:
 #
 #   /usr/local/bin/evw-security-audit.sh              (root-owned audit script)
+#   /usr/local/bin/{scan-hashes.sh,evw-log-doctor.py,ls-*.py,tcc-audit.sh}
+#                                                     (root-owned helper copies)
 #   com.evw.security-audit        LaunchDaemon, root  → full audit at every BOOT
 #   com.evw.security-audit-login  LaunchAgent,  evw   → user audit at every LOGIN
 #
@@ -46,9 +48,46 @@ fi
 echo "=== evw-security-audit setup ==="
 echo ""
 
-echo "[1/5] Installing audit script (root-owned)..."
+echo "[1/5] Installing audit script and root-owned helpers..."
 guard_run "install-script" install -m 755 -o root -g wheel "$AUDIT_SRC" "$AUDIT_DST"
 echo "      $AUDIT_DST"
+HELPERS=(
+    scan-hashes.sh
+    evw-log-doctor.py
+    ls-full-analysis.py
+    ls-domain-audit.py
+    ls-permissive-analysis.py
+    tcc-audit.sh
+)
+for tool in "${HELPERS[@]}"; do
+    [[ -f "$SCRIPT_DIR/$tool" ]] || { echo "ERROR: missing $SCRIPT_DIR/$tool" >&2; exit 1; }
+    guard_run "install-$tool" install -m 755 -o root -g wheel "$SCRIPT_DIR/$tool" "/usr/local/bin/$tool"
+    echo "      /usr/local/bin/$tool"
+done
+[[ -f "$SCRIPT_DIR/scan-2026-08-10/ls-rules-deep-audit.py" ]] || {
+    echo "ERROR: missing $SCRIPT_DIR/scan-2026-08-10/ls-rules-deep-audit.py" >&2; exit 1;
+}
+guard_run "install-deep-audit" install -m 755 -o root -g wheel \
+    "$SCRIPT_DIR/scan-2026-08-10/ls-rules-deep-audit.py" /usr/local/bin/ls-rules-deep-audit.py
+echo "      /usr/local/bin/ls-rules-deep-audit.py"
+
+if [[ -d /opt/homebrew/opt/lynis ]]; then
+    LYNIS_SRC=$(cd /opt/homebrew/opt/lynis && pwd -P)
+    install -d -m 755 -o root -g wheel /usr/local/opt
+    guard_run "install-lynis-tree" ditto "$LYNIS_SRC" /usr/local/opt/lynis
+    guard_run "perms-lynis-tree" bash -c "chown -R root:wheel /usr/local/opt/lynis && chmod -R u=rwX,go=rX /usr/local/opt/lynis"
+    echo "      /usr/local/opt/lynis"
+else
+    echo "      WARNING: Homebrew Lynis not found; root audit will report it missing"
+fi
+if [[ -d /Applications/KnockKnock.app ]]; then
+    install -d -m 755 -o root -g wheel /usr/local/libexec
+    guard_run "install-knockknock" ditto /Applications/KnockKnock.app /usr/local/libexec/KnockKnock.app
+    guard_run "perms-knockknock" bash -c "chown -R root:wheel /usr/local/libexec/KnockKnock.app && chmod -R u=rwX,go=rX /usr/local/libexec/KnockKnock.app"
+    echo "      /usr/local/libexec/KnockKnock.app"
+else
+    echo "      WARNING: KnockKnock not found; root audit will report it missing"
+fi
 
 echo "[2/5] Writing boot LaunchDaemon..."
 guard_run "write-daemon-plist" cat > "$DAEMON_PLIST" << 'PLIST'

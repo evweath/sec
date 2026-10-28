@@ -1,0 +1,243 @@
++ set -euo pipefail
++++ dirname /Users/evw/dev/security/evw-security-system-setup.sh
+++ cd /Users/evw/dev/security
+++ pwd
++ _eg_d=/Users/evw/dev/security
++ '[' /Users/evw/dev/security '!=' / ']'
++ _eg_ok /Users/evw/dev/security/lib/error-guard.sh
++ '[' -f /Users/evw/dev/security/lib/error-guard.sh ']'
++ '[' 0 -ne 0 ']'
+++ stat -f %u /Users/evw/dev/security/lib/error-guard.sh
++ '[' 501 = 0 ']'
+++ dirname /Users/evw/dev/security
++ _eg_d=/Users/evw/dev
++ '[' /Users/evw/dev '!=' / ']'
++ _eg_ok /Users/evw/dev/lib/error-guard.sh
++ '[' -f /Users/evw/dev/lib/error-guard.sh ']'
+++ dirname /Users/evw/dev
++ _eg_d=/Users/evw
++ '[' /Users/evw '!=' / ']'
++ _eg_ok /Users/evw/lib/error-guard.sh
++ '[' -f /Users/evw/lib/error-guard.sh ']'
+++ dirname /Users/evw
++ _eg_d=/Users
++ '[' /Users '!=' / ']'
++ _eg_ok /Users/lib/error-guard.sh
++ '[' -f /Users/lib/error-guard.sh ']'
+++ dirname /Users
++ _eg_d=/
++ '[' / '!=' / ']'
++ _eg_ok //lib/error-guard.sh
++ '[' -f //lib/error-guard.sh ']'
++ unset _eg_d
++ unset -f _eg_ok
++ command -v guard_run
++ command -v guard_throw
++++ dirname /Users/evw/dev/security/evw-security-system-setup.sh
+++ cd /Users/evw/dev/security
+++ pwd
++ SEC=/Users/evw/dev/security
++ STATE_DIR=/var/db/evw-security-system
++ DAEMON_PLIST=/Library/LaunchDaemons/com.evw.security-system.plist
++ DAEMON_LABEL=com.evw.security-system
++ AGENT_PLIST=/Users/evw/Library/LaunchAgents/com.evw.alert-center.plist
++ AGENT_LABEL=com.evw.alert-center
++ LSCLI='/Applications/Little Snitch.app/Contents/Components/littlesnitch'
+++ date +%Y%m%d-%H%M%S
++ TS=20261028-120404
++ CONFIG_UPDATE=0
++ [[ 0 -ne 0 ]]
++ [[    == * \-\-uninstall * ]]
++ echo '=== evw-security-system setup ==='
+=== evw-security-system setup ===
++ echo ''
+
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/evw-security-system.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/evw-alert-center.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/ls-screenshare-deny.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/ls-hole-audit.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/ls-sentinel-deny.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/ls-full-analysis.py ]]
++ for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json
++ [[ -f /Users/evw/dev/security/security-system.json ]]
++ echo '[1/8] Creating state dir /var/db/evw-security-system ...'
+[1/8] Creating state dir /var/db/evw-security-system ...
++ guard_run mkdir-state mkdir -p /var/db/evw-security-system /var/db/evw-security-system/alerts /var/db/evw-security-system/ack
++ shift
++ mkdir -p /var/db/evw-security-system /var/db/evw-security-system/alerts /var/db/evw-security-system/ack
++ guard_run perms-state bash -c 'chown root:wheel '\''/var/db/evw-security-system'\'' '\''/var/db/evw-security-system/alerts'\'' '\''/var/db/evw-security-system/ack'\'' &&      chmod 755 '\''/var/db/evw-security-system'\'' '\''/var/db/evw-security-system/alerts'\'' && chmod 1777 '\''/var/db/evw-security-system/ack'\'''
++ shift
++ bash -c 'chown root:wheel '\''/var/db/evw-security-system'\'' '\''/var/db/evw-security-system/alerts'\'' '\''/var/db/evw-security-system/ack'\'' &&      chmod 755 '\''/var/db/evw-security-system'\'' '\''/var/db/evw-security-system/alerts'\'' && chmod 1777 '\''/var/db/evw-security-system/ack'\'''
++ echo '      alerts/ 755 root:wheel, ack/ 1777 (user droppable)'
+      alerts/ 755 root:wheel, ack/ 1777 (user droppable)
++ echo '[2/8] Installing root-owned copies in /usr/local/bin ...'
+[2/8] Installing root-owned copies in /usr/local/bin ...
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-evw-security-system.py install -m 755 -o root -g wheel /Users/evw/dev/security/evw-security-system.py /usr/local/bin/evw-security-system.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/evw-security-system.py /usr/local/bin/evw-security-system.py
++ echo '      /usr/local/bin/evw-security-system.py'
+      /usr/local/bin/evw-security-system.py
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-evw-alert-center.py install -m 755 -o root -g wheel /Users/evw/dev/security/evw-alert-center.py /usr/local/bin/evw-alert-center.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/evw-alert-center.py /usr/local/bin/evw-alert-center.py
++ echo '      /usr/local/bin/evw-alert-center.py'
+      /usr/local/bin/evw-alert-center.py
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-ls-screenshare-deny.py install -m 755 -o root -g wheel /Users/evw/dev/security/ls-screenshare-deny.py /usr/local/bin/ls-screenshare-deny.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/ls-screenshare-deny.py /usr/local/bin/ls-screenshare-deny.py
++ echo '      /usr/local/bin/ls-screenshare-deny.py'
+      /usr/local/bin/ls-screenshare-deny.py
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-ls-hole-audit.py install -m 755 -o root -g wheel /Users/evw/dev/security/ls-hole-audit.py /usr/local/bin/ls-hole-audit.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/ls-hole-audit.py /usr/local/bin/ls-hole-audit.py
++ echo '      /usr/local/bin/ls-hole-audit.py'
+      /usr/local/bin/ls-hole-audit.py
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-ls-sentinel-deny.py install -m 755 -o root -g wheel /Users/evw/dev/security/ls-sentinel-deny.py /usr/local/bin/ls-sentinel-deny.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/ls-sentinel-deny.py /usr/local/bin/ls-sentinel-deny.py
++ echo '      /usr/local/bin/ls-sentinel-deny.py'
+      /usr/local/bin/ls-sentinel-deny.py
++ for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py
++ guard_run install-ls-full-analysis.py install -m 755 -o root -g wheel /Users/evw/dev/security/ls-full-analysis.py /usr/local/bin/ls-full-analysis.py
++ shift
++ install -m 755 -o root -g wheel /Users/evw/dev/security/ls-full-analysis.py /usr/local/bin/ls-full-analysis.py
++ echo '      /usr/local/bin/ls-full-analysis.py'
+      /usr/local/bin/ls-full-analysis.py
++ echo '[3/8] Installing config ...'
+[3/8] Installing config ...
++ [[ ! -f /var/db/evw-security-system/security-system.json ]]
++ [[ 0 -eq 1 ]]
++ cmp -s /Users/evw/dev/security/security-system.json /var/db/evw-security-system/security-system.json
++ echo '      unchanged (use --config-update to force)'
+      unchanged (use --config-update to force)
++ echo '[4/8] Writing LaunchDaemon com.evw.security-system (root, KeepAlive) ...'
+[4/8] Writing LaunchDaemon com.evw.security-system (root, KeepAlive) ...
++ guard_run write-daemon-plist cat
++ shift
++ cat
++ guard_run perms-daemon-plist bash -c 'chmod 644 '\''/Library/LaunchDaemons/com.evw.security-system.plist'\'' && chown root:wheel '\''/Library/LaunchDaemons/com.evw.security-system.plist'\'''
++ shift
++ bash -c 'chmod 644 '\''/Library/LaunchDaemons/com.evw.security-system.plist'\'' && chown root:wheel '\''/Library/LaunchDaemons/com.evw.security-system.plist'\'''
++ launchctl bootout system/com.evw.security-system
++ guard_run load-daemon launchctl load -w /Library/LaunchDaemons/com.evw.security-system.plist
++ shift
++ launchctl load -w /Library/LaunchDaemons/com.evw.security-system.plist
++ echo '      /Library/LaunchDaemons/com.evw.security-system.plist loaded'
+      /Library/LaunchDaemons/com.evw.security-system.plist loaded
++ echo '[5/8] Writing LaunchAgent com.evw.alert-center (evw GUI, KeepAlive) ...'
+[5/8] Writing LaunchAgent com.evw.alert-center (evw GUI, KeepAlive) ...
++ guard_run mkdir-user-dirs bash -c 'mkdir -p /Users/evw/Library/LaunchAgents /Users/evw/Library/Logs'
++ shift
++ bash -c 'mkdir -p /Users/evw/Library/LaunchAgents /Users/evw/Library/Logs'
++ guard_run write-agent-plist cat
++ shift
++ cat
++ guard_run perms-agent-plist bash -c 'chmod 644 '\''/Users/evw/Library/LaunchAgents/com.evw.alert-center.plist'\'' && chown evw:staff '\''/Users/evw/Library/LaunchAgents/com.evw.alert-center.plist'\'''
++ shift
++ bash -c 'chmod 644 '\''/Users/evw/Library/LaunchAgents/com.evw.alert-center.plist'\'' && chown evw:staff '\''/Users/evw/Library/LaunchAgents/com.evw.alert-center.plist'\'''
++ launchctl bootout gui/501/com.evw.alert-center
++ launchctl bootstrap gui/501 /Users/evw/Library/LaunchAgents/com.evw.alert-center.plist
++ echo '      agent bootstrapped into gui/501'
+      agent bootstrapped into gui/501
++ echo '[6/8] Planting initial both-ways Little Snitch denies ...'
+[6/8] Planting initial both-ways Little Snitch denies ...
++ guard_run mkdir-reports mkdir -p /Users/evw/dev/security/security-system/reports
++ shift
++ mkdir -p /Users/evw/dev/security/security-system/reports
++ chown evw:staff /Users/evw/dev/security/security-system /Users/evw/dev/security/security-system/reports
++ [[ -x /Applications/Little Snitch.app/Contents/Components/littlesnitch ]]
+++ mktemp -d /tmp/ls-screenshare-initial.XXXXXXXX
++ WORK=/tmp/ls-screenshare-initial.YQ8MxZa9
++ guard_run ls-export-model '/Applications/Little Snitch.app/Contents/Components/littlesnitch' export-model /tmp/ls-screenshare-initial.YQ8MxZa9/model.json
++ shift
++ '/Applications/Little Snitch.app/Contents/Components/littlesnitch' export-model /tmp/ls-screenshare-initial.YQ8MxZa9/model.json
++ guard_run ls-screenshare-deny /usr/bin/python3 /usr/local/bin/ls-screenshare-deny.py /tmp/ls-screenshare-initial.YQ8MxZa9/model.json --apply --report /Users/evw/dev/security/security-system/reports/screenshare-deny-initial-20261028-120404.md --undo /var/db/evw-security-system/screenshare-undo-initial-20261028-120404.json
++ shift
++ /usr/bin/python3 /usr/local/bin/ls-screenshare-deny.py /tmp/ls-screenshare-initial.YQ8MxZa9/model.json --apply --report /Users/evw/dev/security/security-system/reports/screenshare-deny-initial-20261028-120404.md --undo /var/db/evw-security-system/screenshare-undo-initial-20261028-120404.json
+ADD=0 SKIP=12
++ guard_run ls-restore-model '/Applications/Little Snitch.app/Contents/Components/littlesnitch' restore-model /tmp/ls-screenshare-initial.YQ8MxZa9/model.json
++ shift
++ '/Applications/Little Snitch.app/Contents/Components/littlesnitch' restore-model /tmp/ls-screenshare-initial.YQ8MxZa9/model.json
++ echo '      restore-model OK'
+      restore-model OK
++ chown evw:staff /Users/evw/dev/security/security-system/reports/screenshare-deny-initial-20261028-120404.md
++ rm -rf /tmp/ls-screenshare-initial.YQ8MxZa9
++ echo '[7/8] One-shot: full copy of /var/log/evw-audit-alerts.log ...'
+[7/8] One-shot: full copy of /var/log/evw-audit-alerts.log ...
++ guard_run mkdir-digests mkdir -p /Users/evw/dev/security/logs/digests
++ shift
++ mkdir -p /Users/evw/dev/security/logs/digests
++ [[ -f /var/log/evw-audit-alerts.log ]]
++ guard_run copy-audit-alerts cp /var/log/evw-audit-alerts.log /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt
++ shift
++ cp /var/log/evw-audit-alerts.log /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt
++ guard_run perms-digests bash -c 'chown evw:staff '\''/Users/evw/dev/security/logs/digests'\'' '\''/Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'\'' &&          chmod 644 '\''/Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'\'''
++ shift
++ bash -c 'chown evw:staff '\''/Users/evw/dev/security/logs/digests'\'' '\''/Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'\'' &&          chmod 644 '\''/Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'\'''
++ echo '      /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'
+      /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt
++ echo '[8/8] Verifying ...'
+[8/8] Verifying ...
++ sleep 3
++ launchctl print system/com.evw.security-system
++ grep -E 'state|pid'
++ head -4
+	state = running
+	pid = 71476
+		state = active
+		state = active
++ tail -3 /var/log/evw-security-system.log
+2026-10-28T12:03:57 [screenshare-scan] running (due: interval elapsed)
+2026-10-28T12:04:04 [main] evw-security-system starting (pid 71476, config from /var/db/evw-security-system/security-system.json, state dir /var/db/evw-security-system)
+2026-10-28T12:04:04 [main] evw-security-system starting (pid 71476, config from /var/db/evw-security-system/security-system.json, state dir /var/db/evw-security-system)
++ echo ''
+
++ echo '=== Done ==='
+=== Done ===
++ echo 'Daemon (root, orchestrator) : com.evw.security-system  ->  /var/log/evw-security-system.log'
+Daemon (root, orchestrator) : com.evw.security-system  ->  /var/log/evw-security-system.log
++ echo 'Agent  (evw GUI, alerts)    : com.evw.alert-center  ->  /Users/evw/Library/Logs/evw-alert-center.log'
+Agent  (evw GUI, alerts)    : com.evw.alert-center  ->  /Users/evw/Library/Logs/evw-alert-center.log
++ echo 'State dir                   : /var/db/evw-security-system (alerts/ ack/ security-system.json)'
+State dir                   : /var/db/evw-security-system (alerts/ ack/ security-system.json)
++ echo 'LS deny reports / undo      : /Users/evw/dev/security/security-system/reports/  +  /var/db/evw-security-system/'
+LS deny reports / undo      : /Users/evw/dev/security/security-system/reports/  +  /var/db/evw-security-system/
++ echo 'Audit-alerts full digest    : /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt'
+Audit-alerts full digest    : /Users/evw/dev/security/logs/digests/evw-audit-alerts-full.txt
++ echo '--uninstall removes everything (also bootout gui agent)'
+--uninstall removes everything (also bootout gui agent)
+evw-integrity.py — whole-disk file-integrity scanner with content snapshots,
+unified diffs, and a self-heal policy engine.
+
+Design: FILE-INTEGRITY-ROLLBACK-PLAN.md (2026-09-03).
+
+Modes:
+  init                        create the store (tree/ + git + index.db)
+  sweep [--tiers A] [--heal]  stat-walk, hash candidates, snapshot confirmed
+                              changes, git-commit, write delta report
+  full  [--tiers A,B,C,D]     hash every covered file (ground truth)
+  verify [--sample 1000]      git fsck + random re-hash sample + store stats
+  canary                      write canary token; next sweep+heal must restore it
+
+Store layout (default /var/db/evw-integrity; override with --store for tests):
+  tree/        mirror of watched files (git working tree)
+  index.db     sqlite: path -> stat + sha256 + tier
+  quarantine/  pre-rollback and heal-quarantined copies
+  reports/     delta reports (also copied to ~/dev/security/scan-<date>/)
+  logs/events.log  append-only event log
+  deploy.marker    presence = admin deploy window (auto-approve, no heal)
+
+Python 3.9+, stdlib only. Root required for production paths.
+
+bash: line 2: /var/db/evw-integrity/deploy.marker: Permission denied

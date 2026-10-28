@@ -82,7 +82,8 @@ REPO_CONFIG = os.path.join(SEC, "security-system.json")
 SETUP_HINT = "run sudo bash ~/dev/security/evw-security-system-setup.sh to apply"
 SENTINEL_FEED = "/Users/evw/Library/Logs/mac-sentinel-alert-feed.log"
 LS_BIN = "/Applications/Little Snitch.app/Contents/Components/littlesnitch"
-LS_SENTINEL_DENY = os.path.join(SEC, "ls-sentinel-deny.py")
+LS_SENTINEL_DENY = "/usr/local/bin/ls-sentinel-deny.py"
+LS_FULL_ANALYSIS = "/usr/local/bin/ls-full-analysis.py"
 LS_SCREENSHARE_DENY = "/usr/local/bin/ls-screenshare-deny.py"
 DIAG_DIR = "/Library/Logs/DiagnosticReports"
 NETDIAG_LOG = os.path.join(SEC, "netdiag/logs/monitor.log")
@@ -333,7 +334,7 @@ def alert(severity: str, title: str, body: str, source: str, persist: bool) -> s
            "title": title[:80], "body": body, "source": source, "persist": persist}
     try:
         atomic_write(os.path.join(G.alerts_dir, aid + ".json"),
-                     json.dumps(doc, indent=2))
+                     json.dumps(doc, indent=2), chown_user=True)
     except OSError as e:
         log(source, "could not write alert {}: {}".format(aid, e))
     log(source, "ALERT {} {} — {}".format(severity, title[:80], body.splitlines()[0] if body else ""))
@@ -1671,8 +1672,7 @@ def job_ls_change_watch() -> None:
     # full analysis for the record + critical-deny verification
     scan = today_scan_dir()
     os.makedirs(scan, exist_ok=True)
-    rc, out, err = run(["/usr/bin/python3", os.path.join(SEC, "ls-full-analysis.py"),
-                        model], timeout=120)
+    rc, out, err = run(["/usr/bin/python3", LS_FULL_ANALYSIS, model], timeout=120)
     analysis = os.path.join(scan, "ls-full-analysis-{}.txt".format(ts))
     atomic_write(analysis, out if rc == 0 else "analysis failed rc={}\n{}".format(rc, err),
                  chown_user=True)

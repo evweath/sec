@@ -10,7 +10,6 @@
         <string>write</string>
         <string>unlink</string>
         <string>rename</string>
-        <string>create</string>
     </array>
     <key>RunAtLoad</key>
     <true/>

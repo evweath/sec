@@ -78,8 +78,11 @@ if [[ ! -f "$EXPORT" ]] || (( $(wc -c < "$EXPORT") < 1000 )); then
 fi
 log "exported $(wc -c < "$EXPORT") bytes"
 
-# Run analysis and patching; env vars pass file paths into the heredoc
-guard_run "ls-analyze" env _LS_SRC="$EXPORT" _LS_DST="$MODIFIED" _LS_RPT="$REPORT" python3 << 'PYEOF'
+# Run analysis and patching; env vars pass file paths into the heredoc.
+# No guard_run here: the python uses exit code 2 as "no changes needed"
+# protocol, which guard_run would misreport as a failure every tick; the
+# PY_EXIT handling below already logs genuine errors.
+env _LS_SRC="$EXPORT" _LS_DST="$MODIFIED" _LS_RPT="$REPORT" python3 << 'PYEOF'
 import json, os, sys, re
 
 src         = os.environ["_LS_SRC"]

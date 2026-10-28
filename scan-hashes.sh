@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Per-scan file integrity snapshot — system binaries, security project, Claude, Python, browser.
+# Per-scan file integrity snapshot — ALL package-manager binaries, app
+# binaries, persistence plists, system binaries, security project, Claude, Python.
 # Output: scan-YYYY-MM-DD/file-hashes.txt  (and backward-compat binary-hashes.txt)
 # Usage:  bash ~/dev/security/scan-hashes.sh [scan-dir]
 set -euo pipefail
@@ -11,9 +12,9 @@ while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(d
 command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
 command -v guard_throw >/dev/null 2>&1 || guard_throw() { printf 'error-guard: throw: %s\n' "$*" >&2; return 1; }
 
-# Anchor to the repo (this script's directory). Under the LaunchDaemon,
-# HOME is /var/root or unset, so "$HOME/dev/security" must not be used.
-SECURITY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+# Anchor to the repo unless the root-owned deployed copy is given the repo
+# explicitly. Under the LaunchDaemon, HOME is /var/root or unset.
+SECURITY_DIR="${EVW_SECURITY_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)}"
 # User-profile files come from the repo owner's home ($OWNER_HOME/dev/security).
 OWNER_HOME="$(dirname "$(dirname "$SECURITY_DIR")")"
 DATE="$(date -u +%Y-%m-%d)"
@@ -30,13 +31,26 @@ done
 mkdir -p "$SCAN_DIR"
 
 h() {
-  [ -f "$1" ] || return 0
+  local f="$1"
+  if [ -L "$f" ]; then
+    # Symlink: identity = target string + resolved content. Catches brew-style
+    # relinks (symlink recreated pointing elsewhere) AND content swaps under a
+    # stable target — the 2026-10-20 gh lesson (gh was a 27-byte symlink whose
+    # re-creation the old fixed list never even tracked).
+    local tgt content hash
+    tgt=$(readlink "$f" 2>/dev/null || echo "?")
+    content=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}')
+    hash=$(printf 'SYMLINK:%s:CONTENT:%s' "$tgt" "${content:-UNRESOLVED}" | shasum -a 256 | awk '{print $1}')
+    echo "$hash  $f"
+    return 0
+  fi
+  [ -f "$f" ] || return 0
   local hash
-  hash=$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}') || true
+  hash=$(shasum -a 256 "$f" 2>/dev/null | awk '{print $1}') || true
   if [ -n "$hash" ]; then
-    echo "$hash  $1"
+    echo "$hash  $f"
   else
-    echo "UNREADABLE (needs sudo)  $1"
+    echo "UNREADABLE (needs sudo)  $f"
   fi
 }
 
@@ -177,6 +191,30 @@ h() {
   for f in \
     "$OWNER_HOME/Library/LaunchAgents/com.evw.donut-intel.plist" \
     "/Library/LaunchDaemons/com.evw.plist-monitor.plist"; do
+    guard_run "h" h "$f"
+  done
+
+  echo ""
+  echo "# ── ALL package-manager binaries (homebrew + /usr/local) ────"
+  # Every file and symlink — no fixed list. Added after the 2026-10-20
+  # brew-cascade incident: 250+ binaries here were outside the tracked set.
+  for f in /opt/homebrew/bin/* /opt/homebrew/sbin/* /usr/local/bin/* /usr/local/sbin/*; do
+    [ -e "$f" ] || [ -L "$f" ] || continue
+    guard_run "h" h "$f"
+  done
+
+  echo ""
+  echo "# ── ALL application binaries (/Applications) ────────────────"
+  for f in /Applications/*.app/Contents/MacOS/*; do
+    [ -e "$f" ] || continue
+    guard_run "h" h "$f"
+  done
+
+  echo ""
+  echo "# ── ALL persistence plists (LaunchAgents/Daemons) ───────────"
+  for f in /Library/LaunchDaemons/*.plist /Library/LaunchAgents/*.plist \
+           "$OWNER_HOME/Library/LaunchAgents"/*.plist; do
+    [ -f "$f" ] || continue
     guard_run "h" h "$f"
   done
 

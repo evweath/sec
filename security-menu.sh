@@ -102,7 +102,10 @@ S="SCANS & AUDITS"
 add "$S" "tcc-audit.sh"                              "[RO,SUDO]" "Dump TCC privacy grants (screen, accessibility, camera, mic) to a dated report"
 add "$S" "scan-hashes.sh"                            "[RO]"      "Snapshot key binary/config hashes with diff vs previous scan"
 add "$S" "l5-stamp.sh"                               "[RO]"      "Weekly SHA-256 manifest of system files, OTS-stamped, git-committed"
-add "$S" "build-fs-baseline.sh"                      "[RO]"      "Three-tier filesystem hash baseline with delta report + OTS stamp"
+# RETIRED 2026-10-21 (gap G4): superseded by evw-integrity full sweep (tiers
+# A-D, git history, auto-heal, OTS-stamped reports) which now runs inside
+# every root audit. Historical baselines kept in fs-baseline/.
+# add "$S" "build-fs-baseline.sh"                      "[RO]"      "Three-tier filesystem hash baseline with delta report + OTS stamp"
 add "$S" "imported/scripts/seccheck.sh"              "[RO]"      "Posture audit: SIP, DNS, firewalls, listeners, launchd, LS rules, certs"
 add "$S" "imported/scripts/mac_harden_rescan.sh"     "[RO,SUDO]" "Daily audit: SIP, FileVault, firewall, persistence, kexts, sudoers, profiles"
 add "$S" "scripts/verify.sh"                         "[RO,SUDO]" "Drift audit: binary hashes, listeners, disabled services, firewall, TCC"

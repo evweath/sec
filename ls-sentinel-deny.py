@@ -39,6 +39,15 @@ EXCLUSIONS = [
      "NTP clock sync — clock drift breaks TLS/certificate validation"),
     ("kimi",
      "the active administration CLI session in use right now"),
+    ("node",
+     "dev toolchain (npm, shopify CLI) — adhoc-signed brew binary changes CDHash "
+     "every upgrade, and npm's no-PTR Cloudflare IPs make per-IP denies a "
+     "whack-a-mole that locked node out of the registry on 2026-10-20"),
+    ("python3",
+     "dev tooling (pip, uvicorn, SDK CLIs) — same per-IP-deny lockout pattern "
+     "as node (python@3.15 was registry-denied on 2026-10-20)"),
+    ("Python",
+     "app-bundle spelling of the homebrew interpreter — pair of the python3 entry"),
     ("ssh",
      "user's own git remote (git@github.com:evweath/sec.git, fcrdns verified)"),
 ]

@@ -1,4 +1,13 @@
 #!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# RETIRED 2026-10-21 — do not run (kept for historical reference only).
+# Superseded by evw-integrity (tiers A-D: /opt/homebrew, /Applications,
+# /Library, HOME, …) which provides git-versioned baselines, auto-heal,
+# OTS-stamped reports, and runs 120s/900s/daily plus inside every root audit.
+# fs-baseline's only unique feature (OTS timestamping) is covered by
+# evw-integrity.py's ots_stamp() on every sweep report. See
+# scan-2026-10-21/AUDIT-PIPELINE-GAPS.md (G4).
+# ═══════════════════════════════════════════════════════════════════════════
 # Filesystem integrity baseline — Tier 1 + Tier 2 + Tier 3
 # Hashes system binaries, /Library, and key config files.
 # On subsequent runs, produces a delta report.

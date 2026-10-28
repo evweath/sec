@@ -116,6 +116,15 @@ check "verify sample clean" "grep -qE 'sample re-hash: [0-9]+/[0-9]+ clean' $T/v
 $PY "$INT" full --tiers A --store "$STORE" > "$T/full.txt" 2>&1
 check "full scan runs" "grep -q 'FULL SCAN' $T/full.txt"
 
+echo "== 9. full detects same-size, same-mtime tamper =="
+MT=$(/usr/bin/sqlite3 "$STORE/index.db" "SELECT mtime_ns FROM files WHERE path='$ROOT/Applications/fake.bin';")
+SIZE=$(stat -f %z "$ROOT/Applications/fake.bin")
+$PY -c 'import os,sys; p=sys.argv[1]; mt=int(sys.argv[2]); size=int(sys.argv[3]); data=open(p,"rb").read(); assert len(data)==size; open(p,"wb").write(bytes((b+1)%256 for b in data)); os.utime(p,ns=(mt,mt))' "$ROOT/Applications/fake.bin" "$MT" "$SIZE"
+$PY "$INT" sweep --tiers A --store "$STORE" > "$T/sweep-metadata.txt" 2>&1
+check "metadata sweep misses invisible tamper" "grep -q 'confirmed: +0 new, ~0 changed, -0 removed' $T/sweep-metadata.txt"
+$PY "$INT" full --tiers A --store "$STORE" > "$T/full-metadata.txt" 2>&1
+check "full re-hash detects invisible tamper" "grep -q '~1 changed' $T/full-metadata.txt"
+
 echo ""
 echo "════════════════════════════════"
 echo "RESULT: $PASS passed, $FAIL failed"

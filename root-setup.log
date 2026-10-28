@@ -1,0 +1,35 @@
+=== evw-security-audit setup ===
+
+[1/5] Installing audit script and root-owned helpers...
+      /usr/local/bin/evw-security-audit.sh
+      /usr/local/bin/scan-hashes.sh
+      /usr/local/bin/evw-log-doctor.py
+      /usr/local/bin/ls-full-analysis.py
+      /usr/local/bin/ls-domain-audit.py
+      /usr/local/bin/ls-permissive-analysis.py
+      /usr/local/bin/tcc-audit.sh
+      /usr/local/bin/ls-rules-deep-audit.py
+      /usr/local/opt/lynis
+      /usr/local/libexec/KnockKnock.app
+[2/5] Writing boot LaunchDaemon...
+      /Library/LaunchDaemons/com.evw.security-audit.plist
+[3/5] Writing login LaunchAgent (evw)...
+      /Users/evw/Library/LaunchAgents/com.evw.security-audit-login.plist (auto-registers at every login)
+[4/5] Loading daemon + agent...
+      agent bootstrapped into gui/501
+[5/5] Verifying (daemon's RunAtLoad fires a full root audit now)...
+	state = running
+	pid = 8414
+	last exit code = (never exited)
+		state = active
+2026-10-28T07:39:49-05:00 [root] findings=1 scan=/Users/evw/dev/security/scan-2026-10-28
+2026-10-28T10:48:21-05:00 [user] findings=6 scan=/Users/evw/dev/security/scan-2026-10-28
+2026-10-28T11:44:02-05:00 [user] findings=6 scan=/Users/evw/dev/security/scan-2026-10-28
+
+=== Done ===
+Boot  (root, full audit incl. LS export + TCC): com.evw.security-audit
+Login (evw,  user subset)                    : com.evw.security-audit-login
+Status lines  : /Users/evw/dev/security/logs/boot-audit.log
+Daemon stdout : /private/var/log/evw-security-audit.log
+Uninstall     : sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh --uninstall
+bash: line 2: /var/db/evw-integrity/deploy.marker: Permission denied

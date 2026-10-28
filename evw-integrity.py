@@ -194,7 +194,7 @@ def mirror_path(store, path):
 
 def git(store, *args, check=False):
     r = subprocess.run(["git", "-C", os.path.join(store, "tree")] + list(args),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, errors="replace")
     if check and r.returncode != 0:
         throw("git %s failed: %s" % (" ".join(args), r.stderr.strip()[:200]))
     return r
@@ -280,6 +280,8 @@ def make_diff(store, path, new_content_lines):
     import tempfile
     rel = path.lstrip("/")
     in_head = git(store, "cat-file", "-e", "HEAD:" + rel).returncode == 0
+    if not is_plist(path) and not is_probably_text(path):
+        return "(binary file changed — hash-only, no text diff)"
     if is_plist(path):
         new = plist_xml(path)
         old = []
@@ -423,7 +425,8 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
     new_paths = [p for p in now if p not in old]
     gone_paths = [p for p in old
                   if p not in now and (not tier_letters or old[p][6] in tier_letters)]
-    cand_changed = [p for p in now if p in old and now[p][:5] != tuple(old[p][:5])]
+    cand_changed = [p for p in now if p in old
+                    and (full or now[p][:5] != tuple(old[p][:5]))]
 
     deploying = deploy_active(store)
     confirmed_new, confirmed_chg, touched, binary_notes = [], [], [], []

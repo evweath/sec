@@ -7,6 +7,8 @@
 #   /usr/local/bin/ls-screenshare-deny.py   (root-owned LS both-ways deny tool)
 #   /usr/local/bin/ls-hole-audit.py         (root-owned LS hole audit; used by
 #                                            the ls-change-watch job)
+#   /usr/local/bin/ls-sentinel-deny.py      (root-owned sentinel transform)
+#   /usr/local/bin/ls-full-analysis.py      (root-owned LS analyzer)
 #   com.evw.security-system   LaunchDaemon, root      (KeepAlive)
 #   com.evw.alert-center      LaunchAgent,  evw / gui (KeepAlive, Aqua session)
 #   /var/db/evw-security-system/   state dir (alerts/ 755, ack/ 1777, config)
@@ -62,7 +64,7 @@ fi
 echo "=== evw-security-system setup ==="
 echo ""
 
-for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py security-system.json; do
+for f in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py security-system.json; do
     [[ -f "$SEC/$f" ]] || { echo "ERROR: missing $SEC/$f" >&2; exit 1; }
 done
 
@@ -74,7 +76,7 @@ guard_run "perms-state" bash -c \
 echo "      alerts/ 755 root:wheel, ack/ 1777 (user droppable)"
 
 echo "[2/8] Installing root-owned copies in /usr/local/bin ..."
-for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py; do
+for tool in evw-security-system.py evw-alert-center.py ls-screenshare-deny.py ls-hole-audit.py ls-sentinel-deny.py ls-full-analysis.py; do
     guard_run "install-$tool" install -m 755 -o root -g wheel "$SEC/$tool" "/usr/local/bin/$tool"
     echo "      /usr/local/bin/$tool"
 done

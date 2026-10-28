@@ -15,6 +15,13 @@
 # Read visibility (lstat/open-R, ~99% of the old 43MB log) is dropped by
 # design: write-class events only. For read forensics, run a short fs_usage
 # burst by hand — the right tool at that timescale.
+#
+# 2026-10-21: `create` dropped from the eslogger subscription after the
+# OOM crash — whole-system create events were the bulk of a ~50 MB/min
+# stream (500+ MB/min in the pre-crash storm; 8.6 GB of dirty pages in
+# 2.2 h). The target file exists, so every attack path on it is still
+# covered: write-in-place (write), atomic-save swap (rename), delete
+# (unlink). A delete+recreate is caught by the unlink event.
 
 set -uo pipefail
 
@@ -48,10 +55,12 @@ log "Stream: $STREAM"
 # Stream housekeeping: bound the raw ES event file. On overflow, rotate and
 # restart eslogger (KeepAlive respawns it; launchd opens a fresh stream file
 # for the new instance). 50 MB raw ≈ tens of thousands of events — the grep
-# filter is what protects the real log.
+# filter is what protects the real log. Checked every 15 s (was 60 s) so a
+# burst can't overshoot the cap by more than ~15 s of events; the rotated
+# copy is gzipped to cut disk churn.
 MAX_STREAM_BYTES=$((50 * 1024 * 1024))
 (
-    while sleep 60; do
+    while sleep 15; do
         [ -f "$STREAM" ] || continue
         bytes=$(wc -c < "$STREAM" 2>/dev/null | tr -d ' ')
         if [ "${bytes:-0}" -gt "$MAX_STREAM_BYTES" ]; then
@@ -59,6 +68,7 @@ MAX_STREAM_BYTES=$((50 * 1024 * 1024))
             pkill -x eslogger 2>/dev/null
             sleep 2
             chmod 600 "$STREAM" 2>/dev/null
+            gzip -f "$STREAM.1" 2>/dev/null
             log "stream rotated at ${bytes} bytes; eslogger restarted for fresh handle"
         fi
     done
@@ -69,7 +79,7 @@ trap 'kill "$ROTPID" 2>/dev/null' EXIT
 chmod 600 "$STREAM" 2>/dev/null || true
 
 # Consumer loop: every matching event IS write-class (the eslogger daemon
-# subscribes only to write/unlink/rename/create), so log it, then snapshot —
+# subscribes only to write/unlink/rename), so log it, then snapshot —
 # debounced to one snapshot per SNAP_MIN_INTERVAL seconds so a hammer storm
 # can't turn the log into a ps dump (that was most of the old 43MB).
 SNAP_MIN_INTERVAL=60
