@@ -17,18 +17,25 @@ set -euo pipefail
 
 SEC_DIR="/Users/evw/dev/security"
 STORE="/var/db/evw-ls-alerts"
-LA_USER="$HOME/Library/LaunchAgents"
 LD="/Library/LaunchDaemons"
 ENRICH_LABEL="com.evw.ls-enrich"
 SCAN_LABEL="com.evw.ls-leak-scan"
-LOG_DIR="$HOME/Library/Logs"
+
+# The user-agent parts must land on the real console user even under sudo
+# (sudo makes HOME=/var/root and id -u=0, and gui/0 does not exist).
+REAL_USER="${SUDO_USER:-$(stat -f %Su /dev/console)}"
+REAL_UID="$(id -u "$REAL_USER")"
+REAL_HOME="$(eval echo "~$REAL_USER")"
+LA_USER="$REAL_HOME/Library/LaunchAgents"
+LOG_DIR="$REAL_HOME/Library/Logs"
 
 info() { echo "[*] $*"; }
 ok()   { echo "[✓] $*"; }
 
 # ── user agent: enricher every 15 min ─────────────────────────────────────────
-info "installing $ENRICH_LABEL (user agent, 15 min)"
+info "installing $ENRICH_LABEL (user agent for $REAL_USER, 15 min)"
 mkdir -p "$LA_USER" "$LOG_DIR"
+rm -f /var/root/Library/LaunchAgents/$ENRICH_LABEL.plist 2>/dev/null || true  # stray from earlier sudo run
 cat > "$LA_USER/$ENRICH_LABEL.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -43,8 +50,9 @@ cat > "$LA_USER/$ENRICH_LABEL.plist" <<PLIST
   <key>StandardErrorPath</key><string>$LOG_DIR/ls-enrich-err.log</string>
 </dict></plist>
 PLIST
-launchctl bootout "gui/$(id -u)/$ENRICH_LABEL" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$LA_USER/$ENRICH_LABEL.plist"
+chown "$REAL_USER" "$LA_USER/$ENRICH_LABEL.plist"
+launchctl bootout "gui/$REAL_UID/$ENRICH_LABEL" 2>/dev/null || true
+launchctl bootstrap "gui/$REAL_UID" "$LA_USER/$ENRICH_LABEL.plist"
 ok "$ENRICH_LABEL scheduled"
 
 # ── root daemon: traffic export + leak scan, hourly ───────────────────────────
