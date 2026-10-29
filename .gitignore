@@ -30,3 +30,13 @@ rebuild/LAST-RUN-MANUAL-STEPS.txt
 
 # Wazuh local manager runtime (redeployable via evw-wazuh-local-manager.sh; contains generated certs + credentials)
 wazuh-stack/
+
+# Runtime caches and generated reports (rotated; not versioned)
+ls-enrich.db
+ls-enrich.jsonl
+security-system/reports/
+
+# Session debug exports (may contain transcript content) + enricher state
+.ls-enrich.offset
+kimi-debug-session_*.zip
+kimi-export-session_*.md

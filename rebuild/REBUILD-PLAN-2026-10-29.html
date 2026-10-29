@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Complete Security System Rebuild Runbook — 2026-10-29</title>
+<style>
+    body { font-family: -apple-system, Helvetica, sans-serif; font-size: 11pt;
+           margin: 1.5cm; color: #111; }
+    h1 { font-size: 18pt; border-bottom: 2px solid #333; padding-bottom: 4px; }
+    h2 { font-size: 14pt; border-bottom: 1px solid #aaa; padding-bottom: 2px;
+         margin-top: 20px; }
+    h3 { font-size: 12pt; color: #333; margin-top: 14px; }
+    pre { background: #f5f5f5; padding: 8px; border-radius: 4px;
+          font-size: 9pt; font-family: 'Menlo', 'Courier New', monospace;
+          overflow-wrap: break-word; white-space: pre-wrap; }
+    code { background: #f5f5f5; padding: 1px 3px; border-radius: 2px;
+           font-size: 9pt; font-family: 'Menlo', 'Courier New', monospace; }
+    pre code { background: none; padding: 0; }
+    table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+    th, td { border: 1px solid #ccc; padding: 4px 8px; font-size: 9.5pt; text-align: left; }
+    th { background: #eee; font-weight: bold; }
+    hr { border: none; border-top: 1px solid #ccc; margin: 12px 0; }
+    li { margin: 2px 0; }
+    strong { font-weight: bold; }
+    .cover { text-align: center; margin-top: 80px; }
+    .cover h1 { font-size: 22pt; border: none; }
+    .cover p { font-size: 12pt; color: #555; }
+    @media print {
+      pre { page-break-inside: avoid; }
+      h2 { page-break-after: avoid; }
+    }
+    </style></head>
+<body>
+    <div class="cover">
+      <h1>Complete Security System Rebuild Runbook</h1>
+      <p><strong>Date:</strong> 2026-10-29</p>
+      <p><strong>System:</strong> MacBook-Air</p>
+      <p><strong>Classification:</strong> CONFIDENTIAL — Restricted</p>
+      <p><em>Local rebuild runbook — do not publish</em></p>
+    </div>
+    <hr>
+    <h1>Complete Security System Rebuild Runbook</h1>
+<br>
+<p><strong>Version:</strong> 2026-10-29  </p>
+<p><strong>Scope:</strong> Rebuild the macOS security workstation and its full local security stack from a clean macOS install, without relying on Time Machine.  </p>
+<p><strong>Classification:</strong> Operational security material. Store locally or in an encrypted/offline backup. Do not publish.</p>
+<br>
+<hr>
+<br>
+<h2>0. What this rebuild covers</h2>
+<br>
+<p>This runbook rebuilds:</p>
+<br>
+<li>macOS hardening posture and disabled remote-access services</li>
+<li>Little Snitch, its license, rule model, guards, and rule hygiene tools</li>
+<li>LaunchDaemons and LaunchAgents</li>
+<li>file-integrity monitoring, snapshots, rollback, and backup-completeness checks</li>
+<li>process, plist, Endpoint Security, audit, DNS, network, and screen-sharing guards</li>
+<li>alert center and the alert-history GUI</li>
+<li>Wazuh manager/indexer/dashboard stack, local agent, and Colima/Docker runtime</li>
+<li>PostgreSQL launch service used by local development</li>
+<li>PF inbound dev-port protections</li>
+<li>GitHub/<code>gh</code> based recovery for repository-tracked files</li>
+<li>validation, evidence capture, and recurring maintenance</li>
+<br>
+<p>It does <strong>not</strong> rely on Time Machine. GitHub restores only repository-tracked files. Local-only secrets, ignored scan reports, credentials, Wazuh keys, Little Snitch license material, and historical security artifacts must come from the encrypted/offline backup created before the rebuild.</p>
+<br>
+<hr>
+<br>
+<h2>1. Current baseline recorded at plan creation</h2>
+<br>
+<li>Machine/user path assumption: <code>/Users/evw</code></li>
+<li>Security repository: <code>/Users/evw/dev/security</code></li>
+<li>Offline backup area: <code>/Users/evw/dev/security-backups</code></li>
+<li>Integrity store: <code>/var/db/evw-integrity</code></li>
+<li>Security-system state: <code>/var/db/evw-security-system</code></li>
+<li>Current macOS at inventory: 26.6.2 (25G83)</li>
+<li>Little Snitch: 6.4.1, system extension team <code>MLZF7K7B5R</code></li>
+<li>Current LS rule count at last audit: 6,065</li>
+<li>Colima 0.10.3, Lima 2.2.1</li>
+<li>Docker/Wazuh/PostgreSQL are local services and should remain loopback-bound.</li>
+<br>
+<p>Current root LaunchDaemons include:</p>
+<br>
+<li><code>at.obdev.littlesnitch.daemon</code></li>
+<li><code>com.evw.audit-monitor</code></li>
+<li><code>com.evw.auto-conn-guard</code></li>
+<li><code>com.evw.dns-guard</code></li>
+<li><code>com.evw.file-vault</code></li>
+<li><code>com.evw.integrity-pulse</code></li>
+<li><code>com.evw.integrity-sweep</code></li>
+<li><code>com.evw.integrity-full</code></li>
+<li><code>com.evw.integrity-verify</code></li>
+<li><code>com.evw.ls-hourly-cleanup</code></li>
+<li><code>com.evw.ls-hygiene-guard</code></li>
+<li><code>com.evw.ls-watchdog-monitor</code></li>
+<li><code>com.evw.ls-watchdog</code></li>
+<li><code>com.evw.mac-sentinel</code></li>
+<li><code>com.evw.plist-eslogger</code></li>
+<li><code>com.evw.plist-monitor</code></li>
+<li><code>com.evw.replayd-guard</code></li>
+<li><code>com.evw.security-audit</code></li>
+<li><code>com.evw.security-system</code></li>
+<li><code>com.evw.studentd-guard</code></li>
+<li><code>com.evw.wazuh-guard</code></li>
+<li><code>com.evw.wazuh-monitor</code></li>
+<li><code>com.ew.binding-monitor</code></li>
+<li><code>com.ew.file-sentinel</code></li>
+<li><code>com.ew.lockdown</code></li>
+<li><code>com.ew.pf-devports</code></li>
+<li><code>com.wazuh.agent</code></li>
+<li><code>local.awdl-down</code></li>
+<li><code>local.security.harden</code></li>
+<br>
+<p>Current user LaunchAgents include:</p>
+<br>
+<li><code>com.evw.alert-center</code></li>
+<li><code>com.evw.alert-viewer</code></li>
+<li><code>com.evw.colima</code></li>
+<li><code>com.evw.ls-resource-guard</code></li>
+<li><code>com.evw.security-audit-login</code></li>
+<li><code>com.evw.sentinel-alert-term</code></li>
+<li><code>com.ew.config-sentinel</code></li>
+<li><code>homebrew.mxcl.postgresql@16</code></li>
+<li><code>at.obdev.littlesnitch.agent</code></li>
+<br>
+<p>Current Homebrew leaves/casks include Colima, Docker, Docker Compose, <code>gh</code>, Python 3.13/3.14/3.15, <code>python-tk@3.15</code>, PostgreSQL 16, Lynis, Node, tmux, Xcode helpers, and related development tools.</p>
+<br>
+<hr>
+<br>
+<h2>2. Non-negotiable rebuild rules</h2>
+<br>
+<li><strong>Do not use Migration Assistant or Time Machine for the security stack.</strong> They can reimport unknown state. Build clean, restore only reviewed artifacts.</li>
+<li><strong>Do not sign in to iCloud during first boot.</strong> Add accounts only after the security stack is verified.</li>
+<li><strong>Do not commit credentials, private keys, Wazuh secrets, Little Snitch registration files, raw logs, or ignored scan artifacts to GitHub.</strong></li>
+<li><strong>Do not weaken permissions to make backups easier.</strong> Use a reviewed elevated copy command, preserve modes, and verify hashes.</li>
+<li><strong>Do not auto-heal the whole home directory.</strong> Home changes are detected and snapshotted, but restoration requires explicit review.</li>
+<li><strong>Do not treat the local rebuild as finished until all validation gates pass.</strong></li>
+<br>
+<hr>
+<br>
+<h2>3. Phase 0 — preserve the existing system before erasing it</h2>
+<br>
+<p>Do this on the current machine before any erase/reinstall.</p>
+<br>
+<h3>3.1 Record the current repository state without changing it</h3>
+<br>
+<pre><code class="language-bash">
+cd /Users/evw/dev/security
+git status --short --branch
+git log -5 --oneline --decorate
+</code></pre>
+<br>
+<p>Do not commit unrelated pre-existing deletions or generated reports as part of rebuild preparation.</p>
+<br>
+<h3>3.2 Refresh rebuild state</h3>
+<br>
+<p>This needs sudo so the live Little Snitch model, license, and launchd disabled list are captured:</p>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/rebuild/capture-state.sh
+</code></pre>
+<br>
+<p>Verify the manifest:</p>
+<br>
+<pre><code class="language-bash">
+cat /Users/evw/dev/security/rebuild/state/CAPTURE-MANIFEST.txt
+python3 - &lt;&lt;'PY'
+import json
+p='/Users/evw/dev/security/rebuild/state/ls-model.json'
+m=json.load(open(p))
+print('Little Snitch rules:', len(m.get('rules', [])))
+PY
+</code></pre>
+<br>
+<h3>3.3 Complete the known partial local backup</h3>
+<br>
+<p>The current backup report says 22 root-owned files are still missing from:</p>
+<br>
+<p><code>/Users/evw/dev/security-backups/security-pre-gh-20261028-182804/</code></p>
+<br>
+<p>Create the file list from the status report:</p>
+<br>
+<pre><code class="language-bash">
+python3 - &lt;&lt;'PY'
+import re
+status='/Users/evw/dev/security-backups/security-pre-gh-20261028-182804-BACKUP-STATUS.md'
+out='/tmp/security-backup-missing-files.txt'
+with open(status) as f:
+    paths=[line.split('<code>')[1] for line in f if line.startswith('- </code>')]
+with open(out,'w') as f:
+    f.write('\n'.join(paths)+'\n')
+print(out, len(paths))
+PY
+</code></pre>
+<br>
+<p>Copy only those listed paths, preserving ownership, permissions, and timestamps:</p>
+<br>
+<pre><code class="language-bash">
+sudo rsync -a --files-from=/tmp/security-backup-missing-files.txt \
+  /Users/evw/dev/security/ \
+  /Users/evw/dev/security-backups/security-pre-gh-20261028-182804/
+</code></pre>
+<br>
+<p>Verify with the new checker:</p>
+<br>
+<pre><code class="language-bash">
+python3 /Users/evw/dev/security/evw-backup-check.py
+</code></pre>
+<br>
+<p>Expected result after a correct copy: <code>total issues: 0</code>.</p>
+<br>
+<h3>3.4 Preserve root-only and ignored security state</h3>
+<br>
+<p>Create a root-owned staging bundle, then encrypt it. This is intentionally outside GitHub.</p>
+<br>
+<p>Include:</p>
+<br>
+<li><code>/var/db/evw-integrity/</code></li>
+<li><code>/var/db/evw-security-system/</code></li>
+<li><code>/Library/Ossec/etc/</code> and <code>/Library/Ossec/queue/</code> if Wazuh history must survive</li>
+<li><code>/Library/Application Support/Objective Development/Little Snitch/</code></li>
+<li><code>/Users/evw/dev/security/logs/</code></li>
+<li><code>/Users/evw/dev/security/scan-*/</code></li>
+<li><code>/Users/evw/dev/security-backups/</code></li>
+<li><code>/Users/evw/.colima/</code> if Colima/Wazuh container state must survive</li>
+<br>
+<p>Example:</p>
+<br>
+<pre><code class="language-bash">
+sudo mkdir -p /var/tmp/evw-rebuild-preserve
+sudo rsync -a \
+  /var/db/evw-integrity/ \
+  /var/db/evw-security-system/ \
+  /Library/Ossec/etc/ \
+  /Library/Ossec/queue/ \
+  "/Library/Application Support/Objective Development/Little Snitch/" \
+  /Users/evw/dev/security/logs/ \
+  /Users/evw/dev/security-backups/ \
+  /var/tmp/evw-rebuild-preserve/
+</code></pre>
+<br>
+<p>For Colima, stop it before copying its disk:</p>
+<br>
+<pre><code class="language-bash">
+colima stop
+sudo rsync -a /Users/evw/.colima/ /var/tmp/evw-rebuild-preserve/colima/
+</code></pre>
+<br>
+<p>Package and encrypt:</p>
+<br>
+<pre><code class="language-bash">
+sudo tar -C /var/tmp -czf /var/tmp/evw-rebuild-preserve.tar.gz evw-rebuild-preserve
+sudo shasum -a 256 /var/tmp/evw-rebuild-preserve.tar.gz | tee /var/tmp/evw-rebuild-preserve.sha256
+openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+  -in /var/tmp/evw-rebuild-preserve.tar.gz \
+  -out /Users/evw/dev/security-backups/evw-rebuild-preserve-2026-10-29.tar.gz.enc
+shasum -a 256 \
+  /Users/evw/dev/security-backups/evw-rebuild-preserve-2026-10-29.tar.gz.enc \
+  &gt; /Users/evw/dev/security-backups/evw-rebuild-preserve-2026-10-29.sha256
+</code></pre>
+<br>
+<p>Copy the encrypted bundle and SHA file to at least two offline/off-host locations. Keep the passphrase separate.</p>
+<br>
+<h3>3.5 Preserve the repository both ways</h3>
+<br>
+<p>Use GitHub only for reviewed, tracked source:</p>
+<br>
+<pre><code class="language-bash">
+cd /Users/evw/dev/security
+git diff --check
+gh repo view evweath/sec --json nameWithOwner,defaultBranchRef
+</code></pre>
+<br>
+<p>Use a local copy for ignored/local artifacts:</p>
+<br>
+<pre><code class="language-bash">
+rsync -a --delete /Users/evw/dev/security/ /Volumes/RESTORE-USB/security/
+</code></pre>
+<br>
+<p>Replace <code>/Volumes/RESTORE-USB</code> with the actual offline volume.</p>
+<br>
+<h3>3.6 Run a final pre-rebuild audit</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /usr/local/bin/evw-security-audit.sh --auto
+</code></pre>
+<br>
+<p>Review:</p>
+<br>
+<li><code>scan-2026-10-29/integrity-full.txt</code></li>
+<li><code>scan-2026-10-29/backup-check.txt</code></li>
+<li><code>scan-2026-10-29/ls-full-analysis.txt</code></li>
+<li><code>scan-2026-10-29/network-state.txt</code></li>
+<li><code>scan-2026-10-29/tcc-audit.txt</code></li>
+<br>
+<p>Resolve unauthorized changes before erasing, or document them as intentional.</p>
+<br>
+<hr>
+<br>
+<h2>4. Phase 1 — erase and install clean macOS</h2>
+<br>
+<li>Record the Mac serial and current OS build.</li>
+<li>Verify the encrypted preservation bundle exists off the machine.</li>
+<li>Verify the offline repository copy exists.</li>
+<li>Boot into Recovery.</li>
+<li>Erase the internal volume using Disk Utility or Erase All Content and Settings.</li>
+<li>Install the current supported macOS release.</li>
+<li>Do not connect unknown external media after installation.</li>
+<br>
+<hr>
+<br>
+<h2>5. Phase 2 — first boot and account setup</h2>
+<br>
+<li>Select language, region, and network.</li>
+<li>Skip Apple ID/iCloud sign-in.</li>
+<li>Skip Migration Assistant.</li>
+<li>Create the admin account named <code>evw</code>.</li>
+<li>Use a strong local password.</li>
+<li>Skip Siri, analytics, Screen Time, and personalized advertising prompts.</li>
+<li>Enable FileVault when prompted, or immediately after login:</li>
+<br>
+<pre><code class="language-bash">
+sudo fdesetup enable
+</code></pre>
+<br>
+<li>Store the recovery key offline.</li>
+<br>
+<hr>
+<br>
+<h2>6. Phase 3 — bootstrap the security repository</h2>
+<br>
+<p>Preferred source is the offline copy, because it contains ignored local state that GitHub does not.</p>
+<br>
+<pre><code class="language-bash">
+mkdir -p /Users/evw/dev
+rsync -a /Volumes/RESTORE-USB/security/ /Users/evw/dev/security/
+</code></pre>
+<br>
+<p>If only GitHub is available:</p>
+<br>
+<pre><code class="language-bash">
+mkdir -p /Users/evw/dev
+git clone git@github.com:evweath/sec.git /Users/evw/dev/security
+</code></pre>
+<br>
+<p>If SSH is not yet configured, use <code>gh</code> after authenticating:</p>
+<br>
+<pre><code class="language-bash">
+gh auth login --hostname github.com --git-protocol ssh
+gh repo clone evweath/sec /Users/evw/dev/security
+</code></pre>
+<br>
+<p>Verify:</p>
+<br>
+<pre><code class="language-bash">
+cd /Users/evw/dev/security
+git status --short --branch
+git remote -v
+test -f install-all.sh &amp;&amp; test -f rebuild-mac.sh
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>7. Phase 4 — prerequisites and applications</h2>
+<br>
+<h3>7.1 Xcode Command Line Tools</h3>
+<br>
+<pre><code class="language-bash">
+xcode-select --install
+</code></pre>
+<br>
+<p>Wait for the GUI installer to finish.</p>
+<br>
+<h3>7.2 Homebrew</h3>
+<br>
+<pre><code class="language-bash">
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+eval "$(/opt/homebrew/bin/brew shellenv)"
+</code></pre>
+<br>
+<h3>7.3 Install packages and applications</h3>
+<br>
+<p>Refresh and inspect the Brewfile first:</p>
+<br>
+<pre><code class="language-bash">
+cat /Users/evw/dev/security/rebuild/state/Brewfile
+</code></pre>
+<br>
+<p>Then install:</p>
+<br>
+<pre><code class="language-bash">
+brew bundle --file /Users/evw/dev/security/rebuild/state/Brewfile
+</code></pre>
+<br>
+<p>Add currently required packages if the captured Brewfile is stale:</p>
+<br>
+<pre><code class="language-bash">
+brew install colima docker docker-compose gh lynis postgresql@16 python-tk@3.15 tmux
+brew install --cask iterm2 brave-browser knockknock little-snitch
+</code></pre>
+<br>
+<p>Install or reinstall Xcode, Xcodes, Obsidian, LibreOffice, Kimi, and Double Commander only if still needed.</p>
+<br>
+<hr>
+<br>
+<h2>8. Phase 5 — Little Snitch</h2>
+<br>
+<li>Install Little Snitch.</li>
+<li>Approve the Objective Development network extension in System Settings.</li>
+<li>Open Little Snitch once.</li>
+<li>Restore the license only from the offline state copy:</li>
+<br>
+<pre><code class="language-bash">
+sudo install -m 600 -o root -g wheel \
+  /Users/evw/dev/security/rebuild/state/ls-registration.xpl \
+  "/Library/Application Support/Objective Development/Little Snitch/registration.xpl"
+</code></pre>
+<br>
+<li>Restore the rule model:</li>
+<br>
+<pre><code class="language-bash">
+sudo "/Applications/Little Snitch.app/Contents/Components/littlesnitch" \
+  restore-model /Users/evw/dev/security/rebuild/state/ls-model.json
+</code></pre>
+<br>
+<li>Verify the extension and rules:</li>
+<br>
+<pre><code class="language-bash">
+systemextensionsctl list
+sudo "/Applications/Little Snitch.app/Contents/Components/littlesnitch" \
+  export-model /tmp/ls-rebuild-verify.json
+python3 - &lt;&lt;'PY'
+import json
+m=json.load(open('/tmp/ls-rebuild-verify.json'))
+print('rules:', len(m.get('rules', [])))
+PY
+rm -f /tmp/ls-rebuild-verify.json
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>9. Phase 6 — security stack installation order</h2>
+<br>
+<p>Run these in order. Do not skip the deployment commands; they install the current fixed code.</p>
+<br>
+<h3>9.1 Base guards and services</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/install-all.sh --yes
+</code></pre>
+<br>
+<p>This installs the core plist monitor, replay guard, audit monitor, file sentinel, binding monitor, DNS guard, PF dev-port protection, hardening rescan, and Wazuh-related setup.</p>
+<br>
+<h3>9.2 Self-healing security system</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/evw-security-system-setup.sh
+</code></pre>
+<br>
+<p>This installs:</p>
+<br>
+<li><code>evw-security-system.py</code></li>
+<li><code>evw-alert-center.py</code></li>
+<li>Little Snitch deny/hole-analysis helpers</li>
+<li><code>com.evw.security-system</code></li>
+<li><code>com.evw.alert-center</code></li>
+<br>
+<h3>9.3 Security audit daemon and helper set</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/evw-security-audit-setup.sh
+</code></pre>
+<br>
+<p>This installs the audit script and root-owned helpers, including the backup checker.</p>
+<br>
+<h3>9.4 Integrity scanner and rollback system</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/evw-integrity-setup.sh
+</code></pre>
+<br>
+<p>This installs:</p>
+<br>
+<li><code>evw-integrity.py</code></li>
+<li><code>evw-rollback.py</code></li>
+<li><code>/var/db/evw-integrity</code></li>
+<li>pulse, sweep, full, and verify LaunchDaemons</li>
+<li>deterministic <code>/Users/evw</code> coverage and report placement</li>
+<li>serialized store locking</li>
+<br>
+<h3>9.5 Little Snitch maintenance guards</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/evw-ls-watchdog-setup.sh
+sudo bash /Users/evw/dev/security/evw-ls-hourly-cleanup-setup.sh
+</code></pre>
+<br>
+<p>Confirm the hygiene/watchdog daemons are registered:</p>
+<br>
+<pre><code class="language-bash">
+sudo launchctl print system/com.evw.ls-watchdog
+sudo launchctl print system/com.evw.ls-watchdog-monitor
+sudo launchctl print system/com.evw.ls-hygiene-guard
+sudo launchctl print system/com.evw.ls-hourly-cleanup
+</code></pre>
+<br>
+<h3>9.6 User LaunchAgents</h3>
+<br>
+<p>Restore the captured agents:</p>
+<br>
+<pre><code class="language-bash">
+mkdir -p /Users/evw/Library/LaunchAgents
+cp /Users/evw/dev/security/rebuild/state/launchagents/*.plist \
+  /Users/evw/Library/LaunchAgents/
+</code></pre>
+<br>
+<p>Load each one:</p>
+<br>
+<pre><code class="language-bash">
+for plist in /Users/evw/Library/LaunchAgents/com.evw.*.plist \
+             /Users/evw/Library/LaunchAgents/com.ew.*.plist; do
+  label=$(basename "$plist" .plist)
+  launchctl bootout "gui/$(id -u)/$label" 2&gt;/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$plist"
+done
+</code></pre>
+<br>
+<p>Add current agents that postdate the captured state if absent:</p>
+<br>
+<li><code>com.evw.alert-viewer.plist</code></li>
+<li><code>com.evw.colima.plist</code></li>
+<li><code>homebrew.mxcl.postgresql@16.plist</code></li>
+<br>
+<p>Restart the alert viewer after any code change:</p>
+<br>
+<pre><code class="language-bash">
+launchctl kickstart -k gui/501/com.evw.alert-viewer
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>10. Phase 7 — hardening posture</h2>
+<br>
+<p>Run the reviewed hardening script:</p>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/harden-now.sh
+</code></pre>
+<br>
+<p>Then verify these outcomes:</p>
+<br>
+<li>SSH remote login off</li>
+<li>Screen sharing off</li>
+<li>Remote Management off</li>
+<li>Bluetooth off unless explicitly required</li>
+<li>AirDrop, Handoff, and Universal Control off</li>
+<li>Wake-on-LAN and Power Nap off</li>
+<li>immediate password on wake</li>
+<li>mDNS advertisements quiet</li>
+<li><code>/etc/hosts</code> matches the captured reviewed copy</li>
+<li>PF anchors loaded</li>
+<li>no third-party kernel extensions</li>
+<li>only the Little Snitch system extension is active</li>
+<br>
+<p>Commands:</p>
+<br>
+<pre><code class="language-bash">
+sudo systemsetup -getremotelogin
+sudo launchctl print-disabled system | grep -E 'ssh|screen|remote|ARD|nfs|smb'
+systemextensionsctl list
+kextstat | grep -v com.apple || true
+sudo pfctl -s info
+sudo pfctl -a com.ew.devports -s rules
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>11. Phase 8 — Wazuh, Colima, Docker, and PostgreSQL</h2>
+<br>
+<h3>11.1 Colima</h3>
+<br>
+<p>The launch agent starts Colima at login. To install and start manually:</p>
+<br>
+<pre><code class="language-bash">
+colima start
+colima status
+</code></pre>
+<br>
+<p>Expected:</p>
+<br>
+<li>runtime: docker</li>
+<li>mount type: virtiofs</li>
+<li>Docker socket under <code>/Users/evw/.colima/default/docker.sock</code></li>
+<li>SSH and service forwards on loopback</li>
+<li>Lima pseudo-loopback listeners on 53/443 protected by Lima and PF</li>
+<br>
+<h3>11.2 Docker/Wazuh stack</h3>
+<br>
+<pre><code class="language-bash">
+cd /Users/evw/dev/security/wazuh-stack
+docker compose up -d
+docker ps
+</code></pre>
+<br>
+<p>Expected containers:</p>
+<br>
+<li><code>wazuh-stack-wazuh.manager-1</code></li>
+<li><code>wazuh-stack-wazuh.indexer-1</code></li>
+<li><code>wazuh-stack-wazuh.dashboard-1</code></li>
+<li>application database containers such as <code>likecostco-db-1</code> when that project is active</li>
+<br>
+<p>Ports must remain loopback-only in Docker:</p>
+<br>
+<li><code>127.0.0.1:443</code></li>
+<li><code>127.0.0.1:9200</code></li>
+<li><code>127.0.0.1:1514</code></li>
+<li><code>127.0.0.1:1515</code></li>
+<li><code>127.0.0.1:55000</code></li>
+<li><code>127.0.0.1:55432</code></li>
+<br>
+<h3>11.3 Host Wazuh agent</h3>
+<br>
+<p>Install through the existing setup path:</p>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/evw-wazuh-setup.sh
+</code></pre>
+<br>
+<p>Verify:</p>
+<br>
+<pre><code class="language-bash">
+sudo launchctl print system/com.wazuh.agent
+sudo launchctl print system/com.evw.wazuh-monitor
+sudo launchctl print system/com.evw.wazuh-guard
+</code></pre>
+<br>
+<h3>11.4 PostgreSQL</h3>
+<br>
+<p>If PostgreSQL is required:</p>
+<br>
+<pre><code class="language-bash">
+brew services start postgresql@16
+launchctl print "gui/$(id -u)/homebrew.mxcl.postgresql@16"
+</code></pre>
+<br>
+<p>It must listen only on <code>127.0.0.1</code> and <code>::1</code>.</p>
+<br>
+<hr>
+<br>
+<h2>12. Phase 9 — initialize integrity and backup verification</h2>
+<br>
+<h3>12.1 Run the first fixed full scan</h3>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-integrity.py full --tiers A,B,C,D
+</code></pre>
+<br>
+<p>Review the report:</p>
+<br>
+<pre><code class="language-bash">
+ls -t /Users/evw/dev/security/scan-*/integrity-full.txt | head -1
+</code></pre>
+<br>
+<p>Confirm:</p>
+<br>
+<li>no <code>UNREADABLE / SKIPPED</code> section unless every path is reviewed</li>
+<li>no mass-change incident</li>
+<li>no unexpected user-home changes</li>
+<li>no unexpected <code>/Users/evw/dev/security-backups</code> changes</li>
+<li>reports land under <code>/Users/evw/dev/security/scan-<date>/</code>, not <code>/var/root</code></li>
+<br>
+<h3>12.2 Verify backup completeness</h3>
+<br>
+<pre><code class="language-bash">
+sudo python3 /usr/local/bin/evw-backup-check.py \
+  --report /Users/evw/dev/security/scan-$(date +%F)/backup-check.txt
+</code></pre>
+<br>
+<p>Expected: zero issues after any intentional backup copy.</p>
+<br>
+<h3>12.3 Verify rollback inventory</h3>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py list
+</code></pre>
+<br>
+<p>Review before applying anything:</p>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py restore --all --dry-run
+</code></pre>
+<br>
+<p>Do not use <code>--apply</code> unless the reviewed dry run is exactly the intended change set.</p>
+<br>
+<hr>
+<br>
+<h2>13. Phase 10 — GitHub-based recovery</h2>
+<br>
+<p>Use this only for repository-tracked files.</p>
+<br>
+<p>Dry run:</p>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py restore \
+  --source github \
+  --repo-root /Users/evw/dev/security \
+  --paths /Users/evw/dev/security/path/to/file \
+  --dry-run
+</code></pre>
+<br>
+<p>Apply:</p>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py restore \
+  --source github \
+  --repo-root /Users/evw/dev/security \
+  --paths /Users/evw/dev/security/path/to/file \
+  --apply
+</code></pre>
+<br>
+<p>Rules:</p>
+<br>
+<li>Never use GitHub restore with <code>--all</code>.</li>
+<li>Use <code>--ref</code> when a specific commit or tag is needed.</li>
+<li>Do not use GitHub for secrets, ignored scans, Wazuh keys, or Little Snitch registration.</li>
+<li>Use local integrity rollback for files covered by <code>/var/db/evw-integrity</code>.</li>
+<li>Use the encrypted preservation bundle for local-only material.</li>
+<br>
+<hr>
+<br>
+<h2>14. Phase 11 — final validation gate</h2>
+<br>
+<p>Run the full root audit:</p>
+<br>
+<pre><code class="language-bash">
+sudo bash /usr/local/bin/evw-security-audit.sh --auto
+</code></pre>
+<br>
+<p>Then verify each item:</p>
+<br>
+<h3>14.1 Daemon registration</h3>
+<br>
+<pre><code class="language-bash">
+for label in \
+  com.evw.security-system \
+  com.evw.security-audit \
+  com.evw.integrity-pulse \
+  com.evw.integrity-sweep \
+  com.evw.integrity-full \
+  com.evw.integrity-verify \
+  com.evw.plist-monitor \
+  com.evw.plist-eslogger \
+  com.evw.replayd-guard \
+  com.evw.studentd-guard \
+  com.evw.audit-monitor \
+  com.evw.auto-conn-guard \
+  com.evw.mac-sentinel \
+  com.evw.file-vault \
+  com.evw.dns-guard \
+  com.evw.ls-watchdog \
+  com.evw.ls-watchdog-monitor \
+  com.evw.ls-hygiene-guard \
+  com.evw.ls-hourly-cleanup \
+  com.ew.file-sentinel \
+  com.ew.binding-monitor \
+  com.ew.pf-devports \
+  com.ew.lockdown \
+  com.wazuh.agent \
+  com.evw.wazuh-monitor \
+  com.evw.wazuh-guard; do
+  sudo launchctl print "system/$label" &gt;/dev/null 2&gt;&amp;1 \
+    &amp;&amp; echo "OK $label" || echo "MISSING $label"
+done
+</code></pre>
+<br>
+<h3>14.2 User agents</h3>
+<br>
+<pre><code class="language-bash">
+for label in \
+  com.evw.alert-center \
+  com.evw.alert-viewer \
+  com.evw.colima \
+  com.evw.ls-resource-guard \
+  com.evw.security-audit-login \
+  com.evw.sentinel-alert-term \
+  com.ew.config-sentinel \
+  homebrew.mxcl.postgresql@16; do
+  launchctl print "gui/$(id -u)/$label" &gt;/dev/null 2&gt;&amp;1 \
+    &amp;&amp; echo "OK $label" || echo "MISSING $label"
+done
+</code></pre>
+<br>
+<h3>14.3 Listeners</h3>
+<br>
+<pre><code class="language-bash">
+sudo lsof -nP -iTCP -sTCP:LISTEN
+</code></pre>
+<br>
+<p>Expected: only reviewed loopback services plus Lima pseudo-loopback ports protected by Lima and PF. Any unknown non-loopback listener is a failure.</p>
+<br>
+<h3>14.4 Outbound connections</h3>
+<br>
+<pre><code class="language-bash">
+sudo lsof -nP -iTCP -sTCP:ESTABLISHED
+</code></pre>
+<br>
+<p>Every non-Apple destination must resolve to a known service and expected process.</p>
+<br>
+<h3>14.5 TCC</h3>
+<br>
+<p>Review <code>tcc-audit.txt</code>. No third-party screen capture, accessibility, input monitoring, or posting grants should exist without explicit approval.</p>
+<br>
+<h3>14.6 Little Snitch</h3>
+<br>
+<p>Review:</p>
+<br>
+<li><code>ls-full-analysis.txt</code></li>
+<li><code>ls-domain-audit.txt</code></li>
+<li><code>ls-rules-deep-audit.txt</code></li>
+<li><code>ls-permissive-analysis.txt</code></li>
+<br>
+<p>Critical deny rules must be present, no guarded process may have an allow exception, and no unsigned binary may be allowed.</p>
+<br>
+<h3>14.7 Integrity verification</h3>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-integrity.py verify --sample 5000
+</code></pre>
+<br>
+<p>Expected: <code>git fsck: OK</code>; investigate every mismatch or skipped path.</p>
+<br>
+<h3>14.8 Alert viewer</h3>
+<br>
+<pre><code class="language-bash">
+launchctl print gui/501/com.evw.alert-viewer
+</code></pre>
+<br>
+<p>Open the alert viewer, single-click an entry, then double-click it. Expected: the lower pane updates on single click and a scrollable detail popup opens on double-click.</p>
+<br>
+<hr>
+<br>
+<h2>15. Failure and rollback procedure</h2>
+<br>
+<h3>If an installer fails</h3>
+<br>
+<li>Read the last red/error line.</li>
+<li>Fix only that cause.</li>
+<li>Re-run the same installer; the stack is intended to be idempotent.</li>
+<li>Do not continue to later phases until the current phase verifies.</li>
+<br>
+<h3>If Little Snitch model restore fails</h3>
+<br>
+<li>Approve its network extension.</li>
+<li>Open Little Snitch once.</li>
+<li>Re-run the restore command.</li>
+<li>Re-run the security audit.</li>
+<br>
+<h3>If integrity reports many unexpected changes</h3>
+<br>
+<li>Do not auto-heal.</li>
+<li>Review <code>integrity-full.txt</code>.</li>
+<li>Check whether a known deployment window was active.</li>
+<li>Use <code>evw-rollback.py list</code> and <code>restore --dry-run</code>.</li>
+<li>Apply only the reviewed paths.</li>
+<br>
+<h3>If a tracked security file is deleted</h3>
+<br>
+<li>Try local integrity rollback first:</li>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py restore \
+  --paths /Users/evw/dev/security/path/to/file \
+  --dry-run
+</code></pre>
+<br>
+<li>If no local snapshot exists, use GitHub:</li>
+<br>
+<pre><code class="language-bash">
+sudo /usr/local/bin/evw-rollback.py restore \
+  --source github \
+  --repo-root /Users/evw/dev/security \
+  --paths /Users/evw/dev/security/path/to/file \
+  --dry-run
+</code></pre>
+<br>
+<li>Apply only after reviewing the source, ref, hash, and quarantine plan.</li>
+<br>
+<h3>If the system appears compromised during rebuild</h3>
+<br>
+<li>Disconnect the network.</li>
+<li>Stop changing the machine.</li>
+<li>Preserve logs and the integrity store.</li>
+<li>Rebuild again from known-clean offline artifacts.</li>
+<li>Do not import local-only state until its provenance is verified.</li>
+<br>
+<hr>
+<br>
+<h2>16. Ongoing maintenance schedule</h2>
+<br>
+<h3>Every boot</h3>
+<br>
+<li>Root security audit runs automatically.</li>
+<li>Guards and daemon registration are checked.</li>
+<li>Colima starts through its LaunchAgent.</li>
+<br>
+<h3>Every 2 minutes</h3>
+<br>
+<li>Integrity pulse checks protected Tier A paths.</li>
+<br>
+<h3>Every 15 minutes</h3>
+<br>
+<li>Integrity sweep checks installed software and library tiers.</li>
+<br>
+<h3>Daily</h3>
+<br>
+<li>Full integrity scan covers the user home, backups, security repository, apps, Homebrew, <code>/etc</code>, launchd, and Little Snitch configuration.</li>
+<br>
+<h3>Weekly</h3>
+<br>
+<li>Integrity store verification samples 5,000 files.</li>
+<li>Review alert history and security reports.</li>
+<br>
+<h3>Monthly</h3>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/rebuild/capture-state.sh
+</code></pre>
+<br>
+<p>Then review the state diff, refresh the offline repository copy, refresh the encrypted preservation bundle, and test one local rollback and one GitHub dry-run restore.</p>
+<br>
+<h3>Before any rebuild</h3>
+<br>
+<p>Always run:</p>
+<br>
+<pre><code class="language-bash">
+sudo bash /Users/evw/dev/security/rebuild/capture-state.sh
+sudo python3 /usr/local/bin/evw-backup-check.py
+sudo bash /usr/local/bin/evw-security-audit.sh --auto
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>17. Final acceptance criteria</h2>
+<br>
+<p>The rebuild is complete only when all are true:</p>
+<br>
+<li>FileVault enabled</li>
+<li>SIP enabled</li>
+<li>application firewall and PF protections active</li>
+<li>no remote-login, screen-sharing, ARD, NFS, or SMB service listening</li>
+<li>only Little Snitch system extension active</li>
+<li>no unknown third-party kexts</li>
+<li>all expected root daemons and user agents registered</li>
+<li>current Little Snitch model restored and critical denies verified</li>
+<li>integrity full scan covers <code>/Users/evw</code></li>
+<li>skipped/unreadable paths are either zero or explicitly reviewed</li>
+<li>backup checker reports zero unreviewed missing/changed files</li>
+<li>Wazuh containers and host agent are connected</li>
+<li>Colima and PostgreSQL are loopback-bound</li>
+<li>alert viewer popup behavior verified manually</li>
+<li>local rollback dry run succeeds</li>
+<li>GitHub dry-run restore succeeds through <code>gh</code></li>
+<li>a fresh encrypted preservation bundle exists off the machine</li>
+<br>
+<hr>
+<br>
+<h2>18. Files produced with this runbook</h2>
+<br>
+<li><code>REBUILD-PLAN-2026-10-29.md</code> — source Markdown</li>
+<li><code>REBUILD-PLAN-2026-10-29.html</code> — printable/offline HTML</li>
+<li><code>REBUILD-PLAN-2026-10-29.zip</code> — local downloadable archive containing both files</li>
+<br>
+<p>Store the archive in the offline backup area only after reviewing it. Do not upload it to GitHub.</p>
+<br></body></html>
