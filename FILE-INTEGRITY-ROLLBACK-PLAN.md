@@ -310,3 +310,20 @@ tamper the canary, watch the 120 s pulse restore it.
 - fs-heal "unsigned binary in persistence item" classifier (needs the
   codeRequirements parser from ls tooling; policy currently covered by
   NEW-file quarantine).
+
+---
+
+## Addendum 2026-10-29 — user-home coverage and recovery fixes
+
+- Root daemon path resolution now uses `EVW_OWNER_HOME`/console owner instead of
+  root's `/var/root`, so Tier D and the security directory cover `/Users/evw`.
+- Sweep/full reports explicitly name walk, hash, and snapshot failures; verify
+  reports skipped sample paths.
+- Store operations use an exclusive `scan.lock`, preventing overlapping pulse,
+  sweep, full, and verify jobs from corrupting or locking `index.db`.
+- `evw-backup-check.py` validates every `*-BACKUP-STATUS.md` entry and is wired
+  into user and root security audits.
+- `evw-rollback.py restore --source github` restores explicitly listed
+  repository files through `gh`, with dry-run by default, quarantine and hash
+  verification on apply. GitHub restore is intentionally path-scoped and never
+  handles `--all`.

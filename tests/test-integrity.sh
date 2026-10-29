@@ -125,6 +125,59 @@ check "metadata sweep misses invisible tamper" "grep -q 'confirmed: +0 new, ~0 c
 $PY "$INT" full --tiers A --store "$STORE" > "$T/full-metadata.txt" 2>&1
 check "full re-hash detects invisible tamper" "grep -q '~1 changed' $T/full-metadata.txt"
 
+echo "== 10. unreadable paths and scan lock =="
+chmod 000 "$ROOT/Applications/fake.bin"
+$PY "$INT" sweep --tiers A --store "$STORE" > "$T/sweep-unreadable.txt" 2>&1
+check "report names unreadable file" "grep -q 'HASH-FAILED.*/Applications/fake.bin' $T/sweep-unreadable.txt"
+chmod 644 "$ROOT/Applications/fake.bin"
+$PY -c 'import fcntl,sys,time; f=open(sys.argv[1],"a+"); fcntl.flock(f,fcntl.LOCK_EX); time.sleep(2)' "$STORE/scan.lock" &
+LOCKPID=$!
+sleep 0.3
+EVW_INTEGRITY_LOCK_TIMEOUT=0.5 $PY "$INT" sweep --tiers A --store "$STORE" > "$T/sweep-locked.txt" 2>&1
+LOCK_RC=$?
+wait "$LOCKPID"
+check "overlapping scan exits 75" "[ $LOCK_RC -eq 75 ]"
+check "lock error explains active scan" "grep -q 'integrity store is locked' $T/sweep-locked.txt"
+
+echo "== 11. backup completeness =="
+BKROOT="$T/backups"
+BKSRC="$T/backup-src"
+BKDST="$T/backup-dst"
+mkdir -p "$BKROOT" "$BKSRC/scan-2026-10-28" "$BKDST"
+printf 'root report\n' > "$BKSRC/scan-2026-10-28/report.txt"
+cat > "$BKROOT/test-BACKUP-STATUS.md" <<EOF
+# Backup status — test
+Backup source: \`$BKSRC/\`
+Backup destination: \`$BKDST/\`
+- \`scan-2026-10-28/report.txt\`
+EOF
+$PY /Users/evw/dev/security/evw-backup-check.py --backups-root "$BKROOT" --report "$T/backup-missing.txt" > /dev/null 2>&1
+BK_RC=$?
+check "backup checker flags missing file" "[ $BK_RC -eq 1 ] && grep -q 'BACKUP-MISSING' $T/backup-missing.txt"
+mkdir -p "$BKDST/scan-2026-10-28"
+cp "$BKSRC/scan-2026-10-28/report.txt" "$BKDST/scan-2026-10-28/report.txt"
+$PY /Users/evw/dev/security/evw-backup-check.py --backups-root "$BKROOT" --report "$T/backup-clean.txt" > /dev/null 2>&1
+check "backup checker passes matching file" "grep -q 'total issues: 0' $T/backup-clean.txt"
+printf 'changed report\n' > "$BKDST/scan-2026-10-28/report.txt"
+$PY /Users/evw/dev/security/evw-backup-check.py --backups-root "$BKROOT" --report "$T/backup-changed.txt" > /dev/null 2>&1
+BK_RC=$?
+check "backup checker flags changed file" "[ $BK_RC -eq 1 ] && grep -q 'CHANGED' $T/backup-changed.txt"
+
+echo "== 12. GitHub restore =="
+GHROOT="$T/repo-root"
+mkdir -p "$GHROOT/tools" "$T/fakebin"
+cat > "$T/fakebin/gh" <<'EOF'
+#!/bin/bash
+printf 'restored by github\n'
+EOF
+chmod 755 "$T/fakebin/gh"
+GHTARGET="$GHROOT/tools/deleted.sh"
+PATH="$T/fakebin:$PATH" $PY "$RBK" restore --store "$STORE" --source github --repo evw/test --ref main --repo-root "$GHROOT" --paths "$GHTARGET" --dry-run > "$T/gh-dry.txt" 2>&1
+check "GitHub dry-run does not create file" "[ ! -f $GHTARGET ] && grep -q 'WOULD-RESTORE-GITHUB' $T/gh-dry.txt"
+PATH="$T/fakebin:$PATH" $PY "$RBK" restore --store "$STORE" --source github --repo evw/test --ref main --repo-root "$GHROOT" --paths "$GHTARGET" --apply > "$T/gh-apply.txt" 2>&1
+check "GitHub restore creates missing file" "grep -q 'restored by github' $GHTARGET"
+check "GitHub restore verified" "grep -q 'RESTORED-GITHUB' $T/gh-apply.txt"
+
 echo ""
 echo "════════════════════════════════"
 echo "RESULT: $PASS passed, $FAIL failed"

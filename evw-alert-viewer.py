@@ -10,6 +10,8 @@ into a persistent history file; this viewer shows it as a live table.
             · Description
   Sort    : click any column header (click again to reverse)
   Search  : the filter box matches across ALL columns (and the alert body)
+  Details : single-click updates the lower pane; double-click opens a
+            scrollable popup window with the full alert
   Refresh : every 5 s — new alerts appear as they are posted
   Locked  : alert files that are unreadable as this user (root-owned, so
             they need sudo to read) appear as LOCKED rows. Clicking one
@@ -66,6 +68,27 @@ def norm_ts(v):
             except ValueError:
                 continue
     return time.time()
+
+
+def fmt_time(epoch):
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(epoch))
+
+
+def alert_details_text(r):
+    if r.get("locked"):
+        return (
+            "%s  ·  LOCKED  ·  %s\n\n"
+            "This log entry is stored in a root-owned file and cannot be\n"
+            "read without sudo. Click the entry and enter your sudo\n"
+            "password to reveal the full message."
+            % (fmt_time(r["ts"]), r["path"]))
+    text = "%s  ·  %s  ·  source=%s\nid=%s\n\n%s" % (
+        fmt_time(r["ts"]), r["severity"], r["source"] or "-",
+        r.get("real_id") or r["id"], r["body"] or r["title"])
+    if r.get("raw") is not None:
+        text += ("\n\n—— full alert file (read via sudo) ——\n"
+                 + r["raw"].rstrip())
+    return text
 
 
 def load_history(path):
@@ -143,6 +166,8 @@ def run_gui(alerts_dir, hist_path, smoke_test=False):
     locked = {}           # "locked:<filename>" -> record of a root-owned
                           # alert file; in-memory only, unlocked via sudo
     rows = {}             # tree iid -> id
+    popups = {}           # alert id -> detail Toplevel
+    pending_unlock = {"after": None}
     rank = dict(SEV_RANK, LOCKED=len(SEV_RANK))
     sort_state = {"col": "time", "reverse": True}   # newest first
     query = tk.StringVar()
@@ -183,9 +208,6 @@ def run_gui(alerts_dir, hist_path, smoke_test=False):
     details.configure(yscrollcommand=dsb.set)
     details.pack(side="left", fill="both", expand=True)
     dsb.pack(side="right", fill="y")
-
-    def fmt_time(epoch):
-        return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(epoch))
 
     def matches(r, q):
         if not q:
@@ -302,23 +324,76 @@ def run_gui(alerts_dir, hist_path, smoke_test=False):
 
     def show_details(_event=None):
         r = selected_record()
-        if not r:
-            return
-        if r.get("locked"):
-            set_details(
-                "%s  ·  LOCKED  ·  %s\n\n"
-                "This log entry is stored in a root-owned file and cannot be\n"
-                "read without sudo. Click the entry and enter your sudo\n"
-                "password to reveal the full message."
-                % (fmt_time(r["ts"]), r["path"]))
-            return
-        text = "%s  ·  %s  ·  source=%s\nid=%s\n\n%s" % (
-            fmt_time(r["ts"]), r["severity"], r["source"] or "-",
-            r.get("real_id") or r["id"], r["body"] or r["title"])
-        if r.get("raw") is not None:
-            text += ("\n\n—— full alert file (read via sudo) ——\n"
-                     + r["raw"].rstrip())
-        set_details(text)
+        if r:
+            set_details(alert_details_text(r))
+
+    def detail_popup(r):
+        existing = popups.get(r["id"])
+        if existing is not None and existing.winfo_exists():
+            existing.lift()
+            existing.focus_force()
+            return existing
+
+        dlg = tk.Toplevel(root)
+        popups[r["id"]] = dlg
+        dlg.title("alert #%s — %s" % (r.get("num", "?"), r["severity"]))
+        dlg.geometry("760x460")
+        dlg.minsize(520, 300)
+
+        header = ttk.Frame(dlg)
+        header.pack(fill="x", padx=12, pady=(12, 6))
+        ttk.Label(header, text=fmt_time(r["ts"])).pack(side="left")
+        ttk.Label(header, text=" · %s" % r["severity"]).pack(side="left")
+        ttk.Label(header, text=" · %s" % (r["source"] or "-")).pack(side="left")
+        ttk.Label(dlg, text=r["title"], wraplength=720,
+                  font=("TkDefaultFont", 12, "bold")).pack(fill="x", padx=12,
+                                                            pady=(0, 6))
+
+        body_frame = ttk.Frame(dlg)
+        body_frame.pack(fill="both", expand=True, padx=12)
+        body = tk.Text(body_frame, wrap="word")
+        body.insert("1.0", alert_details_text(r))
+        body.config(state="disabled")
+        body_scroll = ttk.Scrollbar(body_frame, orient="vertical",
+                                    command=body.yview)
+        body.configure(yscrollcommand=body_scroll.set)
+        body.pack(side="left", fill="both", expand=True)
+        body_scroll.pack(side="right", fill="y")
+
+        def close(_event=None):
+            popups.pop(r["id"], None)
+            dlg.destroy()
+
+        def copy_all():
+            root.clipboard_clear()
+            root.clipboard_append(alert_details_text(r))
+
+        buttons = ttk.Frame(dlg)
+        buttons.pack(fill="x", padx=12, pady=12)
+        ttk.Button(buttons, text="Copy details", command=copy_all).pack(side="left")
+        ttk.Button(buttons, text="Close", command=close).pack(side="right")
+        dlg.bind("<Escape>", close)
+        dlg.bind("<Command-w>", close)
+        dlg.protocol("WM_DELETE_WINDOW", close)
+        dlg.lift()
+        dlg.focus_force()
+        return dlg
+
+    def row_double_clicked(event):
+        iid = tree.identify_row(event.y)
+        if not iid or iid not in rows:
+            return "break"
+        if pending_unlock["after"] is not None:
+            root.after_cancel(pending_unlock["after"])
+            pending_unlock["after"] = None
+        tree.selection_set(iid)
+        r = selected_record()
+        if r and r.get("locked"):
+            unlock_locked(r)
+        if r:
+            show_details()
+            detail_popup(r)
+        return "break"
 
     def ask_sudo_password(path):
         """Modal sudo-password prompt; returns the password or None (cancel)."""
@@ -398,11 +473,21 @@ def run_gui(alerts_dir, hist_path, smoke_test=False):
         if not iid or iid not in rows:
             return
         r = history.get(rows[iid]) or locked.get(rows[iid])
-        if r and r.get("locked"):
-            unlock_locked(r)
+        if not (r and r.get("locked")):
+            return
+        if pending_unlock["after"] is not None:
+            root.after_cancel(pending_unlock["after"])
+
+        def unlock_if_still_selected():
+            pending_unlock["after"] = None
+            if tree.selection() and tree.selection()[0] == iid:
+                unlock_locked(r)
+
+        pending_unlock["after"] = root.after(350, unlock_if_still_selected)
 
     tree.bind("<<TreeviewSelect>>", show_details)
     tree.bind("<ButtonRelease-1>", row_clicked)
+    tree.bind("<Double-Button-1>", row_double_clicked)
     query.trace_add("write", lambda *_: refill())
 
     def refresh():

@@ -59,7 +59,7 @@ MODE=user; [ "$EUID" -eq 0 ] && MODE=root
 HELPERS="$SEC"
 if [ "$MODE" = root ]; then
     HELPERS=/usr/local/bin
-    for tool in scan-hashes.sh evw-log-doctor.py ls-full-analysis.py \
+    for tool in scan-hashes.sh evw-backup-check.py evw-log-doctor.py ls-full-analysis.py \
                 ls-domain-audit.py ls-permissive-analysis.py \
                 ls-rules-deep-audit.py tcc-audit.sh; do
         if [ ! -x "$HELPERS/$tool" ] \
@@ -212,6 +212,16 @@ elif [ "$TCCROWS" != "0" ]; then
     note "[!!] sensitive TCC grants present (count=$TCCROWS)"
 fi
 
+# ── 6b. backup completeness ───────────────────────────────────────────────────
+if [ -x "$HELPERS/evw-backup-check.py" ]; then
+    if guard_run "backup-check" env EVW_BACKUPS_ROOT=/Users/evw/dev/security-backups \
+        python3 "$HELPERS/evw-backup-check.py" --report "$SCAN/backup-check.txt" >/dev/null 2>&1; then
+        echo "[ok] backup completeness"
+    else
+        note "[!!] backup missing/changed/unreadable files — backup-check.txt"
+    fi
+fi
+
 # ── 7. root-only: LS export + 4 analyses, system TCC ─────────────────────────
 LSCLI="/Applications/Little Snitch.app/Contents/Components/littlesnitch"
 if [ "$MODE" = root ]; then
@@ -258,12 +268,15 @@ if [ "$MODE" = root ]; then
     # Commits a new baseline each run and lists anything outside auto-heal
     # scope as AWAITING APPROVAL in integrity-full.txt.
     if [ -x /usr/local/bin/evw-integrity.py ]; then
-        guard_run "integrity-full" /usr/local/bin/evw-integrity.py full --tiers A,B,C,D \
+        guard_run "integrity-full" env EVW_OWNER_HOME=/Users/evw EVW_SECURITY_DIR="$SEC" \
+            /usr/local/bin/evw-integrity.py full --tiers A,B,C,D \
             --report "$SCAN/integrity-full.txt" >/dev/null 2>&1 \
             && echo "[ok] integrity full sweep (all files)" \
             || note "[!!] integrity full sweep failed"
         grep -q '!!! INCIDENT' "$SCAN/integrity-full.txt" 2>/dev/null \
             && note "[!!] integrity MASS-CHANGE incident — integrity-full.txt"
+        grep -q 'UNREADABLE / SKIPPED' "$SCAN/integrity-full.txt" 2>/dev/null \
+            && note "[!!] integrity unreadable/skipped paths — integrity-full.txt"
         # G6: an ever-growing unreviewed backlog defeats the baseline
         AWAIT=$(awk '/AWAITING APPROVAL/{f=1;next} f&&/^  \//{n++} f&&/^$/{exit} END{print n+0}' \
             "$SCAN/integrity-full.txt" 2>/dev/null)

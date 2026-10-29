@@ -21,9 +21,11 @@ sec/
 # Oversized encrypted archives kept local-only (GitHub 100MB limit)
 memory/scans/*-pcap-full.enc
 
-# Rebuild run artifacts + license file (never leaves this Mac)
+# Rebuild run artifacts + machine-local recovery state (never leave this Mac)
 rebuild/logs/
 rebuild/state/ls-registration.xpl
+rebuild/state-v2/
+rebuild/state-v2.previous-*/
 rebuild/LAST-RUN-MANUAL-STEPS.txt
 
 # Wazuh local manager runtime (redeployable via evw-wazuh-local-manager.sh; contains generated certs + credentials)

@@ -53,6 +53,7 @@ guard_run "install-script" install -m 755 -o root -g wheel "$AUDIT_SRC" "$AUDIT_
 echo "      $AUDIT_DST"
 HELPERS=(
     scan-hashes.sh
+    evw-backup-check.py
     evw-log-doctor.py
     ls-full-analysis.py
     ls-domain-audit.py

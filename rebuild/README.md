@@ -3,6 +3,27 @@
 Two scripts, one goal: fresh unconfigured macOS → current secured state in
 **~15–25 minutes + ~5 minutes of GUI clicks**.
 
+## Current V2 orchestrator
+
+Use `../rebuild-mac-v2.sh` for the current system. It captures all user
+LaunchAgents, non-Apple system LaunchDaemons, current Homebrew packages/apps,
+Little Snitch state, network/PF state, security configuration, Colima config,
+Wazuh structural metadata, and the newer integrity/backup tooling.
+
+```bash
+# Capture this machine before a rebuild
+sudo bash ~/dev/security/rebuild-mac-v2.sh --capture --yes
+
+# Rebuild a fresh machine from the captured state
+bash ~/dev/security/rebuild-mac-v2.sh --yes
+
+# Review actions without changing the system
+bash ~/dev/security/rebuild-mac-v2.sh --dry-run
+```
+
+The older `rebuild-mac.sh` remains available for compatibility with the
+original `rebuild/state/` format.
+
 ## Files
 
 | File | Purpose |
