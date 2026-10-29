@@ -8,8 +8,8 @@
 #   2. evw-integrity.py + evw-rollback.py -> /usr/local/bin (root:wheel 755)
 #   3. Three LaunchDaemons:
 #        com.evw.integrity-pulse  (120 s)  sweep --tiers A --heal
-#        com.evw.integrity-sweep  (900 s)  sweep --tiers B,C
-#        com.evw.integrity-full   (daily 03:47)  full --tiers A,B,C,D + verify
+#        com.evw.integrity-sweep  (900 s)  sweep --tiers B,C,E
+#        com.evw.integrity-full   (daily 03:47)  full --tiers A,B,C,D,E + verify
 #   4. Verify registration + print canary test instructions
 #
 # Idempotent (bootout before bootstrap). A deploy.marker is held for the whole
@@ -25,6 +25,7 @@ while [ "$_eg_d" != "/" ] && [ ! -f "$_eg_d/lib/error-guard.sh" ]; do _eg_d="$(d
 command -v guard_run >/dev/null 2>&1 || guard_run() { shift; "$@"; }
 
 SEC_DIR="/Users/evw/dev/security"
+OWNER_HOME="$(dirname "$(dirname "$SEC_DIR")")"
 STORE="/var/db/evw-integrity"
 BIN="/usr/local/bin"
 LD="/Library/LaunchDaemons"
@@ -65,6 +66,10 @@ write_daemon() { # label interval-or-calendar program-args...
 <dict>
     <key>Label</key><string>$label</string>
     <key>ProgramArguments</key><array>$@</array>
+    <key>EnvironmentVariables</key><dict>
+        <key>EVW_OWNER_HOME</key><string>$OWNER_HOME</string>
+        <key>EVW_SECURITY_DIR</key><string>$SEC_DIR</string>
+    </dict>
     $SCHEDULE
     <key>RunAtLoad</key><false/>
     <key>Nice</key><integer>10</integer>
@@ -85,10 +90,10 @@ SCHEDULE="<key>StartInterval</key><integer>120</integer>" \
     "<string>/usr/local/bin/evw-integrity.py</string><string>sweep</string><string>--tiers</string><string>A</string><string>--heal</string>"
 SCHEDULE="<key>StartInterval</key><integer>900</integer>" \
     write_daemon com.evw.integrity-sweep \
-    "<string>/usr/local/bin/evw-integrity.py</string><string>sweep</string><string>--tiers</string><string>B,C</string>"
+    "<string>/usr/local/bin/evw-integrity.py</string><string>sweep</string><string>--tiers</string><string>B,C,E</string>"
 SCHEDULE="<key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>47</integer></dict>" \
     write_daemon com.evw.integrity-full \
-    "<string>/usr/local/bin/evw-integrity.py</string><string>full</string><string>--tiers</string><string>A,B,C,D</string>"
+    "<string>/usr/local/bin/evw-integrity.py</string><string>full</string><string>--tiers</string><string>A,B,C,D,E</string>"
 SCHEDULE="<key>StartCalendarInterval</key><dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>4</integer><key>Minute</key><integer>12</integer></dict>" \
     write_daemon com.evw.integrity-verify \
     "<string>/usr/local/bin/evw-integrity.py</string><string>verify</string><string>--sample</string><string>5000</string>"
@@ -113,9 +118,9 @@ cat << EOF
 [✓] evw-integrity installed.
 
   store:     $STORE (root-only; tree/ + index.db + quarantine/ + reports/)
-  daemons:   pulse 120s (Tier A + auto-heal) · sweep 900s (Tier B,C) ·
-             full daily 03:47 (A–D) · verify weekly Sun 04:12
-  reports:   $STORE/reports/ and ~/dev/security/scan-<date>/
+  daemons:   pulse 120s (Tier A + auto-heal) · sweep 900s (Tier B,C,E) ·
+             full daily 03:47 (A–E) · verify weekly Sun 04:12
+  reports:   $STORE/reports/ and $SEC_DIR/scan-<date>/
   events:    $STORE/logs/events.log
 
   Canary round-trip (proves detect→heal works):
@@ -127,5 +132,6 @@ cat << EOF
     sudo /usr/local/bin/evw-rollback.py list
     sudo /usr/local/bin/evw-rollback.py restore --all --dry-run
     sudo /usr/local/bin/evw-rollback.py restore --paths /etc/hosts --apply
+    /usr/local/bin/evw-rollback.py restore --source github --paths "$SEC_DIR/path/in/repo" --dry-run
 EOF
 [[ $fails -eq 0 ]] || exit 1

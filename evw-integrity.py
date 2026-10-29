@@ -8,7 +8,7 @@ Modes:
   init                        create the store (tree/ + git + index.db)
   sweep [--tiers A] [--heal]  stat-walk, hash candidates, snapshot confirmed
                               changes, git-commit, write delta report
-  full  [--tiers A,B,C,D]     hash every covered file (ground truth)
+  full  [--tiers A,B,C,D,E]   hash every covered file (ground truth)
   verify [--sample 1000]      git fsck + random re-hash sample + store stats
   canary                      write canary token; next sweep+heal must restore it
 
@@ -23,9 +23,12 @@ Store layout (default /var/db/evw-integrity; override with --store for tests):
 Python 3.9+, stdlib only. Root required for production paths.
 """
 import difflib
+import errno
+import fcntl
 import hashlib
 import json
 import os
+import pwd
 import re
 import sqlite3
 import stat as statmod
@@ -33,10 +36,29 @@ import subprocess
 import sys
 import time
 
-VERSION = "1.0 (2026-09-03)"
+VERSION = "1.2 (2026-10-29)"  # 1.2: tier E — hash-only ~/dev code coverage
 DEFAULT_STORE = "/var/db/evw-integrity"
-SEC_DIR = os.path.expanduser("~/dev/security")
-HOME = os.path.expanduser("~")
+
+
+def owner_home():
+    configured = os.environ.get("EVW_OWNER_HOME")
+    if configured:
+        return os.path.abspath(os.path.expanduser(configured))
+    if os.geteuid() != 0:
+        return os.path.expanduser("~")
+    try:
+        r = subprocess.run(["/usr/bin/stat", "-f", "%Su", "/dev/console"],
+                           capture_output=True, text=True, timeout=5)
+        user = r.stdout.strip()
+        if r.returncode == 0 and user and user != "root":
+            return pwd.getpwnam(user).pw_dir
+    except (KeyError, OSError, subprocess.TimeoutExpired):
+        pass
+    return os.path.expanduser("~")
+
+
+HOME = owner_home()
+SEC_DIR = os.environ.get("EVW_SECURITY_DIR", os.path.join(HOME, "dev", "security"))
 
 # error-guard: shared try/catch + 10-failure circuit breaker (lib/error_guard.py)
 try:
@@ -90,6 +112,14 @@ def default_tiers():
         "D": [
             HOME,
         ],
+        # Hash-only scope: ~/dev code trees. Each project's own git repo is the
+        # content source of truth (same rationale as SEC_DIR), so tier E records
+        # hashes in the index + OTS-stamped reports but never snapshots content
+        # and never auto-heals. DEV_EXCLUDE_RE skips dependency/build trees and
+        # churning artifacts (venvs, caches, DBs, archives, backups).
+        "E": [
+            HOME + "/dev",
+        ],
     }
 
 EXCLUDE_RE = re.compile(
@@ -98,6 +128,16 @@ EXCLUDE_RE = re.compile(
     r"CloudDocs/session|Mobile Documents/com~apple~CloudDocs/.*/)(/|$)|"
     r"/private/var/(vm|folders)/|"
     r"\.(DS_Store)$")
+
+# Extra excludes applied only under HOME + "/dev": dependency/build trees and
+# churning or bulky artifacts that carry no tamper signal.
+DEV = HOME + "/dev"
+DEV_EXCLUDE_RE = re.compile(
+    r"(^|/)(\.venv|venv|\.tox|\.nox|\.pytest_cache|\.mypy_cache|\.ruff_cache|"
+    r"\.ipynb_checkpoints|\.next|\.turbo|dist|build|target|htmlcov|coverage|"
+    r"local-backups|mainbakups|backups|exports|scan_cache)(/|$)|"
+    r"\.(db|db-shm|db-wal|sqlite3?|zip|tar|gz|tgz|bz2|xz|dmg|iso|whl|"
+    r"pyc|pyo|log)$|\.bak(-.*)?$")
 
 SNAPSHOT_CAP = {"A": 10 * 1024 * 1024, "B": 10 * 1024 * 1024,
                 "C": 1 * 1024 * 1024, "D": 1 * 1024 * 1024}
@@ -182,6 +222,8 @@ def tier_of(path, tiers):
     return best
 
 def should_snapshot(path, tier, size):
+    if tier == "E":
+        return False  # hash-only tier — project git repos are the content record
     cap = SNAPSHOT_CAP.get(tier or "D", 1024 * 1024)
     if size > cap:
         return False
@@ -254,20 +296,32 @@ def mode_init(store):
     print(log_line(store, "store initialized at %s" % store))
 
 
-def walk_tiers(tier_letters, tiers):
+def walk_tiers(tier_letters, tiers, errors=None):
     """yield (path, tier) for every covered file, excludes applied."""
     seen = set()
     for t in tier_letters:
         for root in tiers.get(t, []):
             if not os.path.isdir(root):
+                if errors is not None:
+                    errors.append((root, "root missing or unreadable"))
                 continue
-            for dirpath, dirnames, filenames in os.walk(root):
+
+            def onerror(err):
+                if errors is not None:
+                    errors.append((getattr(err, "filename", None) or root,
+                                   getattr(err, "strerror", None) or str(err)))
+
+            for dirpath, dirnames, filenames in os.walk(root, onerror=onerror):
+                in_dev = dirpath == DEV or dirpath.startswith(DEV + "/")
                 dirnames[:] = [d for d in dirnames
                                if not EXCLUDE_RE.search(dirpath + "/" + d + "/")
+                               and not (in_dev and DEV_EXCLUDE_RE.search(dirpath + "/" + d + "/"))
                                and not os.path.islink(os.path.join(dirpath, d))]
                 for name in filenames:
                     p = os.path.join(dirpath, name)
                     if p in seen or EXCLUDE_RE.search(p):
+                        continue
+                    if in_dev and DEV_EXCLUDE_RE.search(p):
                         continue
                     if os.path.islink(p):
                         continue
@@ -411,11 +465,15 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
     db = index_connect(store)
     old = index_map(db)
     now = {}
-    for p, t in walk_tiers(tier_letters, tiers):
+    walk_errors = []
+    skipped = []
+    snapshot_failed = []
+    for p, t in walk_tiers(tier_letters, tiers, walk_errors):
         real_t = tier_of(p, tiers) or t
         try:
             st = os.lstat(p)
-        except OSError:
+        except OSError as e:
+            skipped.append((p, "%s: %s" % (type(e).__name__, e)))
             continue
         if not statmod.S_ISREG(st.st_mode):
             continue
@@ -435,10 +493,9 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
     # ── Phase 1: classify against HEAD/index (no mirror or index mutation yet)
     def classify(p, is_new):
         try:
-            digest = guard_run("sha256", sha256_file, p)
-        except (OSError, PermissionError):
-            return
-        if digest is SKIP or digest is None:
+            digest = sha256_file(p)
+        except (OSError, PermissionError) as e:
+            skipped.append((p, "%s: %s" % (type(e).__name__, e)))
             return
         if not is_new and digest == old[p][5]:
             touched.append(p)
@@ -492,7 +549,8 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
             try:
                 with open(p, "rb") as src, open(mp, "wb") as dst:
                     dst.write(src.read())
-            except (OSError, PermissionError):
+            except (OSError, PermissionError) as e:
+                snapshot_failed.append((p, "%s: %s" % (type(e).__name__, e)))
                 snap = 0
         if not snap:
             binary_notes.append(p)
@@ -534,14 +592,27 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
     R.append("EVW-INTEGRITY %s — %s" % ("FULL SCAN" if full else "SWEEP",
              time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())))
     R.append("store: %s   tiers: %s   commit: %s" % (store, ",".join(tier_letters), head))
-    R.append("tracked: %d files   confirmed: +%d new, ~%d changed, -%d removed, %d touched-only"
-             % (len(now), len(confirmed_new), len(confirmed_chg), len(gone_paths), len(touched)))
+    R.append("tracked: %d files   confirmed: +%d new, ~%d changed, -%d removed, %d touched-only, %d skipped"
+             % (len(now), len(confirmed_new), len(confirmed_chg), len(gone_paths),
+                len(touched), len(walk_errors) + len(skipped) + len(snapshot_failed)))
     if deploying:
         R.append("DEPLOY WINDOW ACTIVE (deploy.marker) — all changes auto-approved, no heal")
     if incident:
         R.append("!!! INCIDENT: %d changes in one sweep (> %d) — auto-heal frozen, manual review required"
                  % (total_confirmed, MASS_CHANGE_THRESHOLD))
     R.append("")
+    if walk_errors or skipped or snapshot_failed:
+        R.append("── UNREADABLE / SKIPPED (%d) %s" % (
+            len(walk_errors) + len(skipped) + len(snapshot_failed), "─" * 30))
+        for p, reason in walk_errors[:500]:
+            R.append("  WALK-ERROR      %s — %s" % (p, reason))
+        for p, reason in skipped[:500]:
+            R.append("  HASH-FAILED     %s — %s" % (p, reason))
+        for p, reason in snapshot_failed[:500]:
+            R.append("  SNAPSHOT-FAILED %s — %s" % (p, reason))
+        if len(walk_errors) + len(skipped) + len(snapshot_failed) > 1500:
+            R.append("  … list truncated")
+        R.append("")
     if healed:
         R.append("── AUTO-HEALED (protected scope) " + "─" * 32)
         for h in healed:
@@ -585,9 +656,11 @@ def mode_sweep(store, tier_letters, heal, report_path=None, full=False):
     except OSError:
         pass
     ots_stamp(store, rpath)
-    log_line(store, "%s +%d ~%d -%d touch=%d heal=%d incident=%s commit=%s" % (
+    log_line(store, "%s +%d ~%d -%d touch=%d skipped=%d heal=%d incident=%s commit=%s" % (
         "full" if full else "sweep", len(confirmed_new), len(confirmed_chg),
-        len(gone_paths), len(touched), len(healed), incident, head))
+        len(gone_paths), len(touched),
+        len(walk_errors) + len(skipped) + len(snapshot_failed),
+        len(healed), incident, head))
     if incident:
         notify("FS-INTEGRITY INCIDENT",
                "%d file changes in one %s — review %s" % (total_confirmed, "scan" if not full else "full scan", rpath))
@@ -604,15 +677,20 @@ def mode_verify(store, sample):
     rows = db.execute("SELECT path,sha256 FROM files ORDER BY RANDOM() LIMIT ?",
                       (sample,)).fetchall()
     bad = 0
+    skipped = []
     for p, want in rows:
         try:
             got = sha256_file(p)
-        except (OSError, PermissionError):
+        except (OSError, PermissionError) as e:
+            skipped.append((p, "%s: %s" % (type(e).__name__, e)))
             continue
         if got != want:
             bad += 1
             print("  MISMATCH: %s" % p)
-    print("sample re-hash: %d/%d clean" % (len(rows) - bad, len(rows)))
+    for p, reason in skipped:
+        print("  SKIPPED: %s — %s" % (p, reason))
+    print("sample re-hash: %d/%d clean, %d skipped"
+          % (len(rows) - bad - len(skipped), len(rows), len(skipped)))
     ok &= (bad == 0)
     head = git(store, "rev-parse", "--short", "HEAD").stdout.strip()
     n_commits = git(store, "rev-list", "--count", "HEAD").stdout.strip()
@@ -645,6 +723,35 @@ def mode_canary(store):
     print("must quarantine+restore it. Verify: cat %s | grep %s" % (live, token))
 
 
+class StoreLock:
+    def __init__(self, store, timeout=None):
+        self.store = store
+        self.timeout = float(timeout if timeout is not None
+                             else os.environ.get("EVW_INTEGRITY_LOCK_TIMEOUT", "30"))
+        self.handle = None
+
+    def __enter__(self):
+        os.makedirs(self.store, exist_ok=True)
+        self.handle = open(os.path.join(self.store, "scan.lock"), "a+")
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                fcntl.flock(self.handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return self
+            except OSError as e:
+                if e.errno not in (errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("integrity store is locked by another scan")
+                time.sleep(0.2)
+
+    def __exit__(self, _exc_type, _exc, _tb):
+        if self.handle:
+            fcntl.flock(self.handle.fileno(), fcntl.LOCK_UN)
+            self.handle.close()
+        return False
+
+
 def main():
     args = sys.argv[1:]
     if not args or args[0] in ("-h", "--help"):
@@ -671,17 +778,23 @@ def main():
 
     if mode == "init":
         mode_init(store)
-    elif mode == "sweep":
-        mode_sweep(store, tiers, heal, report, full=False)
-    elif mode == "full":
-        mode_sweep(store, tiers, heal, report, full=True)
-    elif mode == "verify":
-        mode_verify(store, sample)
-    elif mode == "canary":
-        mode_canary(store)
-    else:
-        print("unknown mode: %s" % mode)
-        sys.exit(64)
+        return
+    try:
+        with StoreLock(store):
+            if mode == "sweep":
+                mode_sweep(store, tiers, heal, report, full=False)
+            elif mode == "full":
+                mode_sweep(store, tiers, heal, report, full=True)
+            elif mode == "verify":
+                mode_verify(store, sample)
+            elif mode == "canary":
+                mode_canary(store)
+            else:
+                print("unknown mode: %s" % mode)
+                sys.exit(64)
+    except TimeoutError as e:
+        print("%s (try again after the active scan exits)" % e, file=sys.stderr)
+        sys.exit(75)
 
 
 if __name__ == "__main__":
