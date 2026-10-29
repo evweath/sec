@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "comment": "Little Snitch policy owned by ls-policy-apply.py. Rules here become LS rules tagged '[POLICY] <name>'. The reconciler ONLY adds/removes [POLICY]-tagged rules — manual rules and [AUTO-EVW-LS] sentinel rules are never touched. Dry-run first: python3 ls-policy-apply.py MODEL.json --dry-run",
+  "rules": [
+    {
+      "name": "shopify-stores-curl",
+      "comment": "protects the store-scanning flows that broke 2026-10-28/29 when a python-via deny rule killed them",
+      "action": "allow",
+      "process": "identifier.APPLE/com.apple.curl",
+      "remote-hosts": [
+        "equipmentplus.myshopify.com",
+        "bakery-wholesalers.myshopify.com",
+        "donut-supplies-com.myshopify.com",
+        "donut-equipment.com",
+        "www.donut-equipment.com",
+        "bakerywholesalers.com",
+        "www.bakerywholesalers.com",
+        "donut-supplies.com",
+        "www.donut-supplies.com"
+      ],
+      "ports": "443",
+      "protocol": "tcp"
+    },
+    {
+      "name": "shopify-stores-python-terminal",
+      "comment": "the domainCompv3 scans run as python under Terminal/iTerm2",
+      "action": "allow",
+      "process": "identifier.APPLE/com.apple.Terminal",
+      "via": "path.opt/homebrew/Cellar/python@3.14/*/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python",
+      "remote-hosts": [
+        "equipmentplus.myshopify.com",
+        "bakery-wholesalers.myshopify.com",
+        "donut-supplies-com.myshopify.com",
+        "donut-equipment.com",
+        "bakerywholesalers.com",
+        "donut-supplies.com"
+      ],
+      "ports": "443",
+      "protocol": "tcp"
+    },
+    {
+      "name": "shopify-stores-python-iterm2",
+      "action": "allow",
+      "process": "identifier.H7V7XYVQ7D/com.googlecode.iterm2",
+      "via": "path.opt/homebrew/Cellar/python@3.14/*/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python",
+      "remote-hosts": [
+        "equipmentplus.myshopify.com",
+        "bakery-wholesalers.myshopify.com",
+        "donut-supplies-com.myshopify.com",
+        "donut-equipment.com",
+        "bakerywholesalers.com",
+        "donut-supplies.com"
+      ],
+      "ports": "443",
+      "protocol": "tcp"
+    }
+  ]
+}
