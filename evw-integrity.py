@@ -135,7 +135,7 @@ DEV = HOME + "/dev"
 DEV_EXCLUDE_RE = re.compile(
     r"(^|/)(\.venv|venv|\.tox|\.nox|\.pytest_cache|\.mypy_cache|\.ruff_cache|"
     r"\.ipynb_checkpoints|\.next|\.turbo|dist|build|target|htmlcov|coverage|"
-    r"local-backups|mainbakups|backups|exports|scan_cache)(/|$)|"
+    r"logs?|local-backups|mainbakups|backups|exports|scan_cache)(/|$)|"
     r"\.(db|db-shm|db-wal|sqlite3?|zip|tar|gz|tgz|bz2|xz|dmg|iso|whl|"
     r"pyc|pyo|log)$|\.bak(-.*)?$")
 
